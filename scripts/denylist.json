@@ -1,0 +1,7 @@
+{
+  "$comment": "SHA-256 of lowercased words that must never appear in a published skill or its manifests — internal project names, codenames, customers. Stored hashed, never in plaintext: a denylist that spelled these out would publish in the repo exactly what it exists to keep out of the repo. Add a term with `node scripts/build-skills.mjs deny <term>` (it is hashed on the way in and never written, echoed, or logged). Matching is per whole word, case-insensitive, minimum three characters. Failures report file and line only — never the term, because CI logs are as public as this file would have been.",
+  "algorithm": "sha256",
+  "terms": [
+    "552d05a8758bfca96127f4a440b45e00bed287bbbf02c5e3f51116c9f72ec26e"
+  ]
+}

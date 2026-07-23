@@ -12,6 +12,7 @@
 //   install  link ~/.claude/skills/<name> back to its bucket source
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -175,6 +176,53 @@ function collect(manifest) {
   return skills;
 }
 
+// Identifiers that must never reach a published skill — internal project
+// names, codenames, customers. Stored as hashes: a denylist that spelled them
+// out would publish, in the repo, exactly what it exists to keep out of the
+// repo. Neither this function nor its failure message ever echoes a match,
+// because CI logs are as public as the file would have been.
+//
+// Honest limit: a SHA-256 of a single guessable word confirms a guess, it does
+// not hide the word from someone determined to brute-force it. This stops
+// accidental publication, which is the actual failure mode.
+const DENYLIST = path.join(REPO, 'scripts', 'denylist.json');
+const hashTerm = (s) => createHash('sha256').update(s.toLowerCase(), 'utf8').digest('hex');
+
+function loadDenylist() {
+  if (!fs.existsSync(DENYLIST)) return null;
+  const d = JSON.parse(fs.readFileSync(DENYLIST, 'utf8'));
+  return Array.isArray(d.terms) && d.terms.length ? new Set(d.terms) : null;
+}
+
+function validateDenylist(skills) {
+  const denied = loadDenylist();
+  if (!denied) return;
+
+  // The publishable surface: every skill body, plus the manifests that ship
+  // alongside them and could just as easily name something internal.
+  const files = [];
+  for (const s of skills) {
+    for (const rel of treeOf(s.src).keys()) files.push(path.join(s.src, rel));
+  }
+  const meta = [
+    path.join(REPO, '.claude-plugin', 'marketplace.json'),
+    path.join(path.dirname(STAGE), '.claude-plugin', 'plugin.json'),
+  ].filter((f) => fs.existsSync(f));
+
+  for (const file of [...files, ...meta]) {
+    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+    lines.forEach((line, i) => {
+      for (const word of new Set(line.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [])) {
+        if (denied.has(hashTerm(word))) {
+          fail(`${path.relative(REPO, file).replace(/\\/g, '/')}:${i + 1} contains a denied identifier `
+             + `— it must not ship in a published skill (term withheld; grep locally)`);
+          return;
+        }
+      }
+    });
+  }
+}
+
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const e of fs.readdirSync(src, { withFileTypes: true })) {
@@ -273,12 +321,31 @@ function install(skills, force) {
   }
 }
 
+// Adds a term without ever writing it, echoing it, or logging it.
+function deny(term) {
+  if (!term) { console.error('usage: build-skills.mjs deny <term>'); process.exit(2); }
+  const d = fs.existsSync(DENYLIST)
+    ? JSON.parse(fs.readFileSync(DENYLIST, 'utf8'))
+    : { $comment: '', algorithm: 'sha256', terms: [] };
+  const h = hashTerm(term);
+  if (d.terms.includes(h)) { ok('already denied'); return; }
+  d.terms = [...d.terms, h].sort();
+  fs.writeFileSync(DENYLIST, JSON.stringify(d, null, 2) + '\n');
+  ok(`denied — ${d.terms.length} term(s) on the list`);
+}
+
 const cmd = process.argv[2] ?? 'build';
 const force = process.argv.includes('--force');
+
+// Handled before validation, so a term can still be added while the repo is
+// failing the very check that term is meant to drive.
+if (cmd === 'deny') { deny(process.argv[3]); process.exit(process.exitCode ?? 0); }
+
 const manifest = loadManifest();
 validateHooks();
 validateMarketplace();
 const skills = collect(manifest);
+validateDenylist(skills);
 if (process.exitCode) { console.error('\nvalidation failed; no changes made'); process.exit(1); }
 
 if (cmd === 'build') build(skills);
@@ -288,6 +355,6 @@ else if (cmd === 'hooks') {
   execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: REPO, stdio: 'pipe' });
   ok('hooks enabled — .githooks/pre-commit runs `check` before every commit');
 } else {
-  console.error('usage: build-skills.mjs [build|check|install|hooks] [--force]');
+  console.error('usage: build-skills.mjs [build|check|install|hooks|deny <term>] [--force]');
   process.exit(2);
 }
