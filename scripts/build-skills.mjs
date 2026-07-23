@@ -194,23 +194,37 @@ function loadDenylist() {
   return Array.isArray(d.terms) && d.terms.length ? new Set(d.terms) : null;
 }
 
+// The publishable surface is the entire repo — it is public, so a README, a
+// commit-worthy note, or a new manifest leaks exactly as well as a SKILL.md.
+// An enumerated list would be the wrong shape: a newly added file simply would
+// not be on it. Everything tracked is scanned, plus skill sources not yet added.
+function publishableFiles(skills) {
+  const files = new Set();
+  try {
+    // --others --exclude-standard includes files not yet added: a brand-new
+    // README is exactly as publishable as a tracked one, and waiting for
+    // `git add` to start checking it means `check` lies right up until commit.
+    const out = execFileSync(
+      'git',
+      ['ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+      { cwd: REPO, encoding: 'utf8' },
+    );
+    for (const f of out.split('\0').filter(Boolean)) files.add(path.join(REPO, f));
+  } catch { /* not a work tree — fall back to skill sources alone */ }
+  for (const s of skills) {
+    for (const rel of treeOf(s.src).keys()) files.add(path.join(s.src, rel));
+  }
+  return [...files].filter((f) => fs.existsSync(f));
+}
+
 function validateDenylist(skills) {
   const denied = loadDenylist();
   if (!denied) return;
 
-  // The publishable surface: every skill body, plus the manifests that ship
-  // alongside them and could just as easily name something internal.
-  const files = [];
-  for (const s of skills) {
-    for (const rel of treeOf(s.src).keys()) files.push(path.join(s.src, rel));
-  }
-  const meta = [
-    path.join(REPO, '.claude-plugin', 'marketplace.json'),
-    path.join(path.dirname(STAGE), '.claude-plugin', 'plugin.json'),
-  ].filter((f) => fs.existsSync(f));
-
-  for (const file of [...files, ...meta]) {
-    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  for (const file of publishableFiles(skills)) {
+    const text = fs.readFileSync(file, 'utf8');
+    if (text.includes('\u0000')) continue; // binary
+    const lines = text.split(/\r?\n/);
     lines.forEach((line, i) => {
       for (const word of new Set(line.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [])) {
         if (denied.has(hashTerm(word))) {
