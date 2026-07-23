@@ -1,0 +1,43 @@
+{
+  "$schema": "./scripts/skills.manifest.schema.json",
+  "$comment": "Buckets are COMPATIBILITY CLASSES, not namespaces. A bucket directory never appears in a skill's installed path — scripts/build-skills.mjs flattens buckets into the distribution targets listed here. Renaming a bucket directory without updating this file is a hard build error, which is the point: fan-out is declared, never inferred from a folder name.",
+
+  "buckets": {
+    "pure-prose": {
+      "description": "Universally compatible. Prose only: no tool names, no bundled scripts, no harness-specific assumptions. Runs on any agent that can read text.",
+      "targets": [
+        "claude-personal",
+        "claude-plugin",
+        "claude-ai-zip",
+        "codex",
+        "cursor",
+        "gemini",
+        "kimi",
+        "opencode",
+        "pi"
+      ]
+    }
+  },
+
+  "targets": {
+    "claude-personal": {
+      "kind": "local-install",
+      "root": "~/.claude/skills",
+      "implemented": true,
+      "note": "Per-skill link back to the bucket source, so the repo stays the sole source of truth."
+    },
+    "claude-plugin": {
+      "kind": "plugin",
+      "path": "plugins/unbreakable",
+      "implemented": true,
+      "note": "Staged into <path>/skills, committed rather than generated-at-install: plugins arrive by git clone with no build step. The plugin's own name lives in <path>/.claude-plugin/plugin.json and is what becomes the 'unbreakable:' trigger prefix."
+    },
+    "claude-ai-zip": { "kind": "zip", "path": "dist", "implemented": false },
+    "codex":         { "kind": "harness-manifest", "path": ".codex-plugin", "implemented": false },
+    "cursor":        { "kind": "harness-manifest", "path": ".cursor-plugin", "implemented": false },
+    "gemini":        { "kind": "harness-manifest", "path": "gemini-extension.json", "implemented": false },
+    "kimi":          { "kind": "harness-manifest", "path": ".kimi-plugin", "implemented": false },
+    "opencode":      { "kind": "harness-manifest", "path": ".opencode/plugins", "implemented": false },
+    "pi":            { "kind": "harness-manifest", "path": ".pi/extensions", "implemented": false }
+  }
+}

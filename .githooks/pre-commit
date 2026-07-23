@@ -1,0 +1,12 @@
+#!/bin/sh
+# Runs every guard in the repo before a commit lands:
+#   bucket declared, frontmatter name == directory, skill names unique across
+#   buckets, staged bytes == source, plugin dir has a manifest, marketplace
+#   entry name == plugin name.
+#
+# Enable once per clone (git never installs hooks automatically):
+#   node scripts/build-skills.mjs hooks
+#
+# Deliberately check-only. Rebuilding and auto-staging here would commit output
+# derived from the working tree rather than from what you actually staged.
+exec node scripts/build-skills.mjs check

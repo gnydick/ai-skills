@@ -1,0 +1,21 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same command the pre-commit hook runs. CI is the backstop for the two
+      # ways that hook goes missing: `git commit --no-verify`, and clones where
+      # `build-skills.mjs hooks` was never run. Make this a required status
+      # check on main, or it is only advisory.
+      - run: node scripts/build-skills.mjs check
