@@ -1,6 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ai-skills",
+  "repository": "https://github.com/gnydick/ai-skills",
   "description": "Portable, harness-agnostic agent skills — prose-only disciplines that run on any agent able to read text",
   "owner": {
     "name": "Gabe E. Nydick",
