@@ -376,13 +376,38 @@ list is deliberately incomplete. When a domain is missing, run the four moves.
 
 ### 6.7 Working under a context budget
 
-When part of the work is done by an assistant reading and writing through a
-finite context, that context is a shared, non-renewable budget for the session,
-and it is spent by *volume* rather than by value. Low-density output does not
-merely cost — it **evicts**, pushing out what was needed and diluting attention
-for everything that follows. That makes it a compounding cost, paid mostly by
-someone other than whoever decided to pull it in, which is exactly the profile
-§3 says is systematically underweighted.
+A **context budget** is the finite working set a reader has to hold at once in
+order to do one piece of work. The reader is not necessarily a machine, and the
+budget is not necessarily measured in tokens. All of these are context budgets:
+
+- an assistant's context window over a working session
+- a reviewer's attention across a single change
+- an operator's attention at the worst hour of the night
+- a newcomer's head during the weeks before they can contribute
+- whatever a person will actually read of an error message, a document, or a
+  runbook before acting
+- the alerts and dashboard panels a team can genuinely watch
+- the number of concepts a change forces someone to hold simultaneously in
+  order to make it correctly
+
+They are one domain because they share four properties, and the four are what
+make the reasonable choice derivable:
+
+1. **Finite and shared.** Spending the budget on one thing makes it unavailable
+   for another, within the same session, review, incident, or page.
+2. **Spent by volume, not by value.** A thousand lines of noise costs the same
+   as a thousand lines of signal; density is the only lever.
+3. **It fails by eviction and dilution, never by refusal.** Nothing errors when
+   the budget is exceeded. What mattered is simply gone, or still nominally
+   present but no longer attended to — and the reader cannot tell which.
+4. **The cost is exported.** Whoever adds the volume is rarely the one whose
+   attention it displaces, and the displacement happens later. That is the exact
+   profile §3 flags as systematically underweighted.
+
+An assistant's context window is the sharpest instance because it is metered,
+measurable, and consumed by literal byte count, so the arithmetic is visible.
+The discipline is the same at every scale, and the rows below apply on both
+sides of the keyboard.
 
 | Choice | Derived answer | The asymmetry |
 |---|---|---|
@@ -395,6 +420,12 @@ someone other than whoever decided to pull it in, which is exactly the profile
 | Durable decisions and conventions | written into a project document | conversation is not memory; documents are |
 | Generated code and comments | as terse as clarity allows | written once, re-read on every future visit by both the person and the assistant |
 | Narration | omitted | announcing, doing, and then recapping pays three times for one action |
+| Size of a change put up for review | small enough to hold at once | review quality does not degrade gracefully past the limit — it collapses into approval |
+| What an alert says and whether it exists | only what needs a human to act, tonight | every alert spends the same attention, and past the limit all of them are ignored, including the real one |
+| What a dashboard shows | the few things someone would act on | forty panels means none are watched, which is worse than four |
+| A runbook's length and shape | what fits in the attention available at the worst hour | written by a rested author, read by an exhausted operator |
+| How much an error message says at once | the smallest thing that lets the reader act, with the rest available but not in the way | a wall of detail is skipped whole, so the one useful line is lost inside it |
+| Concepts a change forces you to hold at once | reduce the coupling instead of documenting it | this budget is spent by every future reader of that code, not just the one who wrote it |
 
 **The operational-tooling handoff.** When the work produces something the
 developer will run repeatedly — a script, a diagnostic, a migration, a report
@@ -413,10 +444,15 @@ entire dump the split existed to avoid.
 Guessing at an interface to avoid a fifty-line read buys nothing: you pay for
 the wrong edit, the debugging of it, and then the fifty lines anyway. Asking the
 developer to run something you could have checked in one cheap call exports work
-to a person in order to save a budget that was not scarce. The context budget is
-a constraint to derive from, not a virtue to maximize — spend freely on the
-small, targeted read that prevents an error, and hoard against the large,
-low-density dump that prevents nothing.
+to a person in order to save a budget that was not scarce. The same false
+economy has a human form: an error message too terse to act on, a runbook
+missing the step everyone forgets, a deleted alert that turned out to be the one
+that mattered — each spends someone's night to save a few lines.
+
+The context budget is a constraint to derive from, not a virtue to maximize.
+Spend freely on the small, dense thing that prevents an error; hoard against the
+large, low-density thing that prevents nothing. Density is the lever, not
+length.
 
 ---
 
