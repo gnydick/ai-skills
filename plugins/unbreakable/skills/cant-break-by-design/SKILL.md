@@ -3,6 +3,28 @@ name: cant-break-by-design
 description: Use when designing or writing ANY code path, in any language — enforces the absolute rule that invariants must be unrepresentable-by-construction (one pipeline per invariant, bypass = compile error); includes the enforcement ladder, 15 techniques, per-language strongest tools, the tripwire (duplicating a step at a 2nd call site = design already wrong), and 19 anti-patterns that catch invariants whose stated strength exceeds their real mechanism (pub fields under a sole-constructor claim, debug_assert as enforcement, caller preconditions in prose, run-scoped globals, tests standing in for construction)
 ---
 
+# Skill: apply can't-break-by-design to everything you write
+
+You do not have the choice to design any other way. Before writing a new code
+path: (1) name the invariant, (2) pick the highest rung of the enforcement
+ladder the language allows, (3) if you catch yourself duplicating a processing
+step at a second call site, STOP — the design is already wrong; build the
+choke-point/type instead of pasting. New paths get an A/B regression test
+proving the invariant holds THROUGH them. A shared helper is the weakest
+acceptable form and carries promotion debt; a sole-constructor type is the
+standard; deleting the possibility outright is the goal.
+
+**Before writing the doc comment, check §5.** A sentence that sounds like an
+invariant usually is not one. If you are about to write "construct via X" beside
+`pub` fields, "guaranteed by callers", "should", "in practice", "pinned by a
+test", or to guard something with `debug_assert` alone — §5 names the failure and
+the rule that preempts it. Assign the rung from the mechanism you can point at,
+never from how confident the sentence sounds.
+
+The full reference follows.
+
+---
+
 # Can't Break By Design
 
 A property is enforced **by design** when violating it is *unrepresentable* — no
