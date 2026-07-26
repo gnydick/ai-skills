@@ -105,8 +105,9 @@ answers to the source and the view answers to the reader. But the pattern
 recurs everywhere: a caller's deadline versus a server's retry budget; a
 metric's collection resolution versus its retention; what an error reports to a
 user versus what it records for a diagnosis; the strictness of a parser at a
-trust boundary versus inside it. Each of these looks like one number to tune and
-is two numbers with different owners.
+trust boundary versus inside it; what an artifact *is* versus which run it came
+from (§6.8). Each of these looks like one thing to tune and is two things with
+different owners.
 
 The tell: you find yourself saying "but then it would be too much for X." That
 sentence names the second master.
@@ -453,6 +454,42 @@ The context budget is a constraint to derive from, not a virtue to maximize.
 Spend freely on the small, dense thing that prevents an error; hoard against the
 large, low-density thing that prevents nothing. Density is the lever, not
 length.
+
+### 6.8 Artifacts, runs, and workspace layout
+
+Work that produces output for comparison — before and after, two environments,
+two regions, two parameter sets — has to put that output somewhere, and the
+layout is a design decision that gets made by accident more often than any other
+in this appendix.
+
+The governing case is **which axis carries the discriminator**, and it is move 3
+in one of its purest forms. A name like `report-prod` is a single string serving
+two masters: *what the artifact is* and *which run produced it*. Blended, it
+serves neither — the artifact no longer has a stable identity, and the run must
+be recovered by parsing. Split them, and the answer falls out: **the directory
+carries the slot; the filename carries the artifact, identically across every
+slot.**
+
+| Choice | Derived answer | The asymmetry |
+|---|---|---|
+| Which axis discriminates comparable runs | the directory; filenames stay identical across slots | identical names make comparison structural — whole trees compare, and every artifact added later is included for free; encoded names must be parsed to pair, and the convention re-applied at every new write site |
+| Who knows which slot this is | only the caller, through the path it hands in | a producer that builds slot-aware names must learn the convention, and every producer must learn it identically or the set stops lining up |
+| Re-running | write a new run directory; never overwrite | an overwritten run destroys the comparison you were about to make, and you find out after the expensive part |
+| "Latest" | a pointer to a run, never a copy of one | a copy is a second source of truth, and it drifts |
+| Timestamped directory names | zero-padded, largest unit first | any other order sorts lexically wrong — silently, and only past a boundary nobody tested |
+| Where results live | outside the source tree | results inside it get committed by accident, or ignored and then lost, or both |
+| Unit of archive and deletion | the run directory | a pattern matched against encoded names eventually catches something it should not |
+| Run metadata — inputs, versions, parameters | a file inside the run directory | a result whose provenance lives elsewhere becomes unattributable the moment the two are separated |
+
+The tell that the discriminator is on the wrong axis: adding a second artifact
+to the run requires teaching the naming convention to a second place. That is
+the duplicated-step tripwire, arriving in a layout decision instead of in code,
+and it means the design is already wrong.
+
+The asymmetry across the whole section is one-directional: a directory layout
+flattens into encoded names whenever you want one, mechanically. Encoded names
+un-flatten only by renaming every artifact and rewriting every pattern that
+learned the convention.
 
 ---
 
