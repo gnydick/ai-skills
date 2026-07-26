@@ -1,7 +1,7 @@
 {
   "name": "unbreakable",
   "description": "Skills for building systems whose invariants cannot be violated by construction — enforcement ladders, illegal-state elimination, and choke-point design",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Gabe E. Nydick",
     "email": "gnydick@nydick.net"
