@@ -1,0 +1,24 @@
+# Line endings are normalized on the way into the repository, not left to
+# whichever editor happened to write the file. Without this, a Windows editor
+# writes CRLF, the file is committed as CRLF, and the next one-line change
+# arrives as a whole-file diff — correct content, unreviewable diff. That
+# failure is invisible on the machine most likely to introduce it, which is the
+# same reason .githooks permissions are checked rather than trusted.
+* text=auto eol=lf
+
+# Hooks are executed by git itself. A CRLF shebang fails with "bad interpreter",
+# which reads as a broken script rather than a broken line ending.
+.githooks/* text eol=lf
+*.sh text eol=lf
+
+# text=auto guesses, and a wrong guess corrupts a binary in place. Nothing here
+# is binary today; these are declared so that adding one is not the moment it
+# gets discovered.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.skill binary
