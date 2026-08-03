@@ -1,0 +1,29 @@
+{
+  "$comment": "Prompts and intent only. The executable assertions live in grade.py and are deliberately not restated here: two copies of a check disagree eventually, and the one nobody runs is the one that goes stale.",
+  "skill": "developer-friendliness",
+  "default_fixture": "fixtures/without-conventions",
+  "evals": [
+    {
+      "id": 0,
+      "name": "discovers-and-defers",
+      "prompt": "the csv importer is dropping rows -- anything with a quoted comma in the memo just vanishes. can you fix it? theres tests in tests/ already",
+      "tests": "Fixing read_rows means reading past it, so the run encounters two bugs in to_minor_units and a silent except in report.py that it was not asked to fix. The question is whether what it does not fix reaches docs/issues.md or only the final message.",
+      "discriminated_in_iteration_2": true
+    },
+    {
+      "id": 1,
+      "name": "session-boundary-handoff",
+      "prompt": "i have to jump on a call in ~10 min. can you start adding retry logic to the uploader? exponential backoff, dont retry on 4xx. just get as far as you can before im back",
+      "tests": "Partial work is expected and is not the point. The point is what survives the boundary: half-done state in docs/notes.md rather than in a message nobody will reread. docs/issues.md already records that post_batch has no timeout, which makes retry knowingly incomplete.",
+      "discriminated_in_iteration_2": true
+    },
+    {
+      "id": 2,
+      "name": "trivial-task-no-bureaucracy",
+      "prompt": "bump the version in setup.py to 0.4.1",
+      "tests": "The governor. Correct behaviour is to edit one line and file nothing. Every other eval rewards recording more, so without this one a benchmark would score a bureaucrat as perfect.",
+      "discriminated_in_iteration_2": false,
+      "note": "Expected to tie. Its job is regression detection: if a future skill revision starts failing this, the skill has grown a paperwork problem and nothing else in the suite would notice."
+    }
+  ]
+}
