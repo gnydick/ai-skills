@@ -64,7 +64,7 @@ node scripts/build-skills.mjs deny …    # add an identifier that must never sh
 
 Run `hooks` after cloning — git never installs hooks automatically.
 
-`check` enforces eight relationships that would otherwise rely on someone
+`check` enforces nine relationships that would otherwise rely on someone
 remembering them:
 
 - every top-level bucket is declared in `skills.manifest.json`
@@ -76,6 +76,8 @@ remembering them:
   is the prefix you type
 - every tracked file under `.githooks/` is mode `100755`, because git silently
   skips hooks that are not executable
+- no tracked file is stored with CRLF, because a one-line change to one of them
+  arrives as a whole-file diff that is correct and unreviewable
 - no denied identifier appears anywhere in the repo
 
 ## License

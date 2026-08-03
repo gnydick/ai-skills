@@ -98,6 +98,36 @@ function validateHooks() {
   }
 }
 
+// .gitattributes normalizes line endings on the way in, but only while it is
+// present and only for paths it matches. When it is not doing its job the
+// symptom is not an error: a one-line edit arrives as a whole-file diff, the
+// content is correct, JSON still parses, and review silently becomes
+// impossible. Like the hook permissions above, this regresses invisibly on the
+// machine most likely to introduce it, so it is asserted rather than trusted.
+function validateLineEndings() {
+  let listing;
+  try {
+    listing = execFileSync('git', ['ls-files', '--eol'], { cwd: REPO, encoding: 'utf8' });
+  } catch {
+    return; // no git available, or not a work tree — nothing to assert against
+  }
+
+  const offenders = [];
+  for (const line of listing.split('\n').filter(Boolean)) {
+    const indexEol = /^i\/(\S+)/.exec(line)?.[1];
+    const file = line.split('\t').pop();
+    // Only the index matters: the working tree may legitimately differ per
+    // platform, and "none" means the file has no line endings to get wrong.
+    if (indexEol === 'crlf' || indexEol === 'mixed') offenders.push(`${file} (${indexEol})`);
+  }
+
+  if (offenders.length) {
+    fail(`${offenders.length} file(s) stored with non-LF line endings — a one-line change to any of `
+       + `them will diff as the whole file. Fix: git add --renormalize . && git commit\n`
+       + offenders.map((o) => `           ${o}`).join('\n'));
+  }
+}
+
 // A marketplace entry name is what users type to install; plugin.json name is
 // what they type afterwards as a trigger prefix. Nothing in the tooling keeps
 // those two in step, so if this repo publishes a marketplace, they get checked
@@ -357,6 +387,7 @@ if (cmd === 'deny') { deny(process.argv[3]); process.exit(process.exitCode ?? 0)
 
 const manifest = loadManifest();
 validateHooks();
+validateLineEndings();
 validateMarketplace();
 const skills = collect(manifest);
 validateDenylist(skills);
