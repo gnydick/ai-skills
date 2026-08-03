@@ -36,6 +36,7 @@ harness-specific.
 |---|---|
 | [`be-reasonable`](pure-prose/be-reasonable/SKILL.md) | Every design choice that *isn't* an invariant — precision, defaults, timeouts, naming, config, logging, test level, deploy shape, and who runs the tooling under a context budget. Four moves: derive the choice from the situation, lean toward the mistake that's cheaper to undo, split any decision serving two masters, and ask the developer when two answers are genuinely defensible. Plus a domain appendix showing the method already applied. |
 | [`cant-break-by-design`](pure-prose/cant-break-by-design/SKILL.md) | Making invariants unrepresentable rather than merely checked. An 8-rung enforcement ladder, 15 language-independent techniques, the strongest tool available per language, and the tripwire: duplicating a processing step at a second call site means the design is already wrong. |
+| [`developer-friendliness`](pure-prose/developer-friendliness/SKILL.md) | Everything an assistant produces that outlives the conversation — what gets filed, written down, reported, and left behind at a session boundary. A three-question filter, an 8-rung durability ladder whose top rung is deleting the note by making the situation impossible, and a budget that makes a tracker nobody triages as much of a failure as writing nothing at all. |
 
 ## Layout
 

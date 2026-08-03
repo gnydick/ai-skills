@@ -1,7 +1,7 @@
 {
   "name": "unbreakable",
-  "description": "Two halves of design discipline: invariants enforced so that violating them is unrepresentable — enforcement ladders, illegal-state elimination, choke-point design — and every choice that is not an invariant derived from the situation rather than inherited from habit",
-  "version": "0.2.2",
+  "description": "Design discipline in three parts: invariants enforced so that violating them is unrepresentable — enforcement ladders, illegal-state elimination, choke-point design; every choice that is not an invariant derived from the situation rather than inherited from habit; and the record of the work — what gets filed, written down, and left behind — kept so the developer never has to hold what could have been parked",
+  "version": "0.3.0",
   "author": {
     "name": "Gabe E. Nydick",
     "email": "gnydick@nydick.net"
@@ -16,6 +16,8 @@
     "type-safety",
     "api-design",
     "design-decisions",
-    "defaults"
+    "defaults",
+    "record-keeping",
+    "session-continuity"
   ]
 }

@@ -418,9 +418,9 @@ sides of the keyboard.
 | Verification | the invocation that returns a verdict, a count, or a status | a full dump proves the same thing at a hundred times the price |
 | Reading source | search first, then read the range that matters | the file is rarely the answer; the answer is rarely the whole file |
 | High-volume exploration | a separate context that reports back a conclusion | its budget is not yours, and only the conclusion crosses back |
-| Durable decisions and conventions | written into a project document | conversation is not memory; documents are |
+| Durable decisions and conventions | written down, in the least durable place that still survives the reader's absence | conversation is not memory and documents are — but a footnote parked in what every session loads is a tax every session pays |
 | Generated code and comments | as terse as clarity allows | written once, re-read on every future visit by both the person and the assistant |
-| Narration | omitted | announcing, doing, and then recapping pays three times for one action |
+| Narration | omitted — but disclosure is not narration | announcing, doing, and then recapping pays three times for one action; a scope you cut and did not mention is paid in full by whoever relied on it |
 | Size of a change put up for review | small enough to hold at once | review quality does not degrade gracefully past the limit — it collapses into approval |
 | What an alert says and whether it exists | only what needs a human to act, tonight | every alert spends the same attention, and past the limit all of them are ignored, including the real one |
 | What a dashboard shows | the few things someone would act on | forty panels means none are watched, which is worse than four |
