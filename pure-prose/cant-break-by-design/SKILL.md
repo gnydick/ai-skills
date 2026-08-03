@@ -57,6 +57,20 @@ low-rung invariant means promoting it.
 7–8 is the target. 5–6 is the weakest acceptable interim, and only with a ledger
 row naming the promotion. 0–4 are support structure, never the enforcement.
 
+Rung 0 is worthless *as enforcement*. That is not a claim about its worth as
+memory: a comment recording why a decision was made is doing a different job and
+is judged by a different standard. It is simply not the thing standing between a
+caller and a broken state.
+
+**The ledger row**, referenced throughout this skill: the invariant in one
+sentence, the rung it actually sits at, the mechanism holding it there, and what
+would promote it. Two things it is not. It is **not a note that something is
+pending** — "deferred" records that work is owed, whereas the thing at risk is a
+property nobody is currently enforcing, and those two decay differently and are
+read by different people. And it is **not a private list**: put the row where the
+project already tracks work that gets scheduled, because a row nobody plans
+against is rung 0 about rung 5.
+
 ---
 
 ## 2. Techniques
