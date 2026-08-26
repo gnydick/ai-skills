@@ -44,7 +44,8 @@ harness-specific.
 pure-prose/<skill>/SKILL.md     source of truth
 plugins/unbreakable/            the published plugin (staged, do not edit)
 scripts/build-skills.mjs        build | check | install | hooks | deny
-skills.manifest.json            which buckets fan out to which targets
+skills.manifest.json            which buckets fan out to which targets,
+                                and which plugin each skill is routed to
 ```
 
 Top-level directories are **compatibility classes, not namespaces**. `pure-prose`
@@ -64,16 +65,22 @@ node scripts/build-skills.mjs deny …    # add an identifier that must never sh
 
 Run `hooks` after cloning — git never installs hooks automatically.
 
-`check` enforces nine relationships that would otherwise rely on someone
+`check` enforces thirteen relationships that would otherwise rely on someone
 remembering them:
 
 - every top-level bucket is declared in `skills.manifest.json`
 - a skill's frontmatter `name` matches its directory name
 - skill names are unique across all buckets (they share one flat namespace)
 - staged bytes match the bucket source exactly
-- the plugin directory has a manifest to publish under
+- every routed plugin directory has a manifest to publish under
 - the marketplace entry name matches the plugin name, so the name you install
   is the prefix you type
+- each route key matches that plugin's declared name, since the key is the
+  trigger prefix
+- every skill targeting a plugin is claimed by exactly one route
+- no route names a skill that exists in no bucket
+- every routed plugin is listed in the marketplace, so nothing is published
+  with no way to install it
 - every tracked file under `.githooks/` is mode `100755`, because git silently
   skips hooks that are not executable
 - no tracked file is stored with CRLF, because a one-line change to one of them

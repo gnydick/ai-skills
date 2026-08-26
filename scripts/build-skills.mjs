@@ -21,8 +21,10 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(REPO, 'skills.manifest.json');
 const MARKER = '.generated';
-let STAGE;   // <plugin dir>/skills — resolved from the manifest, never hardcoded
-let PREFIX;  // plugin.json name — the trigger prefix skills are exposed under
+// One entry per published plugin, resolved from the manifest's routes — never
+// hardcoded, and never inferred from what happens to be in plugins/.
+// { name (== trigger prefix), path, stage, skills: Set<string> }
+let PLUGINS = [];
 const SKILL_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const fail = (msg) => { console.error(`\x1b[31merror\x1b[0m  ${msg}`); process.exitCode = 1; };
@@ -53,22 +55,51 @@ function loadManifest() {
     }
   }
 
-  // The plugin directory is declared, and its manifest is the sole source of
-  // the trigger prefix — reading it here means the build can report the real
-  // installed names instead of guessing them from a path.
-  const plugin = m.targets['claude-plugin'];
-  if (!plugin?.path) { fail('targets["claude-plugin"].path is required'); return m; }
-  STAGE = path.join(REPO, plugin.path, 'skills');
-
-  const pluginJson = path.join(REPO, plugin.path, '.claude-plugin', 'plugin.json');
-  if (!fs.existsSync(pluginJson)) {
-    fail(`${plugin.path}/.claude-plugin/plugin.json is missing — the plugin has no name to publish under`);
+  // One plugin was once enough to hardcode; more than one means a skill's
+  // destination stops being derivable from its bucket, because two plugins draw
+  // from the same compatibility class. So routing is DECLARED per skill, the
+  // same way bucket fan-out is — a skill missing from every route is a hard
+  // error rather than a skill that silently ships nowhere.
+  const target = m.targets['claude-plugin'];
+  const routes = target?.routes;
+  if (!routes || !Object.keys(routes).length) {
+    fail('targets["claude-plugin"].routes must declare at least one plugin');
     return m;
   }
-  const pj = JSON.parse(fs.readFileSync(pluginJson, 'utf8'));
-  if (!pj.name) fail(`${plugin.path}/.claude-plugin/plugin.json has no "name"`);
-  else if (!SKILL_NAME.test(pj.name)) fail(`plugin name "${pj.name}" must be lowercase-with-hyphens`);
-  PREFIX = pj.name;
+
+  PLUGINS = [];
+  for (const [name, route] of Object.entries(routes)) {
+    if (!route?.path) { fail(`claude-plugin route "${name}" has no "path"`); continue; }
+    if (!Array.isArray(route.skills)) { fail(`claude-plugin route "${name}" has no "skills" list`); continue; }
+
+    // plugin.json is the sole source of the trigger prefix, so the route key is
+    // checked against it here rather than trusted: they are typed in different
+    // files and nothing else keeps them in step.
+    const pluginJson = path.join(REPO, route.path, '.claude-plugin', 'plugin.json');
+    if (!fs.existsSync(pluginJson)) {
+      fail(`${route.path}/.claude-plugin/plugin.json is missing — the plugin has no name to publish under`);
+      continue;
+    }
+    const pj = JSON.parse(fs.readFileSync(pluginJson, 'utf8'));
+    if (!pj.name) { fail(`${route.path}/.claude-plugin/plugin.json has no "name"`); continue; }
+    if (!SKILL_NAME.test(pj.name)) fail(`plugin name "${pj.name}" must be lowercase-with-hyphens`);
+    if (pj.name !== name) {
+      fail(`skills.manifest.json routes "${name}" but ${route.path}/.claude-plugin/plugin.json says "${pj.name}" — `
+         + `the route key is the trigger prefix and must match`);
+    }
+
+    PLUGINS.push({ name: pj.name, path: route.path, stage: path.join(REPO, route.path, 'skills'), skills: new Set(route.skills) });
+  }
+
+  // Two routes claiming one skill would stage it twice under two prefixes; the
+  // duplicate would look intentional and neither copy would be authoritative.
+  const claimed = new Map();
+  for (const p of PLUGINS) {
+    for (const s of p.skills) {
+      if (claimed.has(s)) fail(`skill "${s}" is routed to both "${claimed.get(s)}" and "${p.name}" — one plugin per skill`);
+      else claimed.set(s, p.name);
+    }
+  }
   return m;
 }
 
@@ -155,6 +186,17 @@ function validateMarketplace() {
          + `users would install one name and get "${declared}:" as their trigger prefix`);
     }
   }
+
+  // The other direction: a plugin the build stages but the marketplace never
+  // lists is built, committed, and uninstallable — and nothing about it looks
+  // wrong from inside the repo.
+  const listed = new Set(mp.plugins.map((e) => e.name));
+  for (const p of PLUGINS) {
+    if (!listed.has(p.name)) {
+      fail(`plugin "${p.name}" is routed in skills.manifest.json but absent from marketplace.json — `
+         + `it would be staged and published with no way for anyone to install it`);
+    }
+  }
 }
 
 // Every skill in the repo, with the checks that make a flat namespace safe.
@@ -200,7 +242,27 @@ function collect(manifest) {
         continue;
       }
       seen.set(entry.name, bucket);
-      skills.push({ name: entry.name, bucket, src, targets: manifest.buckets[bucket].targets });
+      const targets = manifest.buckets[bucket].targets;
+      const plugin = targets.includes('claude-plugin')
+        ? PLUGINS.find((p) => p.skills.has(entry.name))
+        : null;
+      skills.push({ name: entry.name, bucket, src, targets, plugin });
+    }
+  }
+
+  // Both halves of the routing contract, checked in both directions: a skill
+  // whose bucket publishes to plugins but which no route claims would build
+  // clean and ship nowhere, and a route naming a skill that does not exist
+  // would silently publish one fewer skill than the manifest advertises.
+  for (const s of skills) {
+    if (s.targets.includes('claude-plugin') && !s.plugin) {
+      fail(`skill "${s.name}" targets claude-plugin but no route in skills.manifest.json claims it — `
+         + `add it to targets["claude-plugin"].routes.<plugin>.skills`);
+    }
+  }
+  for (const p of PLUGINS) {
+    for (const name of p.skills) {
+      if (!seen.has(name)) fail(`route "${p.name}" lists skill "${name}", which exists in no bucket`);
     }
   }
   return skills;
@@ -289,40 +351,44 @@ function treeOf(dir) {
 }
 
 function build(skills) {
-  if (fs.existsSync(STAGE) && !fs.existsSync(path.join(STAGE, MARKER))) {
-    const contents = fs.readdirSync(STAGE);
-    if (contents.length) {
-      fail(`skills/ exists but has no ${MARKER} marker — refusing to overwrite a hand-authored directory`);
-      return;
+  for (const plugin of PLUGINS) {
+    const STAGE = plugin.stage;
+    if (fs.existsSync(STAGE) && !fs.existsSync(path.join(STAGE, MARKER))) {
+      if (fs.readdirSync(STAGE).length) {
+        fail(`${plugin.path}/skills exists but has no ${MARKER} marker — refusing to overwrite a hand-authored directory`);
+        continue;
+      }
     }
-  }
-  fs.rmSync(STAGE, { recursive: true, force: true });
-  fs.mkdirSync(STAGE, { recursive: true });
-  fs.writeFileSync(path.join(STAGE, MARKER), 'Generated by scripts/build-skills.mjs. Edit the bucket source, not this.\n');
+    fs.rmSync(STAGE, { recursive: true, force: true });
+    fs.mkdirSync(STAGE, { recursive: true });
+    fs.writeFileSync(path.join(STAGE, MARKER), 'Generated by scripts/build-skills.mjs. Edit the bucket source, not this.\n');
 
-  const staged = skills.filter((s) => s.targets.includes('claude-plugin'));
-  for (const s of staged) copyDir(s.src, path.join(STAGE, s.name));
-  ok(`staged ${staged.length} skill(s) into ${path.relative(REPO, STAGE).replace(/\\/g, '/')}/`);
-  for (const s of staged) console.log(`    ${s.bucket}/${s.name} → ${PREFIX}:${s.name}`);
+    const staged = skills.filter((s) => s.plugin === plugin);
+    for (const s of staged) copyDir(s.src, path.join(STAGE, s.name));
+    ok(`staged ${staged.length} skill(s) into ${path.relative(REPO, STAGE).replace(/\\/g, '/')}/`);
+    for (const s of staged) console.log(`    ${s.bucket}/${s.name} → ${plugin.name}:${s.name}`);
+  }
 }
 
 function check(skills) {
-  const expected = new Map();
-  for (const s of skills.filter((x) => x.targets.includes('claude-plugin'))) {
-    for (const [rel, buf] of treeOf(s.src)) expected.set(`${s.name}/${rel}`, buf);
-  }
-  const actual = treeOf(STAGE);
-  const at = path.relative(REPO, STAGE).replace(/\\/g, '/');
+  for (const plugin of PLUGINS) {
+    const expected = new Map();
+    for (const s of skills.filter((x) => x.plugin === plugin)) {
+      for (const [rel, buf] of treeOf(s.src)) expected.set(`${s.name}/${rel}`, buf);
+    }
+    const actual = treeOf(plugin.stage);
+    const at = path.relative(REPO, plugin.stage).replace(/\\/g, '/');
 
-  let drift = 0;
-  for (const [rel, buf] of expected) {
-    if (!actual.has(rel)) { fail(`${at}/${rel} is missing — run: node scripts/build-skills.mjs build`); drift++; }
-    else if (!actual.get(rel).equals(buf)) { fail(`${at}/${rel} differs from its bucket source`); drift++; }
+    let drift = 0;
+    for (const [rel, buf] of expected) {
+      if (!actual.has(rel)) { fail(`${at}/${rel} is missing — run: node scripts/build-skills.mjs build`); drift++; }
+      else if (!actual.get(rel).equals(buf)) { fail(`${at}/${rel} differs from its bucket source`); drift++; }
+    }
+    for (const rel of actual.keys()) {
+      if (!expected.has(rel)) { fail(`${at}/${rel} is stale — no longer routed here`); drift++; }
+    }
+    if (!drift) ok(`${at}/ matches source (${expected.size} file(s))`);
   }
-  for (const rel of actual.keys()) {
-    if (!expected.has(rel)) { fail(`${at}/${rel} is stale — no longer in any bucket`); drift++; }
-  }
-  if (!drift) ok(`${at}/ matches source (${expected.size} file(s))`);
 }
 
 function link(target, source) {
