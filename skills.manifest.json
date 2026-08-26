@@ -28,9 +28,19 @@
     },
     "claude-plugin": {
       "kind": "plugin",
-      "path": "plugins/unbreakable",
       "implemented": true,
-      "note": "Staged into <path>/skills, committed rather than generated-at-install: plugins arrive by git clone with no build step. The plugin's own name lives in <path>/.claude-plugin/plugin.json and is what becomes the 'unbreakable:' trigger prefix."
+      "note": "Staged into <route path>/skills, committed rather than generated-at-install: plugins arrive by git clone with no build step. Each route key IS the trigger prefix and is checked against that plugin's .claude-plugin/plugin.json name.",
+      "$comment": "ROUTES, not a single path. A bucket is a compatibility class, not a destination, so it cannot say WHICH plugin a skill ships in — the moment a second plugin draws from the same bucket, a path alone is ambiguous. Routing is therefore declared per skill rather than derived, and stays declared while only one route exists: every skill in a plugin-targeting bucket must appear under exactly one route, and unlisted, listed twice, or listed-but-absent-from-every-bucket are each a hard build error. Same rule as bucket fan-out — declared, never inferred.",
+      "routes": {
+        "unbreakable": {
+          "path": "plugins/unbreakable",
+          "skills": [
+            "be-reasonable",
+            "cant-break-by-design",
+            "developer-friendliness"
+          ]
+        }
+      }
     },
     "claude-ai-zip": { "kind": "zip", "path": "dist", "implemented": false },
     "codex":         { "kind": "harness-manifest", "path": ".codex-plugin", "implemented": false },
