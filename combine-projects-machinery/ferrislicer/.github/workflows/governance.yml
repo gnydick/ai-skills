@@ -1,0 +1,84 @@
+name: Governance
+
+# Doc-governance gates (GIT_341). Separate from rust.yml because these fire on
+# DOC changes and need no Rust toolchain — a full engine build per doc edit
+# would teach people to batch doc changes, which is how registers rot.
+# Every gate here was measured passing on the commit that introduced this file;
+# each has a demonstrated red-check (scripts/register_check_test.py, and the
+# rejected-commit demonstrations recorded on #341).
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - 'CLAUDE.md'
+      - 'scripts/register_check.py'
+      - 'scripts/register_check_test.py'
+      - 'scripts/pipeline_model_check.py'
+      - 'scripts/adr_provenance_gate.py'
+      - 'scripts/adr_provenance_gate_test.py'
+      - 'crates/fs-config-hub/src/hub.rs'
+      - '.githooks/**'
+      - '.github/workflows/governance.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'CLAUDE.md'
+      - 'scripts/register_check.py'
+      - 'scripts/register_check_test.py'
+      - 'scripts/pipeline_model_check.py'
+      - 'scripts/adr_provenance_gate.py'
+      - 'scripts/adr_provenance_gate_test.py'
+      - 'crates/fs-config-hub/src/hub.rs'
+      - '.githooks/**'
+      - '.github/workflows/governance.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: governance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # windows-latest to match where every gate was measured (docs/ci.md rule:
+    # an unmeasured platform gate is noise).
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Gate G1: the design-decision register is internally sound ──────────
+      # Citations exist, one status circle per group, SUPERSEDED stamps
+      # bidirectional, INVARIANTS.md anchors resolve, rule-inbox fully
+      # dispositioned. This is the backstop for the local pre-commit hook
+      # (.githooks/pre-commit) on clones that never ran the one-time
+      # `git config core.hooksPath .githooks`.
+      - name: Register check
+        run: python scripts/register_check.py
+
+      # ── Gate G2: the checker itself can still fail ─────────────────────────
+      # Red-checks all blocking failure modes against fixtures. A gate nobody
+      # has seen fail is indistinguishable from a broken one.
+      - name: Register check self-test
+        run: python scripts/register_check_test.py
+
+      # ── Gate G3: pipeline model / page drift ───────────────────────────────
+      # Structure mode only (no Alloy jar on runners): the Alloy models and the
+      # preview page's embedded copy must agree. Exists because forward.als and
+      # backward.als once drifted 3 commits apart unnoticed.
+      - name: Pipeline model check
+        run: python scripts/pipeline_model_check.py
+
+      # ── Gate G4: ADR 0008 provenance-state / code drift ────────────────────
+      # docs/adr/0008-config-provenance-and-inheritance.md states the
+      # Provenance enum's variant set explicitly; this parses both the ADR
+      # and crates/fs-config-hub/src/hub.rs and fails if they disagree, so an
+      # 8th variant either updates the ADR in the same change or breaks here.
+      - name: ADR 0008 provenance-state gate
+        run: python scripts/adr_provenance_gate.py
+
+      # ── Gate G5: the ADR gate itself can still fail ────────────────────────
+      - name: ADR 0008 provenance-state gate self-test
+        run: python scripts/adr_provenance_gate_test.py

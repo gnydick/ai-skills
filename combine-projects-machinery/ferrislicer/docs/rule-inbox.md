@@ -17,12 +17,22 @@ An entry with `Disposition: PENDING` fails `register_check.py`. Where that
 actually runs — stated exactly, because the strength of a gate is the
 mechanism and not the sentence (`docs/INVARIANTS.md` §7.9, rung 3):
 
-- **Claude sessions:** `.claude/settings.json` runs it, so commits made
-  through a session are gated.
+- **A clone with `core.hooksPath` set to `.githooks`:** `.githooks/pre-commit`
+  runs it on every commit — this is a per-clone git setting
+  (`git config core.hooksPath .githooks`, run once), not a Claude Code
+  behavior, so it gates a commit the same way whether made through a Claude
+  session or a bare terminal/IDE. `.claude/settings.json` wires five hooks
+  (`quiet_hook` on PreToolUse, `create_worktree` on WorktreeCreate,
+  `rule_capture` on UserPromptSubmit, `rule_nudge` on PostToolUse, a
+  SessionStart banner) and none of them runs `register_check.py` or any other
+  git hook — a Claude session gets no gating `core.hooksPath` did not already
+  give it.
 - **CI:** `.github/workflows/governance.yml` runs it on push.
-- **A bare `git commit` in an IDE or terminal is NOT gated.** A fresh clone
-  has no `.git/hooks/pre-commit`; nothing installs one. Such a commit lands
-  locally with a PENDING entry and is caught only when CI sees the push.
+- **A bare `git commit` with `core.hooksPath` unset is NOT gated**, in a
+  Claude session or out of one. A fresh clone has no `.git/hooks/pre-commit`
+  and does not set `core.hooksPath` by default; nothing installs one. Such a
+  commit lands locally with a PENDING entry and is caught only when CI sees
+  the push.
 
 To disposition:
 
