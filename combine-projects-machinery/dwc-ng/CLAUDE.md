@@ -24,6 +24,10 @@
 - NEVER add a dependency without asking me first. Prefer zero-dep or
   low-dep packages. Frozen lockfile installs only.
 
+## Working rules (design)
+
+- nothing should be able to break by construction
+
 ## Working rules (verification discipline)
 
 Adopted 2026-08-26 from campaign #76 phase 1, where five of six BEFORE/AFTER

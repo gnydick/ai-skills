@@ -113,6 +113,21 @@ Copied 10 files from the source root on 2026-09-01 (all files present, no missin
   overwrite: it is live, undispositioned governance input, not stale
   content.
 
+- **Machinery bullet restored from a deleted domain section (added in Task 8).**
+  The original CLAUDE.md's `## Hard constraints (these drive everything)`
+  section — deleted wholesale in Task 4 as domain content, correctly, since
+  its other four bullets are all about this project's board, transport and
+  object model — carried one bullet that is not domain content at all:
+  `nothing should be able to break by construction`. That is a general design
+  rule about how code is written, misfiled under a domain heading, and it is
+  the project's only statement of the by-construction principle that the
+  sibling project states as a hard rule. Deleting the section deleted it.
+  Restored as the single bullet of a new `## Working rules (design)` heading,
+  placed before the three existing `## Working rules` sections, verbatim from
+  the pre-Task-4 copy (`07debae:combine-projects-machinery/dwc-ng/CLAUDE.md`)
+  — no rewording, no elaboration. Nothing else from that section returns. The
+  union table's row 9.1 cites this restored bullet in its dwc-ng column.
+
 - **Package.json wiring evidence (not copied — the file stays out of
   scope; fragment recorded here only as proof the hook/script names in the
   copy are actually wired in the source project).** From the read-only
