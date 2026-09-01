@@ -29,15 +29,29 @@ source: fewer, plainer rules; minimal mechanisms.
   (process learnings), governance scripts — `register_check.py` (both),
   ferrislicer's `citation_creation_gate.py`, `sweep_guard.sh`,
   `check_ledger_tables.py`, `gen_issue_rules_doc.sh`, `new_ticket_pair.py`
+- Gate-and-ratchet scripts, as patterns to generalize (their domain check
+  lists become examples; the mechanics are the machinery): ferrislicer's
+  `merge-gate.sh` (gate the merge result, not the branch; baseline-diff test
+  judging — fail only on NEW failures, report newly-green loudly; isolated
+  gate build cache; quick mode never for a merge; local gating when hosted CI
+  is absent or untrusted) and `invariant_scan_gate.py` (ratchet over an
+  audited standing baseline; deliberate reviewed baseline regeneration;
+  shipping code only)
+- The can't-break-by-design audit apparatus (`cbbd_denominator.py`,
+  `cbbd_check.py`, `cbbd_report.py`): reproducible denominator of stated
+  claims + obligation shapes, structural table checks, every actionable
+  finding lands in exactly one fix — both projects use the unbreakable
+  skills, so this is their shared audit method
 - Ferrislicer register groups under **Design** (invariants by construction,
   enforcement ladder, invariant anti-patterns, invariant ledger) — universal
   engineering rules despite living among domain groups
 
 **Out of scope:** domain-knowledge skills (`duet-gcode`, `duet-http-api`,
 `rrf-object-model`, `solid-patterns`), domain register groups (Engine,
-fs-config, fs-hub, Geometry kernel, Fill, G-code, Platforms, …), domain gate
-scripts (`merge-gate.sh`, `invariant_scan_gate.py`, oracle/parity/bench
-tooling), dwc-ng's hard constraints / stack / architecture / first-tasks
+fs-config, fs-hub, Geometry kernel, Fill, G-code, Platforms, …), domain
+verification tooling (oracle/parity/bench scripts — the checks themselves,
+as opposed to the gate mechanics above, are slicer content), dwc-ng's hard
+constraints / stack / architecture / first-tasks
 sections, ferrislicer's reference-source *paths* (the citation *rules* stay),
 `.claude/scratch`, `.claude/backups`, `.claude/design`, `.claude/locks`,
 `__pycache__`.
@@ -124,7 +138,9 @@ agents as prose definitions; settings wiring described in prose.
 9. **Design Invariants** — can't-break-by-design; enforcement ladder;
    anti-patterns; never re-derive; no in-band sentinels; no panic on absence;
    environment read once; claimed ground; warn loudly; config-hub boundary;
-   follow-the-reference-for-plurals.
+   follow-the-reference-for-plurals; the cbbd audit apparatus (reproducible
+   denominator of stated claims + obligation shapes, dispositioned ledger,
+   fixes report where every actionable finding lands in exactly one fix).
 10. **Reference Sources** — read-only, never copy/port; cite the actual
     source; understanding over transcription.
 11. **Environment & Platform** — shell resolution (no-WSL pattern); build
@@ -135,6 +151,12 @@ agents as prose definitions; settings wiring described in prose.
     updates.
 14. **Commit Gates** — what blocks vs. what advises; gate-what-the-commit-
     touches vs. run-always ⚔; "bypass twice → fix the checker".
+15. **Merge Gates & Ratchets** — gate the merge result, never the branch;
+    baseline-diff judging (fail only on new failures; report newly-green
+    loudly); ratchets over audited standing baselines, ratcheted down in the
+    same change that earned it; deliberate reviewed baseline regeneration;
+    shipping code only; isolated gate build environment; quick mode never for
+    a merge; local gating when hosted CI is absent or untrusted.
 
 Groups may be added/renamed as discovery warrants; changes surface in the
 table itself.
