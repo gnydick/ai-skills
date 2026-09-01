@@ -982,7 +982,7 @@ Agreeing method rules for the pipeline contract map: the map updates in the same
 | 2026-08-09 | A pass must declare a depth limit up front and record only what that pass verified; an unverified fact is left absent, never guessed, in both prose and models. | `docs/superpowers/specs/2026-08-09-orca-pipeline-contract-map.md:186` |
 | 2026-08-09 | Forward and backward analysis directions must advance together as one artefact at one depth; a pass is not complete if only one direction has progressed. | `docs/superpowers/specs/2026-08-09-orca-pipeline-contract-map.md:192` |
 | 2026-08-12 | Every bug fix and implementation must update the pipeline contract map (and, when config keys or feature gaps moved, the alignment data and pipeline page) in the same change; a merged change that contradicts the map is treated like a failing test. | `CLAUDE.md` § The map is living documentation (HARD RULE) |
-| 2026-08-15 | The register updates in the same commit as any rule change (durable home first; the register cites, never originates); dictated rules use the RULE: prompt prefix and block commits until filed or dismissed. | `CLAUDE.md` § The map is living documentation (HARD RULE) |
+| 2026-08-15 | The register updates in the same commit as any rule change (durable home first; the register cites, never originates); dictated rules use the RULE: prompt prefix and block commits (in a clone with `core.hooksPath` set to `.githooks`, or on CI push) until filed or dismissed. | `CLAUDE.md` § The map is living documentation (HARD RULE) |
 
 ## 🟢 Process — issue tracking
 

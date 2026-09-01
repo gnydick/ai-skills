@@ -156,8 +156,9 @@ keys or feature gaps moved -> also the alignment data
   rule added/changed/superseded -> register updated in the same commit,
   durable home first — the register cites, never originates. Dictated rules
   start the prompt with `RULE:` (captured mechanically to
-  `docs/rule-inbox.md`; a PENDING entry blocks every commit until
-  `/rule-intake` or dismissed with a reason).
+  `docs/rule-inbox.md`; a PENDING entry blocks every commit in a clone with
+  `core.hooksPath` set to `.githooks`, or on CI push, until `/rule-intake`
+  or dismissed with a reason).
 
 Full rule: docs/rules/map-living-documentation.md
 

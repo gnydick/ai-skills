@@ -63,7 +63,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "echo 'Governance: dictate a standing rule by starting the prompt with RULE: (captured to docs/rule-inbox.md, blocks commits until filed via /rule-intake). Register: docs/RULES-GROUPED.md.'",
+            "command": "echo 'Governance: dictate a standing rule by starting the prompt with RULE: (captured to docs/rule-inbox.md; blocks commits where core.hooksPath is set to .githooks, or via CI on push, until filed via /rule-intake). Register: docs/RULES-GROUPED.md.'",
             "timeout": 10
           }
         ]

@@ -18,5 +18,6 @@ and, when config keys or feature gaps moved, the alignment data
   the same way: a change that adds, changes, or supersedes a rule updates the
   register in the same commit, durable home first — the register cites, it never
   originates. Dictated rules start the prompt with `RULE:` (captured mechanically
-  to `docs/rule-inbox.md`; a PENDING entry blocks every commit until filed via
+  to `docs/rule-inbox.md`; a PENDING entry blocks every commit in a clone with
+  `core.hooksPath` set to `.githooks`, or on CI push, until filed via
   `/rule-intake` or dismissed with a reason).

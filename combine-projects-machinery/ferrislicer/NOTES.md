@@ -27,6 +27,20 @@ Task 3 added 3 discovered files (see "Discovered during reconciliation" below):
   push" and "a bare `git commit` with no hooksPath set is not gated" bullets
   were already accurate and are unchanged in substance.
 
+- **Propagation of the above fix (reviewer-flagged follow-up).** The
+  unconditional "a PENDING entry blocks every commit" / "blocks commits"
+  phrasing survived, unfixed, in four other artifacts that state the same
+  mechanism: `CLAUDE.md` § The map is living documentation,
+  `docs/rules/map-living-documentation.md` (its full-rule text),
+  `docs/RULES-GROUPED.md`'s 2026-08-15 register row citing that section, and
+  the SessionStart echo banner in `.claude/settings.json`. Per the stated
+  precedence (mechanism > full rule text > register > CLAUDE.md summary),
+  all four were the losing text and are corrected the same way
+  `docs/rule-inbox.md` was: each now states the gate only fires "in a clone
+  with `core.hooksPath` set to `.githooks`, or on CI push" rather than
+  claiming an unconditional block. Edits were minimal — one clause inserted
+  into the existing sentence in each file, no other rewording.
+
 ## Discovered during reconciliation
 (one bullet per scope addition, added in Task 3)
 
