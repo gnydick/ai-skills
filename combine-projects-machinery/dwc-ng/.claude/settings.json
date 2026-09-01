@@ -33,7 +33,7 @@
           {
             "type": "command",
             "shell": "bash",
-            "command": "echo 'Governance: dictate a standing rule by starting the prompt with RULE: (captured to docs/rule-inbox.md). File it via /rule-intake, then python scripts/register_check.py --fast should be clean before committing -- no pre-commit hook enforces this yet. Register: docs/RULES-GROUPED.md.'",
+            "command": "echo 'Governance: dictate a standing rule by starting the prompt with RULE: (captured to docs/rule-inbox.md). File it via /rule-intake, then python scripts/register_check.py --fast should be clean before committing -- .githooks/pre-commit enforces this automatically once a clone runs pnpm hooks:install (sets core.hooksPath); there is no CI backstop yet. Register: docs/RULES-GROUPED.md.'",
             "timeout": 10
           }
         ]

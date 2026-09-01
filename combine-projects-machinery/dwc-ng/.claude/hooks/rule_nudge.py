@@ -13,10 +13,19 @@ Non-blocking, in-conversation layer of the governance chain. If the edited
 file is a rule-bearing path and the register (docs/RULES-GROUPED.md) has no
 pending working-tree change, remind the session of the same-commit register
 rule stated in docs/RULES-GROUPED.md's own "Maintaining this file (the
-contract)" section. Never blocks; there is no pre-commit hook in this
-project today (see docs/superpowers/2026-08-26-register-check-port.md) —
-`scripts/register_check.py` run by hand, or in CI if one is ever added, is
-the actual enforcement.
+contract)" section. This hook itself never blocks (advisory print only).
+
+Corrected 2026-09-01: at port time (see
+docs/superpowers/2026-08-26-register-check-port.md) this project genuinely
+had no pre-commit hook, so this docstring said so. `.githooks/pre-commit`
+was added a few minutes later the same day and does gate commits — it runs
+`scripts/register_check.py --fast` on any commit touching a governance file,
+once a clone has run `pnpm hooks:install` (sets `core.hooksPath`). What this
+project still lacks is CI: no `.github/workflows` exists, so a clone that
+never installed the hook, or a commit that touches none of the governance
+paths, is ungated. This hook's own advisory nudge stays useful either way —
+it fires in-conversation, before staging, regardless of whether the
+pre-commit gate is installed.
 """
 import json
 import os
