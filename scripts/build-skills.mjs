@@ -206,7 +206,7 @@ function collect(manifest) {
   const onDisk = fs.readdirSync(REPO, { withFileTypes: true })
     .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
     .map((e) => e.name)
-    .filter((n) => !['plugins', 'scripts', 'dist', 'docs', 'node_modules'].includes(n));
+    .filter((n) => !['plugins', 'scripts', 'dist', 'docs', 'node_modules', 'combine-projects-machinery'].includes(n));
 
   for (const dir of onDisk) {
     if (!declared.includes(dir)) {
