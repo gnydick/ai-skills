@@ -116,8 +116,8 @@ Copied 10 files from the source root on 2026-09-01 (all files present, no missin
 - **Machinery bullet restored from a deleted domain section (added in Task 8).**
   The original CLAUDE.md's `## Hard constraints (these drive everything)`
   section — deleted wholesale in Task 4 as domain content, correctly, since
-  its other four bullets are all about this project's board, transport and
-  object model — carried one bullet that is not domain content at all:
+  its other three bullets are all about this project's board, bundle policy
+  and object model — carried one bullet that is not domain content at all:
   `nothing should be able to break by construction`. That is a general design
   rule about how code is written, misfiled under a domain heading, and it is
   the project's only statement of the by-construction principle that the

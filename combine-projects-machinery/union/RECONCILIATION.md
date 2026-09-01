@@ -13,30 +13,37 @@ project terms) | proposed universal form (lay language) | your feedback.
 
 ## Reading guide
 
-554 rows in 15 groups: 1 Straight Talk 10, 2 Rule Governance 34, 3 Verification
-& Evidence 37, 4 Agent Topology & Economy 25, 5 Worktree & Campaign Discipline
-40, 6 Work Tracking 30, 7 Test Double & UAT Discipline 8, 8 Tool Output Hygiene
+574 rows in 15 groups: 1 Straight Talk 10, 2 Rule Governance 34, 3 Verification
+& Evidence 50, 4 Agent Topology & Economy 25, 5 Worktree & Campaign Discipline
+40, 6 Work Tracking 35, 7 Test Double & UAT Discipline 8, 8 Tool Output Hygiene
 32, 9 Design Invariants 181, 10 Reference Sources 14, 11 Environment & Platform
 11, 12 Standing Agents 47, 13 Register System 32, 14 Commit Gates 18, 15 Merge
-Gates & Ratchets 35.
+Gates & Ratchets 37.
 
-Four rows are marked ⚔ — a real conflict, where ferrislicer's demand is the one
-proposed and the dwc-ng column shows what it overrules: **2.6** (run the
-governance check on every commit, not only on commits touching the register),
-**4.9** (agent classes), **4.20** (when work needs its own working copy), and
-**14.3** (the general form of 2.6: a cheap commit check runs on every commit).
-Everything else either merged cleanly or exists on one side only. Seven rows
-carry a `dropped nuance:` note, where fine print was deliberately simplified
-away; say so in feedback if any of it must survive.
+Three distinct disagreements across four ⚔ rows — a real conflict, where
+ferrislicer's demand is the one proposed and the dwc-ng column shows what it
+overrules. **2.6** and **14.3** are the SAME disagreement at two triggers (run
+the governance check on every commit versus only on commits touching what it
+checks; 2.6 states it for the register check, 14.3 for any commit gate), so
+deciding one decides both. The other two are **4.9** (agent classes) and
+**4.20** (when work needs its own working copy). Everything else either merged
+cleanly or exists on one side only. Seven rows carry a `dropped nuance:` note,
+where fine print was deliberately simplified away; say so in feedback if any of
+it must survive.
 
 Two groups are worth reading in halves rather than straight through. **Group 9**
 splits at 9.89: 9.1–9.88 are about how strongly an invariant is held — the
 enforcement ladder, the ledger, the catalogue of ways a claim outruns its
 mechanism — while 9.89–9.181 are the standing invariants themselves and the
-method for auditing them. **Group 5** splits at 5.24: 5.1–5.23 are ordinary
-working-copy lifecycle, and 5.24–5.38 are one self-contained procedure — the
-rebuild of a long-diverged parallel branch — which reads or skips as a unit.
-Group 12 is long but needs no seam: after 12.1–12.10, it is one agent at a time.
+method for auditing them. **Group 5** reads in three parts: 5.1–5.23 are
+ordinary working-copy lifecycle; 5.24–5.38 are one self-contained procedure —
+the rebuild of a long-diverged parallel branch — which reads or skips as a unit;
+and 5.39–5.40 are two loose rules belonging to neither half (what a working copy
+is named for, and the go-ahead an effort needs before it starts). Group 12 is
+long but needs no seam: 12.1–12.10 are the conventions every agent definition
+shares, 12.11–12.45 are one agent at a time, and 12.46–12.47 are two
+cross-cutting rules found after the rest — read those two, they apply to every
+agent above them.
 
 One open item, deliberately not a row: dwc-ng's rule inbox carries an entry
 captured 2026-09-01 ("the test loop shouldn't feed the agent unless there is a
@@ -110,7 +117,11 @@ three files together" is rowed below.*
 *The gate-side instances of these rules — a gate printing its own denominator,
 a merge gate not trusting parent order — fire when a gate runs and belong with
 the gate rules, not here. Proving a change against a stand-in for the real
-system is likewise its own group.*
+system is likewise its own group. 3.38–3.50 were added by the coverage sweep:
+3.38 is the capture that must render what a real user sees, and 3.39–3.50 are
+the performance-measurement method, which is one long answer to the same
+question this group asks everywhere else — what did the measurement actually
+see, and would it have been able to come out differently.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -151,6 +162,19 @@ system is likewise its own group.*
 | 3.35 | A diff without whitespace suppression is not a diff of the CODE: a line rewritten with different whitespace appears on both sides, so a count over added lines counts an unchanged line as new. The whitespace-suppressed summary is the discriminator — deletions collapsing to zero is the tell | — | A comparison that does not suppress whitespace is not a comparison of the code: a line merely re-indented shows up as both a removal and an addition, so anything counting added lines counts unchanged code as new. Run it again ignoring whitespace: the deletions collapsing to nothing is what tells you. | |
 | 3.36 | A test guarding an algorithm's COMPLEXITY asserts the algorithm's own work census — operations performed against the entitlement the input census buys — never a wall-clock ceiling: on a shared runner a stopwatch measures the runner and cannot tell a loaded machine from a quadratic loop. A generous wall clock may remain as a hang backstop, never as the verdict, and the census is asserted with a positive control | — | A test that guards how an algorithm scales asserts the work it actually did, measured against what its input entitles it to — never a time limit. On a shared machine a stopwatch measures the machine, and it cannot tell a busy one from an algorithm that got slower. A generous time limit may stay as a backstop against hanging, never as the verdict, and the work count ships with a positive control, because something that never ran satisfies any upper bound for free. | |
 | 3.37 | A refactor task FIRST moves existing code into its new module with no behaviour change and the tests still green, and only THEN generalizes the behaviour | — | A refactor lands in two steps, never one: move the code with no change in behaviour and the tests still passing, then change the behaviour. Done together, nothing can tell you which half broke it. | |
+| 3.38 | A test capture of the log reproduces the line an OPERATOR sees, BYTE FOR BYTE: a capture that renders a field its own way is evidence about itself, not about the log. The capture kept its own five format calls beside the real renderer; the one that disagreed made a quoted field invisible to every test, caught only by eyeballing a real run. The capture now composes its message from the same fields and reaches ONE renderer the same three ways the real one does, pinned by running both in the same session and diffing the lines | — | A test that captures output for checking reproduces the line a real user sees, byte for byte. A capture that renders a field its own way is not evidence about the output, it is evidence about itself — so the capture and the real renderer are one renderer, reached the same way, and the equivalence is pinned by running both over the same input and comparing the lines (9.89, 3.26). | |
+| 3.39 | A per-stage timer wraps only the actual work, NEVER the branch that decides whether to run it, so a zero reading means "did not run" rather than "too fast to measure" (stated twice, independently) | — | A timer wraps the work and nothing else — never the test that decides whether the work runs. Otherwise a zero reading means both "it did not happen" and "it was too fast to see", and nothing distinguishes them. | |
+| 3.40 | NEVER compare two performance builds run sequentially: build both binaries first, then INTERLEAVE the runs (A, B, A, B) and report every round, because sequential runs measure machine drift as much as the change | — | Never compare two performance builds by running one after the other. Build both first, then alternate between them and report every round: run sequentially, you are measuring how the machine drifted as much as what you changed. | |
+| 3.41 | Performance measurement always runs from your own checkout against a SEPARATE working copy; there is no option and no default for measuring the tree you are actively editing | — | A performance measurement runs against a separate working copy, never the tree you are editing. There is deliberately no option for the other thing, because editing under the measurement is how a number becomes unattributable. | |
+| 3.42 | A correctness question NEVER rides along inside a performance or profiling commit: it needs its own commit, its own fixture, and its own golden/oracle verification | — | A correctness question never rides along inside a performance commit. It gets its own change, its own test data, and its own comparison against the known-good result. | |
+| 3.43 | Always record and STATE which configuration a performance measurement was taken under, since the dominant cost — and therefore the conclusion — changes with the configuration | — | Always record and state the configuration a performance measurement was taken under. Which part dominates the cost changes with it, so the conclusion does too, and a number without its configuration cannot be compared with anything. | |
+| 3.44 | Measure on a QUIET machine: background load, such as a concurrent build, produces confidently wrong conclusions | — | Measure on a quiet machine. Background load — another build, most obviously — does not produce noisy conclusions, it produces confident and wrong ones. | |
+| 3.45 | Instrument a performance fix in the SAME build as the measurement that tests it, so one run shows both whether it worked and why | — | Put the instrumentation for a performance fix in the same build as the measurement that tests it, so a single run shows both whether it worked and why. | |
+| 3.46 | Instruments — census, capture, overlays — live in the SAME build as the changes they verify | — | Any instrument built to verify a change ships in the same build as the change. Verifying one build with an instrument compiled into another is comparing two things, not measuring one. | |
+| 3.47 | Before reapplying a performance technique at a new call site, FIRST measure the fraction of inputs that are skippable there; that fraction, not the shape of the code, decides whether the technique helps | — | Before reusing a technique that works by skipping work, measure what fraction of the inputs at the new site can actually be skipped. That fraction decides whether it helps, not the fact that the code looks the same shape. | |
+| 3.48 | Enabling a previously-dead feature path must not silently MULTIPLY the cost of the pipeline's most expensive predicate: duplicated derivation is collapsed to one before the feature goes live | — | Turning on a path that has never run must not multiply the cost of the most expensive thing the system already does. Where doing so would derive the same expensive fact twice, collapse it to one before the path goes live. | |
+| 3.49 | Measuring one variable while another DOMINATES the outcome measures nothing: isolate variables one at a time before trusting a measured effect | — | Measuring one variable while a second one dominates the outcome measures nothing at all. Isolate them one at a time before you trust an effect you think you have measured. | |
+| 3.50 | Measure FIRST: instrument and observe, rather than reasoning about where a boundary or a defect ought to be | — | Measure first. Instrument the thing and look, instead of reasoning about where the boundary or the defect ought to be — the reasoning is what you are trying to check. | |
 
 ## 4. Agent Topology & Economy
 
@@ -250,7 +274,11 @@ printing its own count line, going red rather than skipping — is 8.21 and
 8.31. That the generated file can still be hand-edited between commits, and
 that only the commit gate keeps that out of history, is an
 enforcement-honesty statement of the shape 2.7 and 2.21 already demand. Rules
-extracted from notebook entries reach their durable home by 2.9–2.11.*
+extracted from notebook entries reach their durable home by 2.9–2.11.
+6.29–6.35 were added by the coverage sweep: the owner's own bug list, and the
+method rules for a pass over material being documented — the work of recording
+what is there, as distinct from tracking the work of changing it. When such a
+document must be updated is 13.27–13.30.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -284,6 +312,11 @@ extracted from notebook entries reach their durable home by 2.9–2.11.*
 | 6.28 | The generated restatement adds what the verbatim rule lacks — the commands that execute it — so another session can follow it without the repo context | — | A restatement of a rule earns its place by adding what the rule text lacks: the exact commands that carry it out, so someone with no context can follow it. | |
 | 6.29 | Do not mark an item on the owner's own bug list fixed until the owner has confirmed the behaviour VISUALLY | — | An item on the owner's own list of complaints is marked fixed only when the owner has seen the behaviour and said so. Your own verification does not close it. | |
 | 6.30 | Do not rewrite the descriptions in the owner's bug list | — | Never rewrite the owner's own description of a problem. It is their record of what they saw, and editing it destroys the only account of the symptom that is not yours. | |
+| 6.31 | Each mapping pass is shallow enough to FINISH IN ONE SITTING: ragged — one part written deep beside many left blank — is worse than uniformly shallow | — | A pass over material to be documented is shallow enough to finish in one sitting. Uniformly shallow beats ragged: one part written deep beside many left blank tells a reader nothing about which gaps are real. | |
+| 6.32 | Every row of a mapping or analysis document carries its SOURCE LOCATION, so continuation costs nothing and a claim can be rechecked when either side moves | — | Every row of a mapping or analysis document carries where it came from. Continuing the work then costs nothing, and any claim can be rechecked when either side moves. | |
+| 6.33 | NO defect may be used as the organizing principle for a reading pass: steps are covered in the pipeline's own order, never in the order a bug makes them look relevant | — | A defect is never the organizing principle for a reading pass. Cover the material in its own order: reading it in the order a bug makes things look relevant produces a map of that bug, not of the system. | |
+| 6.34 | A pass DECLARES a depth limit up front and records only what that pass verified; an unverified fact is left ABSENT, never guessed — in prose and in the models alike | — | A pass states its depth limit before it starts and records only what it actually verified. An unverified fact is left absent rather than guessed, in the prose and in any model built beside it, because a guess in a reference document is indistinguishable from a finding. | |
+| 6.35 | Forward and backward analysis directions ADVANCE TOGETHER as one artefact at one depth; a pass is not complete if only one direction progressed | — | Where an analysis runs in two directions, both advance together as one artefact at one depth. A pass with only one direction moved is not a completed pass. | |
 
 ## 7. Test Double & UAT Discipline
 
@@ -590,7 +623,7 @@ tool is resolved, and what may enter the dependency set.*
 | 11.3 | Bare `bash` is NOT the shell you meant: PATH lookup can land on the operating system's launcher stub for the excluded layer, which prints its refusal in an unexpected encoding and exits non-zero, so a clean file was reported as broken | — | A bare command name is not the tool you meant. Resolving it by search path can land on a same-named stub the operating system ships, which fails in a way that reads as your own file being broken rather than the wrong tool having run. | |
 | 11.4 | Resolve a real shell by explicit path and reject any candidate under the known system directories where the stub lives | — | Resolve the real tool by explicit path, and reject candidates in the known locations where the lookalike lives. Rejecting the known-bad ones is part of resolving, not a separate check. | |
 | 11.5 | A tool that cannot find a usable one FAILS LOUDLY, naming what it looked for — never a quiet skip, because a skipped check reads as a pass | — | A tool that cannot resolve what it needs fails loudly, naming what it looked for. It never skips quietly, because a skipped check reads as a pass. | |
-| 11.6 | — | NEVER add a dependency without asking Gabe first | Never add a dependency without asking the owner first. | |
+| 11.6 | Adding any new external crate dependency requires STOPPING and getting explicit user authorization first | NEVER add a dependency without asking Gabe first | Never add a new external dependency without stopping and getting the owner's explicit authorization first. | |
 | 11.7 | — | Prefer zero-dep or low-dep packages | Prefer dependencies that bring few or no dependencies of their own. | |
 | 11.8 | — | Frozen lockfile installs only | Installs run against the frozen lock file only, so an install can never quietly move a pinned version. | |
 | 11.9 | — | Lifecycle scripts blocked by default; allowlist exactly one package in `onlyBuiltDependencies` | Package lifecycle scripts are blocked by default, with an explicit allowlist naming each package permitted to run one. | |
@@ -719,8 +752,11 @@ where their own trigger lives and only cross-referenced here: the advisory sweep
 warning is 5.14, the generated-document check and its self-test are 6.22–6.23,
 the output filter's own suite running blocking at commit time is 8.29, the
 register check's contents are group 13, and the advisory register nudge is 2.8.
-One project runs a five-check blocking hook plus a hosted mirror of it; the
-other runs a one-check hook and has no hosted checks at all, which is where
+One project runs a five-check blocking hook plus a partly-overlapping hosted run
+— it repeats one of the hook's five checks, in its fuller form, and adds four
+the hook never runs, while leaving four of the hook's five with no hosted
+backstop at all (the merge gate is where those are caught) — while
+the other runs a one-check hook and has no hosted checks at all, which is where
 14.3's conflict comes from.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
@@ -793,3 +829,5 @@ standing baseline behaves.*
 | 15.33 | A known flake is fixed at its ROOT CAUSE: never papered over with a retry, a rerun-failed action, an ignore marker, or forcing single-threaded runs | — | A check that fails intermittently is fixed at its cause. Never paper over it with a retry, a rerun-the-failures step, an ignore marker, or forcing everything to run one at a time — each of those keeps the gate green while it stops meaning anything. | |
 | 15.34 | A feature switch that limits what SHIPS must not also limit what gets COMPILED during verification: keep the switch for dependency weight, but build all features when verifying | — | A switch that limits what ships must not also limit what gets compiled while verifying. Keep it for what it is for — weight in the shipped product — and build everything when checking, or the code behind it is never compiled at all. | |
 | 15.35 | A regression census records MAGNITUDE, not just presence or count, or a defect can double in place while the gate stays green | — | A count of known problems records how big each one is, not merely that it exists. Recording presence alone lets a defect double in place while the gate stays green. | |
+| 15.36 | A gate parses the DOCUMENT and the CODE and fails if they disagree: the decision record states the provenance type's variant set explicitly, so an eighth variant either updates that record in the same change or breaks the gate. Run both in the hosted check and in the merge gate | — | A document that states a fact about the code is machine-checked against the code at the gate, so the fact cannot drift quietly: the change that moves the fact either updates the document or turns the gate red. Where the document could instead be generated from the code, that is the stronger remedy and this check is the fallback for where it cannot (9.63). | |
+| 15.37 | Two models of the same pipeline, plus the preview page's embedded copy, must agree — checked in structure mode where the full checker cannot run. It exists because the forward and backward models once drifted three commits apart unnoticed | — | Two artifacts that must describe the same thing are checked against each other at the gate and advance together. Unchecked they drift quietly, and you end up with two descriptions of one thing, several changes apart, with nothing saying which is current. Where a check cannot run in full, run the part of it that can rather than skipping it. A generator that derives one artifact from the other is stronger still (9.63). | |
