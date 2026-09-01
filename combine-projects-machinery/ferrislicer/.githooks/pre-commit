@@ -1,0 +1,70 @@
+#!/bin/sh
+# Governance pre-commit gate (GIT_341). Activate once per clone:
+#   git config core.hooksPath .githooks
+#
+# BLOCKING (mechanical checks only):
+#   - register_check.py --fast: register citations exist, SUPERSEDED stamps
+#     bidirectional, docs/rule-inbox.md fully dispositioned (no PENDING).
+#   - citation_creation_gate.py: every NEW `path:line` citation staged in this
+#     commit resolves to a real, non-blank line (GIT_624/GIT_625). This is
+#     the natural home for it -- creation time is exactly "the moment this
+#     hook runs" -- and it never re-checks a citation this commit did not
+#     touch (Gabe's ruling: validate once, at authoring time, never again).
+#   - gen_issue_rules_doc.sh --check (GIT_706): docs/github-issue-rules.md
+#     must be byte-identical to a fresh render of
+#     docs/github-issue-rules.template.md (placeholder, no rule text) +
+#     the marked block from its authority, docs/rules/tracking-work.md.
+#     Supersedes issue_rules_drift_gate.sh (GIT_704, deleted in GIT_706;
+#     recoverable at 1e0291f5), which only detected
+#     drift in the restated bullet text after whitespace normalization --
+#     this check catches ANY divergence in the whole rendered file and
+#     the template physically cannot hold a second hand-authored copy of
+#     the rule text. Runs unconditionally (cheap, marker-bounded render),
+#     same as register_check.py, rather than gating on staged files.
+#   - check_ledger_tables.py (GIT_708): docs/INVARIANTS.md's tables have the
+#     right cell count per row (a short row silently drops or merges a
+#     column) and no unresolved TICKET-PENDING placeholder. Written in
+#     GIT_303, never wired until GIT_708's dead-gate audit found it.
+#   - quiet_hook_test.py (GIT_710): unit tests for .claude/hooks/quiet_hook.py
+#     and quiet_run.py, the PreToolUse hook that filters every matching tool
+#     call's output. Live code, tested nowhere, until GIT_710's dead-gate
+#     audit found it -- same pattern as check_ledger_tables.py above: this is
+#     where the consequence lands (these hooks shape local tool output),
+#     merge-gate.sh is the documented backstop, cost is not a factor
+#     (~0.007s).
+# ADVISORY (never blocks - per Gabe's no-language-matching ruling, content
+# matching over docs may warn, never reject):
+#   - staged rule-marker lines in rule-bearing docs without a staged register
+#     change.
+#   - sweep guard (GIT_700, scripts/sweep_guard.sh): a docs-shaped commit
+#     staging a NEWLY-TRACKED non-doc file is the wildcard-add sweep
+#     signature (incident 5465f460); warns naming the file, with denominator.
+
+set -u
+fail=0
+
+python scripts/register_check.py --fast || fail=1
+python scripts/citation_creation_gate.py || fail=1
+bash scripts/gen_issue_rules_doc.sh --check || fail=1
+python scripts/check_ledger_tables.py || fail=1
+python .claude/hooks/quiet_hook_test.py || fail=1
+
+staged=$(git diff --cached --name-only)
+if printf '%s\n' "$staged" | grep -Eq '^(CLAUDE\.md|docs/INVARIANTS\.md|docs/superpowers/specs/|docs/refactors/)'; then
+  if ! printf '%s\n' "$staged" | grep -q '^docs/RULES-GROUPED\.md$'; then
+    markers=$(git diff --cached -U0 -- CLAUDE.md docs/INVARIANTS.md 'docs/superpowers/specs/*' 'docs/refactors/*' 2>/dev/null \
+      | grep -E '^\+' | grep -Ec 'HARD RULE|by construction|never|must' || true)
+    if [ "${markers:-0}" -gt 0 ] 2>/dev/null; then
+      echo "ADVISORY: $markers added rule-marker line(s) in rule-bearing docs with no staged register change."
+      echo "ADVISORY: if this adds/changes/supersedes a rule, update docs/RULES-GROUPED.md in this commit (/rule-intake)."
+    fi
+  fi
+fi
+
+sh scripts/sweep_guard.sh || true
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-commit: governance gate FAILED (see FAIL lines above). Commit rejected."
+  exit 1
+fi
+exit 0
