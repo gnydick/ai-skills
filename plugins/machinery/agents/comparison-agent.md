@@ -1,6 +1,7 @@
 ---
 name: comparison-agent
-description: Dispatch before merging anything that could move the product's output — engine changes, changes to a default value, algorithmic or performance rewrites — to compare the product's output against a known-good reference implementation's and deliver the one verdict a merge decision can rest on. Leads with the verdict, tells a regression from a pre-existing difference, and never edits anything to make a row pass.
+description: Compares this build's output against a reference implementation's, verdict first, separating regression from pre-existing difference. Never rebakes an expectation, never edits to pass, reports skipped as unproven.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Comparison agent

@@ -271,68 +271,6 @@ session start.
   inside the same visual group, and moves with it. Its scope should be inferable
   from where it is alone, and unrelated content never comes between them.
 
-## Auditing invariants: the denominator
-
-- The denominator of an audit is generated from the material itself, so it is
-  reproducible rather than asserted. It lists every entry the audit is obliged
-  to dispose of.
-- The first half is every stated claim: a comment on something public whose
-  words assert an invariant. Of each the audit asks one question — is there a
-  mechanism, or only the sentence?
-- The second half is the obligation shapes: patterns in the code that carry an
-  invariant obligation whether or not anybody ever stated one. Of each the audit
-  asks two questions — is it stated, and is it enforced?
-- The standing obligation shapes are: a field whose documentation names a
-  sibling field; the same fact stored twice, such as a count kept beside the
-  collection it counts or a value kept beside a variant of itself; a record
-  holding a kind alongside fields meaningful for
-  only some of those kinds; a comparison against a magic value or a domain value
-  clamped at zero; taking the first or last element of a collection with a call
-  that fails when it is empty, where nothing proves it is not; a quantity
-  carried as a raw number where a dedicated type already exists; a public
-  function with two or more adjacent parameters of the same simple type, which a
-  caller can transpose without complaint; public methods that begin, initialise,
-  set, finalise, end or reset something mutable, a required order that nothing
-  enforces; and a call whose result is thrown away or quietly replaced by a
-  default, so a failure has nowhere to be seen.
-- Test code inside the shipped units is excluded as not being the shipped
-  surface, but dead or test-only code found outside it still gets an entry and
-  is dispositioned like any other. Nothing is silently dropped from the
-  denominator.
-- The generator is deterministic: anything unordered is sorted before it reaches
-  the output. Otherwise the same input produces different evidence on different
-  runs, which destroys regenerate-and-compare — the verification the whole
-  artifact rests on.
-- The generator sanitises its own evidence text at the point of writing, so one
-  entry can never break into two rows and make the file's line count disagree
-  with the entry count.
-
-## Auditing invariants: the output
-
-- The audit table is checked structurally: every row has the declared number of
-  columns, every identifier is unique, and every identifier exists in the
-  denominator. The check prints the row count, the denominator and how many
-  entries remain.
-- Every actionable finding lands in exactly one fix, and that is asserted
-  mechanically. A fix then cannot be quietly dropped from the work list while
-  its findings stay open in the ledger.
-- Two artifacts with two jobs: the table is the ledger, dispositioning every
-  entry and proving nothing was skipped; the fix list is the work list,
-  deduplicated so one remedy appears once instead of once per finding.
-- The one judgement call in the report — the order of the fixes, by consequence
-  — is labelled as a judgement call. Everything else, the memberships and the
-  counts, is derived mechanically.
-- Findings already enforced, and findings retired as not really invariants, are
-  reported as counts and left out of the work list. They are dispositioned, not
-  deleted.
-- A shape whose detector cannot yet tell a real obligation from a false positive
-  is declared blocked, with the detector work named as the prerequisite. Its
-  entries are not called fixes and not called false positives until that runs.
-- The report states what the method cannot see: invariants nobody ever wrote
-  down that match none of the shapes. It also says row counts are not effort,
-  because a large mechanical fix and a small user-visible one look the same in a
-  count.
-
 ## Carrying instrumentation
 
 - All code carries full instrumentation and profiling capability, and new code
@@ -383,4 +321,4 @@ session start.
   together inside that one value, so a second run in the same process cannot
   report the first run's work over its own count.
 
-<!-- rows: 9.1, 9.11, 9.13, 9.33–9.35, 9.42, 9.51–9.52, 9.72, 9.79, 9.84–9.85, 9.89–9.106, 9.108–9.115, 9.117–9.118, 9.120–9.164, 9.172–9.180, 9.182–9.185 -->
+<!-- rows: 9.1, 9.11, 9.13, 9.33–9.35, 9.42, 9.51–9.52, 9.72, 9.79, 9.84–9.85, 9.89–9.106, 9.108–9.115, 9.117–9.118, 9.120–9.142, 9.172–9.180, 9.182–9.185 -->

@@ -20,22 +20,9 @@ plugin/
   README.md                        this file
   WIRING.md                        what a platform must provide, mechanism by
                                    mechanism, and how activation works
-  rules/
-    straight-talk.md               what you claim, what you admit, how briefly
-    rule-governance.md             dictating, filing and superseding a rule
-    verification-and-evidence.md   predictions, evidence, tests, measurement
-    agent-topology.md              dispatch, models, containment, agent
-                                   conventions
-    worktree-discipline.md         the life of an isolated working copy
-    work-tracking.md               tickets, companion entries, learnings
-    design-invariants.md           what extends the mandatory design skill
-    reference-sources.md           reading someone else's implementation
-    environment-and-platform.md    platform scope, tool resolution, dependencies
-    tool-output.md                 proof lines, denominators, heartbeats
-  register/
-    INDEX.md                       the index over rules/: what each file
-                                   governs, what a row records, what the
-                                   register check verifies
+  Rules, the register index, and the agent briefs now live in
+  `plugins/machinery/` (the running plugin); the stories and WIRING here are
+  the platform-neutral spec it implements.
   hooks/
     rule-capture.md                captures a dictated rule the moment it is
                                    dictated
@@ -59,11 +46,6 @@ plugin/
     refresh-diverged-branch/SKILL.md
                                    the sequence that rebuilds a long-diverged
                                    edition branch
-  agents/
-    invariant-auditor.md           audits a diff for how strongly its stated
-                                   invariants are really enforced
-    comparison-agent.md            compares the product's output against a
-                                   reference implementation's
 ```
 
 ## How the pieces relate
