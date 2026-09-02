@@ -56,7 +56,17 @@
             "dream"
           ]
         },
-        "machinery": { "path": "plugins/machinery", "skills": [] }
+        "machinery": {
+          "path": "plugins/machinery",
+          "skills": [
+            "install",
+            "reload",
+            "reindex",
+            "rule-intake",
+            "effort-lifecycle",
+            "refresh-diverged-branch"
+          ]
+        }
       }
     },
     "claude-ai-zip": { "kind": "zip", "path": "dist", "implemented": false },
