@@ -73,17 +73,17 @@ that only the genuine part is reconciled by hand.
 
    - Identical at both tips: nothing to do.
    - The primary line is simply far ahead — it added a great deal and the
-     edition trails by thousands of lines: keep the primary line's version and
-     graft back only the small hook the edition added. Do not hand-merge
+     edition trails by thousands of lines: keep the primary line's version,
+     and graft back only the small hook the edition added. Do not hand-merge
      thousands of stale lines.
-   - Both sides changed comparably: this is real divergence, and it is
-     reconciled by hand in step 5.
+   - Both sides changed comparably: this is real divergence.
 
    Two kinds of file skip that judgement entirely. Documentation takes both
    sides' additions. A generated lock file is regenerated, never hand-merged.
 
    You end this step with the both-changed bin split into *keep the primary
-   line's version* and *real divergence*.
+   line's version, graft the hook* and *real divergence*. Both parts still owe
+   work in step 5; neither is finished here.
 
 4. **Start the rebuilt branch as a fresh copy of the primary line, then
    re-apply the one-sided bin from step 2 word for word.**
@@ -93,13 +93,13 @@ that only the genuine part is reconciled by hand.
    git checkout <edition> -- $(cat one-sided.txt)
    ```
 
-   Because the branch already *is* the primary line, every file step 3 marked
-   *keep the primary line's version* is already correct and needs no action at
-   all. What remains is only the *real divergence* set.
+   Because the branch already *is* the primary line, no file in either part of
+   the both-changed bin needs replacing: each is already at the version step 3
+   said to keep. What they still owe is the grafting, and that is step 5.
 
-5. **Graft the edition's intent onto the real-divergence set from step 3.**
-   For each of those files, the edition's intent is what it changed relative
-   to the common ancestor found in step 1:
+5. **Graft the edition's intent onto both parts of the both-changed bin from
+   step 3.** For each of those files, the edition's intent is what it changed
+   relative to the common ancestor found in step 1:
 
    ```sh
    git diff "$base"..<edition> -- <file>
@@ -107,14 +107,19 @@ that only the genuine part is reconciled by hand.
 
    Apply only the small identifiable blocks that carry that intent onto the
    primary line's current version, which may have been reorganized around
-   them. Do not replay the whole file.
+   them. Do not replay the whole file. For a file in the *keep the primary
+   line's version, graft the hook* part that is the one small hook and nothing
+   else; for one in the *real divergence* part it is the handful of blocks
+   that make up the genuine delta.
 
-6. **Re-home any file that exists on the edition line alone.** It goes into
-   that edition's own module — never back into shared code behind a
-   conditional-compilation switch. The shared side keeps the interface; the
-   edition supplies the implementation, and consumers' imports are updated to
-   match. This is what stops that file from being a shared-file conflict at
-   every future refresh, so it is not optional tidying.
+6. **Re-home the files that exist on the edition line alone** — the members of
+   the one-sided bin from step 2 that have no counterpart on the primary line,
+   the ones step 4 re-applied word for word. Each goes into that edition's own
+   module, never back into shared code behind a conditional-compilation
+   switch. The shared side keeps the interface; the edition supplies the
+   implementation, and consumers' imports are updated to match. This is what
+   stops that file from being a shared-file conflict at every future refresh,
+   so it is not optional tidying.
 
 7. **Verify the branch you built in steps 4 to 6, before promoting it.** Run
    the ordinary tests and checks, plus a build for the edition's own target.

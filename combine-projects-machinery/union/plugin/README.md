@@ -67,19 +67,21 @@ plugin/
 ## How the pieces relate
 
 **Rules bind every session.** Each file under `rules/` is loaded at session
-start, unconditionally, and it holds the rule itself — the only copy. Nothing
-else restates a rule; everything else points at the file and section where it
-lives.
+start, unconditionally, and it is the authority for the rules it holds. Where
+a skill repeats a rule's instruction at the step that carries it out, the rule
+file wins; the reason behind a rule is argued in the rule file alone, and
+everything else points at the file and section where it lives.
 
 **The register indexes the rules.** `register/INDEX.md` records what was
 decided, where each decision lives, how settled it is, and what supersedes
 what. It cites; it never originates, so a rule that exists only in the index
 has no home. Its own check is mechanical and is described in the file.
 
-**Skills are sequences.** A skill says what to do in what order, and never
-what must hold — that belongs to a rule file. Every skill opens by naming the
-rule files it works under, and a skill and a rule file that disagree are
-resolved in the rule file's favour.
+**Skills are sequences.** A skill says what to do in what order. What must
+hold, and why, belongs to a rule file: a step may state the instruction it is
+carrying out, but it points at the rule file section rather than re-arguing
+the reason. Every skill opens by naming the rule files it works under, and a
+skill and a rule file that disagree are resolved in the rule file's favour.
 
 **Hooks and gates are mechanisms.** They are the parts a platform implements,
 so they are written as stories a platform reads rather than code it runs. A
@@ -113,7 +115,9 @@ each hook and gate story per `WIRING.md`.
 
 **On a platform with no rules directory**, which loads one always-present
 instruction document instead, inline the rule files into that document, one
-section per rule file, keeping the headings as they are. The register's
+section per rule file. Each rule file's own title becomes a section heading of
+that document, and every heading inside it drops one level to sit under it, so
+the section names the register cites survive the move. The register's
 citations then name that document and those sections rather than ten separate
 files, and everything else is unchanged. Do not summarise a rule file down to
 a bullet and leave the full text elsewhere: a summary layer is a second copy,
@@ -124,8 +128,9 @@ and the two drift.
 Every statement in this plugin is traceable to a reconciled row. The full
 table of both projects' machinery, the universal form proposed for each row,
 and the owner's verdict on each is `../RECONCILIATION.md`. The four most
-detailed groups — standing agents, the register, commit gates, merge gates and
-ratchets — are compacted to one line per mechanism in `../COMPACT-12-15.md`.
+detailed groups — standing agents, the register, commit gates, and merge gates
+with their ratchets — are compacted to one line per mechanism in
+`../COMPACT-12-15.md`.
 Each file here ends with an HTML comment naming the rows it carries.
 
 ## What was deliberately left out
