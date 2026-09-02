@@ -27,9 +27,7 @@ function quietEnv() {
 
 function logDir() {
   const job = process.env.CLAUDE_JOB_DIR;
-  const d = job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
-  fs.mkdirSync(d, { recursive: true });
-  return d;
+  return job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
 }
 
 function parseArgs(argv) {
@@ -57,16 +55,21 @@ function main() {
   const [exe, args] = SHELLS[a.shell](command);
   const t0 = Date.now();
   const r = spawnSync(exe, args, { env: quietEnv(), stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 });
+  if (r.error) { process.stderr.write(`quiet-run: could not start ${a.shell}: ${r.error.message}\n`); return 1; }
   const code = r.status ?? 1;
   const raw = Buffer.concat([r.stdout ?? Buffer.alloc(0), r.stderr ?? Buffer.alloc(0)]); // both streams as one (step 19)
-  fs.writeFileSync(logPath, Buffer.concat([Buffer.from(`$ ${command}\n`), raw]));
+  let logDisplay = logPath;
+  try {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.writeFileSync(logPath, Buffer.concat([Buffer.from(`$ ${command}\n`), raw]));
+  } catch (e) { logDisplay = `(unavailable: ${e.message})`; }
   const lines = normalise(raw);
   const forced = process.env.MACHINERY_QUIET === '0';
   const verbatim = forced || (a.mode !== 'infra' && lines.length <= PASS_THROUGH_LINES);
   if (verbatim) process.stdout.write(lines.join('\n') + (lines.length ? '\n' : ''));
   else {
     const keep = a.mode === 'infra' ? selectInfra(lines, code) : select(lines);
-    const header = `[quiet:${a.mode}] exit=${code}  ${((Date.now() - t0) / 1000).toFixed(1)}s  ${lines.length} lines -> ${Math.min(keep.size, MAX_SHOWN)} shown  full log: ${logPath}`;
+    const header = `[quiet:${a.mode}] exit=${code}  ${((Date.now() - t0) / 1000).toFixed(1)}s  ${lines.length} lines -> ${Math.min(keep.size, MAX_SHOWN)} shown  full log: ${logDisplay}`;
     process.stdout.write(render(lines, keep, header) + '\n');
   }
   if (a.cmdfile) { try { fs.rmSync(a.cmdfile); } catch {} }

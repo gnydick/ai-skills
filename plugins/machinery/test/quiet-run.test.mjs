@@ -51,3 +51,21 @@ test('RED CHECK: an unknown shell is refused (spec I21)', () => {
   assert.notEqual(r.code, 0);
   assert.match(r.stderr, /shell/);
 });
+
+test('an unwritable log directory does not swallow output or exit status (failure-open)', { skip: !bash }, () => {
+  // Point CLAUDE_JOB_DIR at a temp dir whose "tmp" entry is a regular FILE, so the
+  // log directory can never be created — the wrapper must still print the filtered
+  // output and preserve the command's own exit status.
+  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'quiet-run-nodir-'));
+  fs.writeFileSync(path.join(jobDir, 'tmp'), 'not a directory');
+  const r = runScript('scripts/quiet-run.mjs', {
+    args: ['--shell', 'bash', '--mode', 'filter', '-c', gen(100, 3)],
+    env: { CLAUDE_JOB_DIR: jobDir },
+  });
+  assert.equal(r.code, 3);
+  const [header, ...rest] = r.stdout.trim().split('\n');
+  assert.match(header, /^\[quiet:filter\]/);
+  assert.match(header, /full log: \(unavailable:/);
+  assert.ok(rest.some((l) => l === 'error: boom'));
+  fs.rmSync(jobDir, { recursive: true, force: true });
+});
