@@ -1,0 +1,44 @@
+// Story: hooks/quiet-output.md steps 4–14. Precedence is the ORDER below and
+// nowhere else (spec I10, I18): never → piped → redirected → read → infra → noisy → plain.
+const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)*`;
+
+const NOISY = new RegExp(LEAD + String.raw`(?:` +
+  String.raw`cargo\s+(?:\+\S+\s+)?(?:build|b|test|t|check|c|clippy|run|r|bench|doc|install|update|fetch|clean|nextest|fmt|llvm-cov|tarpaulin|xtask)\b` +
+  String.raw`|(?:npm|pnpm|yarn|bun)\s+(?:install|i|ci|add|run|test|build|update|up|exec|create)\b` +
+  String.raw`|npx\s+\S+` +
+  String.raw`|pip3?\s+(?:install|download|wheel|uninstall)\b` +
+  String.raw`|uv\s+(?:pip|sync|run|tool|add)\b` +
+  String.raw`|(?:python3?|py)\s+-m\s+(?:pip|pytest|build|venv|unittest)\b` +
+  String.raw`|pytest\b|tox\b|maturin\b|poetry\s+(?:install|run|build|update)\b` +
+  String.raw`|(?:cmake\s+--build|make\b|ninja\b|msbuild\b|dotnet\s+(?:build|test|restore|run)|gradle\w*\b|mvn\b)` +
+  String.raw`|docker\s+(?:build|pull|compose|push)\b` +
+  String.raw`|git\s+(?:clone|fetch|pull)\b` +
+  String.raw`|rustup\s+(?:update|install|toolchain|component)\b` +
+  String.raw`|(?:python3?|py)\s+(?:-\S+\s+)*(?:\./|\.\./)?(?:scripts|\.claude/hooks)/\S*_test\.py\b` +
+  String.raw`|sccache\s+--start-server\b` +
+  String.raw`|gh\s+(?:run\s+(?:view|watch|download)|pr\s+checks|auth\s+status|extension\s+(?:install|upgrade))\b` +
+  String.raw`)`);
+
+const INFRA = new RegExp(LEAD +
+  String.raw`(?:git\s+(?:-C\s+\S+\s+)?(?:commit|push|pull|fetch|merge|rebase|clone|cherry-pick|worktree\s+(?:add|remove|prune)|submodule)\b` +
+  String.raw`|gh\s+(?:pr\s+(?:create|merge|close|ready|review|comment|edit)|issue\s+(?:create|edit|comment|close|reopen|transfer|pin|unpin|develop)|workflow\s+(?:run|enable|disable)|release\s+(?:create|upload|delete)|run\s+(?:rerun|cancel)|repo\s+(?:clone|fork|sync|create)|label\s+(?:create|clone|delete)|auth\s+(?:login|refresh|setup-git))\b)`);
+
+const GH_READ = new RegExp(LEAD +
+  String.raw`gh\s+(?:issue\s+(?:view|list|status)|pr\s+(?:view|list|diff|status)|api\b|search\b|release\s+(?:view|list)|run\s+list|repo\s+(?:view|list)|label\s+list|project\b|gist\s+(?:view|list)|workflow\s+(?:view|list))\b`);
+
+const PIPED = /\|\s*(?:tail|head|grep|rg|wc|sed|awk|sort|uniq|jq|tee|less|cut|python|py|quiet[-_]run)\b/;
+const NEVER = /quiet[-_]run\.(?:py|mjs)|--version\b|-V\b|--help\b/;
+const FILE_REDIRECT = /\d?>\s*\S/;
+
+export const MODES = Object.freeze(['read', 'piped', 'redirected', 'infra', 'noisy', 'plain']);
+
+export function classify(command) {
+  if (!command || NEVER.test(command)) return 'plain';
+  if (PIPED.test(command)) return 'piped';
+  // quiet_hook.py:105 — a stderr-merge token cancels the redirect exemption entirely.
+  if (command.includes('>') && FILE_REDIRECT.test(command) && !command.includes('2>&1')) return 'redirected';
+  if (GH_READ.test(command)) return 'read';
+  if (INFRA.test(command)) return 'infra';
+  if (NOISY.test(command)) return 'noisy';
+  return 'plain';
+}
