@@ -71,6 +71,27 @@ test('--machine creates the junction ~/.claude/rules/machinery → rules source 
   }
 });
 
+test('--machine refuses to replace a real directory sitting at the junction path', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const tempRules = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  try {
+    fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
+    fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: tempRules }));
+    const link = path.join(home, '.claude', 'rules', 'machinery');
+    fs.mkdirSync(link, { recursive: true });
+    fs.writeFileSync(path.join(link, 'keep.md'), 'do not delete me\n');
+    const res = runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
+    assert.notEqual(res.code, 0);
+    assert.ok(fs.existsSync(link));
+    assert.ok(fs.existsSync(path.join(link, 'keep.md')));
+    assert.equal(fs.readFileSync(path.join(link, 'keep.md'), 'utf8'), 'do not delete me\n');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
+    fs.rmSync(tempRules, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 test('RED CHECK: outside a git repository the project install refuses', () => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'norepo-'));
   const res = runScript('scripts/install.mjs', { args: ['--root', d], cwd: d });

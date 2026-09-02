@@ -18,6 +18,9 @@ function link(target, source) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   if (fs.existsSync(target)) {
     if (fs.realpathSync.native(target) === fs.realpathSync.native(source)) return 'already';
+    // A junction reports as a symbolic link to lstat on Windows; a real directory does not.
+    // Never delete a real directory sitting at the target path (spec: refuse, don't clobber).
+    if (!fs.lstatSync(target).isSymbolicLink()) return 'not-a-junction';
     fs.rmSync(target, { recursive: false, force: true });
   }
   if (process.platform === 'win32') execFileSync('cmd', ['/c', 'mklink', '/J', target, source], { stdio: 'pipe' });
@@ -30,7 +33,9 @@ function installMachine() {
   const target = path.join(home, '.claude', 'rules', 'machinery');
   const src = rulesSource();
   if (!fs.existsSync(src)) { process.stderr.write(`rules source does not exist: ${src}\n`); return 1; }
-  say(`~/.claude/rules/machinery -> ${src}: ${link(target, src)}`);
+  const result = link(target, src);
+  if (result === 'not-a-junction') { process.stderr.write(`refusing to replace ${target}: not a junction; move it aside and rerun\n`); return 1; }
+  say(`~/.claude/rules/machinery -> ${src}: ${result}`);
   return 0;
 }
 
