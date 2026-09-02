@@ -28,6 +28,11 @@ fall on the tools it filters.
   still working, in a single shape used across every tool so one pattern
   recognizes them all. It names the tool, shows it is alive, and gives progress
   where progress is knowable, because a count beats a bare pulse.
+- The shape: a single line beginning with a fixed liveness token, then the
+  tool's name, elapsed time, and optional progress (a denominator preferred
+  over a bare pulse), emitted at a bounded, regular interval. The literal
+  token and the interval are a project's own choice, fixed once and matched
+  by one pattern everywhere.
 - The heartbeat goes to the tool's own output, upstream of any redirect into a
   log. One written inside the redirect reaches nobody.
 - A heartbeat survives the filter in every mode, including when it is buried in

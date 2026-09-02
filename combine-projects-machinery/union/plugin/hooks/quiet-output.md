@@ -169,10 +169,12 @@ wrapper then runs in the command's own place.
     already-satisfied, using-cached, preparing and unpacking lines; a
     per-case "… ok" line; an unused-something warning; a diagnostic gutter
     line.
-25. The declared proof-line format has exactly two shapes: a heartbeat line, or
-    `<identifier>[ <flag>]: <text>` where the identifier is lower-case words
-    joined by underscores. It is anchored to the *format*, never to a list of
-    tool names, so a tool nobody named survives with no edit to the filter.
+25. The declared proof-line format has exactly two shapes: a heartbeat line
+    (the heartbeat shape is defined in `rules/tool-output.md` § Heartbeats),
+    or `<identifier>[ <flag>]: <text>` where the identifier is lower-case
+    words joined by underscores. It is anchored to the *format*, never to a
+    list of tool names, so a tool nobody named survives with no edit to the
+    filter.
     Requiring at least one underscore is what keeps prose out — a bare word
     followed by a colon does not match — and that narrowness is measured
     against real bulk output rather than assumed.

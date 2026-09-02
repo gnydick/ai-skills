@@ -8,11 +8,10 @@ briefs for the agents that are dispatched to judge work.
 It is all prose, and it is platform-neutral. Nothing here is a script or
 configuration for one particular assistant harness; where version control
 itself is the mechanism, its commands appear as the only concrete tooling. A
-mechanism
-is written as a story — when it runs, what it reads, what it does, what the
-user sees, and the checks that say it works — so that any platform can
-implement it in whatever its own hooks and gates look like. `WIRING.md` is the
-bridge from these stories to a real harness.
+mechanism is written as a story — when it runs, what it reads, what it does,
+what the user sees, and the checks that say it works — so that any platform
+can implement it in whatever its own hooks and gates look like. `WIRING.md`
+is the bridge from these stories to a real harness.
 
 ## The map
 

@@ -746,7 +746,11 @@ No `RECONCILIATION.md` row was modified. No feedback cell was touched.
 
 ## Triage
 
-Every deferred-minor from earlier reviews, with the decision.
+Deferred minors bearing on the union, with the decision. The remainder —
+table-cell length, wording, report arithmetic, items in phase-1 copies
+only — do not reach the union files and ride; the final whole-branch
+review triaged all of them and found none needing a fix beyond the three
+it named.
 
 | Item | Decision |
 |---|---|
