@@ -1,0 +1,14 @@
+# Installed by /machinery:install --hosted. Runs the same document checks the
+# commit gate runs, on every push and change request, with no build toolchain.
+# The hosted check BLOCKS (ruled 2026-09-02): protect the branch on this job.
+name: machinery
+on: { push: {}, pull_request: {} }
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node .githooks/machinery/gate.mjs --merge --full
