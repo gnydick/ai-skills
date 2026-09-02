@@ -58,6 +58,25 @@ test('partial staging: a staged rule edit without its regenerated (unstaged) ind
   } finally { r.cleanup(); }
 });
 
+test('register check works when --root is a subdirectory of the repo (staged paths are cwd-relative)', () => {
+  const r = makeRepo();
+  try {
+    const sub = path.join(r.root, 'sub');
+    write(sub, '.claude/rules/t.md', RULE);
+    write(sub, '.claude/machinery/inbox.md', '');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'sub install');
+    write(sub, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n- a second rule\n');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', 'sub/.claude/rules/t.md');
+    let res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
+    assert.equal(res.code, 1); assert.match(res.stdout, /register_check: index is stale/);
+    g(r.root, 'add', 'sub/.claude/machinery/INDEX.md');
+    res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+  } finally { r.cleanup(); }
+});
+
 test('a new path:line citation to a blank line blocks; a real one passes (spec I26)', () => {
   const r = makeRepo();
   try {
