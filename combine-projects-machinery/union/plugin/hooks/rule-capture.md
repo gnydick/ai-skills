@@ -29,10 +29,13 @@ sends a prompt and before the assistant composes any part of its reply.
    plainly dictates a rule but carries no mark is not captured.
 4. If the mark is absent, do nothing and report success. An unmarked prompt is
    never stored anywhere.
-5. If the mark is present, resolve the inbox file under the project root from
-   step 3. Filing happens in the project root: a session running in an isolated
-   working copy writes that copy's inbox, and the entry travels with the change
-   that the rule's home is written in.
+5. If the mark is present, resolve the inbox file under the project root read
+   above. The hook writes wherever the session is running, and the convention
+   that dictating and filing a rule happen in the shared copy is stated in
+   `rules/agent-topology.md` § Where an agent works, not enforced here: a
+   session that dictates a rule from inside an isolated working copy writes
+   that copy's inbox instead, which is the mechanism being honest about a
+   convention it cannot itself hold.
 6. Append exactly one entry to that file: a blank separator line, a heading
    carrying the capture time in coordinated universal time and the session
    identifier (a fixed placeholder when the payload carries none), the prompt
@@ -86,7 +89,8 @@ no text at all: nothing. Silence is the normal case.
   with its pending disposition.
 - Given a marked prompt submitted from a session whose project root is an
   isolated working copy, when the entry is written, then it lands in that
-  copy's inbox and not in the shared checkout's.
+  copy's inbox and not in the shared checkout's — the hook enforces no
+  convention about where a rule may be dictated from.
 - Given two marked prompts carrying identical text, when both are submitted,
   then the inbox holds two entries: the hook never deduplicates and never
   edits.

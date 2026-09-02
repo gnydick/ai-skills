@@ -18,9 +18,11 @@ mandatory design skill, so all 134 ids carry live statements here.
 
 ## Decision sheet (owner, 2026-09-02)
 
-Groups 12–15 were ruled at mechanism level. This supersedes the "no row in 12–15
-is excluded" sentence above: eleven group-12 rows are now `✗ not in union`, and a
-`✗ ` on a line below means that line's rows are those drops.
+Groups 12–15 were ruled at mechanism level. This supersedes both halves of the
+last sentence above: eleven group-12 rows are now `✗ not in union`, so 123 of the
+134 ids carry live statements here and eleven carry the record of a drop. A `✗ `
+on a line below means that line's rows are those drops — except where the line
+also cites a kept row, which is called out on the line itself.
 
 - DROP the field agent: 12.21, 12.23–12.27, 12.29–12.33. The lines carrying its
   agent-wide demands are unmarked and stand — 12.22, 12.34, 12.46, and 12.28,
@@ -36,9 +38,12 @@ is excluded" sentence above: eleven group-12 rows are now `✗ not in union`, an
   regression told from pre-existing difference, never edits to pass, never
   rebakes — with the slicer-parity specifics left in the project.
 - SIMPLIFY the register to an index over `rules/` (the phase-3 shape ruling).
-- SIMPLIFY the commit gate to four fast checks: every commit, the register check,
-  the citation-target check, "bypass twice → fix the checker"; tracked in tree,
-  activated per clone. Heavy checks belong to the merge gate.
+- SIMPLIFY the commit gate to four fast checks, run on every commit: the
+  register check and the citation-target check, which the gate executes and
+  rejects on; plus "bypass twice → fix the checker" and "tracked in tree,
+  activated per clone", which its header states and a person applies. One
+  advisory sweep warning rides beside them and never blocks. Heavy checks belong
+  to the merge gate.
 - KEEP as written: the enforcement auditor, the agent conventions, the register
   check, the decision records, the sweep guard, the merge gate, the ratchet and
   the doc-vs-code gates.
@@ -73,7 +78,7 @@ is excluded" sentence above: eleven group-12 rows are now `✗ not in union`, an
 - Order findings by severity and substantiate each from a file actually read; where the deciding code was not opened, report the rating as unverified rather than inferring it from a name. [12.19, 12.20]
 - Close with the ledger delta: which entries this change makes stale, which it should add. [12.18]
 
-✗ **Field agent** — runs to add one configuration field, to audit one, to explain why a value is not reaching the product, and to review a change touching any of its surfaces — covers that field across all seven: its definition, its type, its wiring, whatever is generated from it, its inheritance and origin, its arrival from foreign inputs, and the gates over all of that — changes and reports, and stops rather than deciding — worked when: it named the authority for every layer, changed only the authority, ran the covering gates and quoted their real output, shipped a test, and either finished or filed and stopped. [12.21, 12.28]
+✗ **Field agent** — runs to add one configuration field, to audit one, to explain why a value is not reaching the product, and to review a change touching any of its surfaces — covers that field across all seven: its definition, its type, its wiring, whatever is generated from it, its inheritance and origin, its arrival from foreign inputs, and the gates over all of that — changes and reports, and stops rather than deciding — worked when: it named the authority for every layer, changed only the authority, ran the covering gates and quoted their real output, shipped a test, and either finished or filed and stopped. [12.21 dropped; 12.28's stop-and-file rule is KEPT and lives in rules/agent-topology.md — only the field-agent framing of it goes]
 
 - It owns no layer's design: name the authority for each and verify against it, read fresh every time, because restating elsewhere a fact that lives somewhere is how that fact rots. [12.22]
 - ✗ Locate the field's current state on every surface before proposing any change, naming which layers it is complete at and which it is missing from. [12.23]
@@ -167,7 +172,7 @@ Trusting it:
 - Track hooks in the repository and activate them per clone by one explicit command; never self-installing. A hook nobody can see in the tree is one nobody maintains, and one that installs itself silently is worse. [14.13]
 - The gate names its own escape hatch for a genuine emergency, and names what using it twice means: the checker is wrong, and the fix is the checker, not the habit. [14.14]
 
-**Hosted document checks** — triggered by exactly the files their gates read, plus a manual start — kept apart from the checks that build the product and needing none of the build toolchain, because a full build for every documentation edit teaches people to batch documentation edits, which is how a register rots — block — worked when: every gate was measured passing on the commit that introduced it, on the platform it actually runs on (a gate measured elsewhere is noise), and each has a demonstrated way of going red, its own self-test running as a gate beside it. [14.15, 14.16, 14.17, 14.18]
+**Hosted document checks** — triggered by exactly the files their gates read, plus a manual start — kept apart from the checks that build the product and needing none of the build toolchain, because a full build for every documentation edit teaches people to batch documentation edits, which is how a register rots — blocks (inferred: rows 14.15–14.18 state the separation, the platform and the self-tests, never the blocking status itself; read as blocking because they run the same checks the commit gate blocks on) — worked when: every gate was measured passing on the commit that introduced it, on the platform it actually runs on (a gate measured elsewhere is noise), and each has a demonstrated way of going red, its own self-test running as a gate beside it. [14.15, 14.16, 14.17, 14.18]
 
 *Your standing note on 14.3 in the table: you suspect different kinds of check have bled together, which is what makes the every-commit form slow.*
 

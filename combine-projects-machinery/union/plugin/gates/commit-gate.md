@@ -1,7 +1,8 @@
 # Commit gate
 
-Four cheap blocking checks and one advisory warning, run on every commit. It is
-cheap on purpose. Anything heavier belongs to the merge gate: the every-commit
+Four cheap checks and one advisory warning, run on every commit — two checks
+the gate executes and rejects the commit on, and two that its header states and
+a person applies. It is cheap on purpose. Anything heavier belongs to the merge gate: the every-commit
 gate in one project had grown past an hour because different kinds of check had
 bled together, and separating them by cost is the only thing that keeps a gate
 this frequent affordable enough for people to leave switched on.

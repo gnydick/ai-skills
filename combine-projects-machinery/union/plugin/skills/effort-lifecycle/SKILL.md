@@ -27,11 +27,11 @@ there by convention:
   verification leg is green, and pushing it;
 - creating, listing and tearing down the working copies themselves.
 
-That maps onto this sequence as follows. **Step 3 (create), step 9 (merge and
-push), step 10 (tear down) and step 11 (list) run from the project root** —
-none of them can run from inside the copy they act on. Step 8's gate runs on
-the merge result, so it runs wherever that merge is made, which is the project
-root as well. **Steps 4 to 7 run inside the copy.**
+That maps onto this sequence as follows. **Step 3 (create), step 8 (merge and
+gate), step 9 (push), step 10 (tear down) and step 11 (list) run from the
+project root** — none of them can run from inside the copy they act on, and
+step 8's gate judges the merge result, so it runs where that merge is made.
+**Steps 4 to 7 run inside the copy.**
 
 If you find yourself about to make a second commit on the shared copy for one
 continuous piece of work, you already needed a copy of your own: stop and make
@@ -81,10 +81,14 @@ belong there either.
 
 ## End
 
-8. **Get green on the merge gate, run on the merge result.** The battery and
-   how it judges are in `gates/merge-gate.md`. Two things this sequence owes
-   it: the gate runs against the merged tree and never against the branch
-   alone, and every required leg passes before the merge starts.
+8. **Make the merge locally in the project root, then get green on the merge
+   gate run against that merged tree — before anything is pushed.** The gate
+   judges the merge result and never the branch alone, so the merge has to
+   exist for it to judge; making it locally is what produces the tree without
+   publishing it. The battery and how it judges are in `gates/merge-gate.md`.
+   Every required leg passes on that tree before step 9 publishes it, and a
+   red leg means the merge is not finished rather than that it may be pushed
+   anyway (`rules/worktree-discipline.md` § Merging and tearing down).
 
    Before merging, consider dispatching the enforcement auditor
    (`agents/invariant-auditor.md`) with the effort's diff. It cannot run
@@ -94,9 +98,10 @@ belong there either.
    incremental cache and rebuild before treating the error as a real breakage
    (`rules/worktree-discipline.md` § Working in it).
 
-9. **Merge from the project root, then push.** Branches kept for exploration
-   are never merged automatically; merging one is always a deliberate
-   decision.
+9. **Push the merge from step 8, from the project root.** Publishing is the
+   deliberate act, and only a merged tree the gate passed is pushed. Branches
+   kept for exploration are never merged at all without a deliberate decision
+   to do so.
 
 10. **From the project root, tear the copy down immediately, in the same
     session: delete the working copy and delete its branch.** This step is not

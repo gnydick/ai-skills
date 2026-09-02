@@ -56,8 +56,9 @@ authority.
    contradiction is not a problem to smooth over; it is the interesting case,
    and steps 5 and 7 carry it through.
 
-4. **Before folding the rule into the candidate that looks like its home, ask
-   whether that group's own remedy would have produced this rule's fix.** If
+4. **Before folding the rule into whichever candidate from step 3 looks most
+   like its home, ask whether that group's own remedy would have produced this
+   rule's fix.** If
    it would not, they are different rules however alike they read. A rule that
    bears on two groups is filed in the one whose trigger it actually fires on
    and cross-referenced from the other with the reason — never copied in twice
@@ -112,7 +113,9 @@ authority.
    deleted from the inbox; it is append-only history.
 
 10. **Run the register check in full, not the cheap commit-time subset**
-    (`register/INDEX.md` § What the check verifies).
+    (`rules/rule-governance.md` § Filing and closing the loop, which is why —
+    what the cheap subset skips is exactly what a bad filing looks like; what
+    the check itself covers is `register/INDEX.md` § What the check verifies).
 
 11. **Commit the rule's home, the index and the inbox together, naming the
     exact paths.** One change, so no reader can find the rule without the row

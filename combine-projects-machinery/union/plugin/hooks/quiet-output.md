@@ -34,8 +34,13 @@ wrapper then runs in the command's own place.
    processor, a sort, a deduplicator, a structured-data query, a tee, a pager,
    an interpreter — do not wrap. Piping wins over everything below it, however
    noisy the command is: the caller's own post-processing is never overridden.
-5. If the command redirects its output to a file, do not wrap. Merging the
-   error stream into the normal stream is not a redirect and exempts nothing.
+5. If the command redirects its output to a file, do not wrap — but only when
+   the line carries no token merging the error stream into the normal stream.
+   That token anywhere on the line cancels this exemption outright, even
+   alongside a genuine file redirect, because merging the two streams is how a
+   noisy command's chatter reaches the terminal despite the redirect. So a
+   redirect alone exempts; a redirect written together with the merge token
+   does not.
 6. If the command line contains a content read — viewing, listing, diffing or
    statusing a ticket or change request, an interface request, a search, or a
    listing of releases, runs, repositories, labels, projects, snippets or
@@ -207,8 +212,11 @@ wrapper then runs in the command's own place.
   scripts, or a file matching the test-runner suffix under the scripts or hooks
   directory, when the pre-run check inspects it, then the mode is reduce; given
   the tracker tool's sign-in-status query, or one of its extension install or
-  upgrade commands, then the mode is reduce as well; and given the same gate
-  script piped into a trimming command, then no mode is chosen at all.
+  upgrade commands, then the mode is reduce as well; given the same gate
+  script piped into a trimming command, then no mode is chosen at all; given a
+  build redirected to a file, then no mode is chosen; and given the same build
+  redirected to a file *and* carrying the stream-merge token, then the mode is
+  reduce — the merge token cancels the redirect exemption.
 - Given a commit, a push, a pull with a rebase, a fetch, a working-copy
   addition, or a ticket creation or comment, then the mode is proof-of-success;
   given a push written with a repository-directory option between the command

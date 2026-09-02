@@ -145,7 +145,9 @@ session start.
   exact damage this rule exists to prevent.
 - If absence means zero elements of that setting's own collection, declare the
   empty value as its default, matching the reference format's own empty
-  defaults. Withholding it makes the definition table fail to build.
+  defaults. Where the definitions are themselves declared in a table the build
+  checks, withholding it makes that table fail to build, which is the
+  mechanism doing the enforcing rather than a reviewer.
 - This is not "give everything a default". Filling one in everywhere is a
   regression, not a fix, because it silently severs every setting whose absence
   meant inherit.
@@ -164,9 +166,11 @@ session start.
   absence is the signal, not a gap.
 - This sharpens the rule against invented defaults rather than replacing it:
   inventing a value for a setting that should have one stays forbidden. What it
-  targets is presence merely believed — resting on some other artifact nobody
-  re-checks — rather than enforced when the thing is built or by the return type
-  itself.
+  targets, on the first-class path specifically, is presence merely believed —
+  resting on some other artifact nobody re-checks — rather than enforced when
+  the thing is built or by the return type itself. On the other two classes
+  there is no presence to believe in, and the question is instead whether the
+  accessor's return type tells the truth about that.
 
 ## External input
 
@@ -231,7 +235,7 @@ session start.
   into the central hub exist. Whether anything downstream consumes it is a
   different question, and not part of this one.
 - That does not relax the separate honesty rule about downstream consumption:
-  something can be fully wired at that central point and still owe work further
+  something can be fully wired into that central hub and still owe work further
   along. Both facts are tracked, and neither is allowed to hide the other.
 
 ## Reading someone else's data model

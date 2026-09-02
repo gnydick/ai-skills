@@ -22,7 +22,13 @@ enter the dependency set. Loaded at session start.
   locations where the lookalike lives. Rejecting the known-bad ones is part of
   resolving, not a separate check.
 - A tool that cannot resolve what it needs fails loudly, naming what it looked
-  for. It never skips quietly, because a skipped check reads as a pass.
+  for. It never skips quietly, because a skipped check reads as a pass. This
+  fires while a tool is being resolved, and its remedy is the explicit path
+  above; the same closing demand fires on a check that cannot run, whose remedy
+  is a printed count, and that one is stated in `rules/tool-output.md` § Proof
+  lines and denominators. Two triggers, two remedies, so the rule is filed
+  twice deliberately rather than copied — neither is a restatement of the
+  other.
 
 ## Dependencies
 
