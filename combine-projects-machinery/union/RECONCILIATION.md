@@ -15,6 +15,9 @@ project terms) | proposed universal form (lay language) | your feedback.
 - `, plus:` after such a pointer = the skill states the row's core demand, and
   what follows the `plus:` is the one thing the row adds and the union must
   still carry.
+- `✗ not in union: ` prefix on the universal cell = the owner ruled this row
+  project-specific; it stays here as the record and is not carried into the
+  union.
 - Leave your verdict in the last column: blank/OK = approved as written;
   anything else = instruction for phase 3.
 
@@ -22,7 +25,8 @@ project terms) | proposed universal form (lay language) | your feedback.
 
 574 rows in 15 groups: 1 Straight Talk 10, 2 Rule Governance 34, 3 Verification
 & Evidence 50, 4 Agent Topology & Economy 25, 5 Worktree & Campaign Discipline
-40, 6 Work Tracking 35, 7 Test Double & UAT Discipline 8, 8 Tool Output Hygiene
+40, 6 Work Tracking 35, 7 Test Double & UAT Discipline 8 (excluded from the
+union by owner ruling — see the group heading), 8 Tool Output Hygiene
 32, 9 Design Invariants 181, 10 Reference Sources 14, 11 Environment & Platform
 11, 12 Standing Agents 47, 13 Register System 32, 14 Commit Gates 18, 15 Merge
 Gates & Ratchets 37.
@@ -347,16 +351,21 @@ process runs and who owns it is 4.22. Nothing here is enforced by a machine —
 the teeth are that a completion claim with no note of what was driven fails on
 its face, which is reviewable by eye where "did you run it" is not.*
 
+*Owner ruling, 2026-09-01: this whole group is web-app-specific and is
+dropped from the union. All eight rows below are marked `✗ not in union:
+`; phase 3 does not carry any of them forward. The rows and their
+per-project cells remain here as the record.*
+
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
-| 7.1 | — | The full mock suite runs DURING development — keep `pnpm mock` up while building UI — and a user-facing change is not done until it has been driven against mock-duet. A green unit suite is not UAT: it exercises the units you wrote a fixture for, not the wiring a person touches | Keep a stand-in for the real target running while you build, and treat a user-facing change as unfinished until you have driven it against that stand-in by hand. A green test suite is not the same evidence: it exercises the pieces someone wrote fixtures for, not the wiring a person actually touches. | |
-| 7.2 | — | A completion claim RECORDS the UAT: what was driven, against which scenario, what was observed. No note means the change is not done | A claim that something is done states what was driven, against which scenario, and what was observed. With no such note, the change is not done. | |
-| 7.3 | — | A change to what the UI reads from or writes to the board — a new object-model key, file path, config version, endpoint — updates `packages/mock-duet` in the SAME change. Mock parity is part of the work, not a follow-up ticket | A change to what the product reads from or writes to the real target updates the stand-in in the same change, never as a follow-up. A stand-in a version behind cannot host the hands-on run everything else depends on, so letting it drift disables the rule that catches everything else. | |
-| 7.4 | — | Nothing deploys to the printer until Gabe has UAT'd it on the mock. Sequence: work lands, review clean, mock stood up and handed to him, HE drives it, he says deploy. A clean review is not permission to ship | Nothing reaches the real target device until the owner has driven it on the stand-in himself. A clean review is not permission to ship: the implementer's own run is evidence that it works, the owner's run is the gate that lets it reach hardware. | |
-| 7.5 | — | EVERY code-complete iteration is deployed to the mock and announced — not only the final one, not gated on review being clean — so Gabe can drive it while review and fix rounds continue | Stand every code-complete iteration up on the stand-in and say so, early and often, without waiting for the review to come back clean. Saving the hands-on run for the end is how a misread requirement survives three rounds of fixes before anyone who knows the real thing looks at it. | |
-| 7.6 | — | Whoever stands a mock up owns tearing it down: an iteration's mock stops when that UAT ends, a ticket's mock does not outlive the ticket's merge. Falsifying check: a process scan filtered to `mock-duet` returns nothing older than the current session's work | Whoever starts a stand-in owns stopping it. One started for a round of exercise ends with that round, and one started for a piece of work does not outlive its merge. The check is a process scan that returns nothing older than the current session's work. | |
-| 7.7 | — | Confirm a kill by PORT STATE, never by exit code — `pkill` exits 0 on Windows while leaving the process alive | Confirm that you actually stopped something by looking at whether it is still listening, never by the exit status of the command you used to stop it. A stop command can report success and leave the process alive. | |
-| 7.8 | — | Identify the mock you are driving by owning PID and start time (`Get-NetTCPConnection` cross-checked against `CreationDate`), never by "something answered on that port": a failed start still saw a healthy `rr_connect` reply from the previous evening's orphan, one step from a UAT that would have validated the wrong code | Before reporting a stand-in as running, confirm the process listening there is the one you just launched — its identifier and its start time. Something answering on the expected address is not evidence that the expected process produced it, and a leftover one may also be running with limits raised or authentication turned off, quietly disabling the very checks the exercise exists to apply. | |
+| 7.1 | — | The full mock suite runs DURING development — keep `pnpm mock` up while building UI — and a user-facing change is not done until it has been driven against mock-duet. A green unit suite is not UAT: it exercises the units you wrote a fixture for, not the wiring a person touches | ✗ not in union: Keep a stand-in for the real target running while you build, and treat a user-facing change as unfinished until you have driven it against that stand-in by hand. A green test suite is not the same evidence: it exercises the pieces someone wrote fixtures for, not the wiring a person actually touches. | |
+| 7.2 | — | A completion claim RECORDS the UAT: what was driven, against which scenario, what was observed. No note means the change is not done | ✗ not in union: A claim that something is done states what was driven, against which scenario, and what was observed. With no such note, the change is not done. | |
+| 7.3 | — | A change to what the UI reads from or writes to the board — a new object-model key, file path, config version, endpoint — updates `packages/mock-duet` in the SAME change. Mock parity is part of the work, not a follow-up ticket | ✗ not in union: A change to what the product reads from or writes to the real target updates the stand-in in the same change, never as a follow-up. A stand-in a version behind cannot host the hands-on run everything else depends on, so letting it drift disables the rule that catches everything else. | |
+| 7.4 | — | Nothing deploys to the printer until Gabe has UAT'd it on the mock. Sequence: work lands, review clean, mock stood up and handed to him, HE drives it, he says deploy. A clean review is not permission to ship | ✗ not in union: Nothing reaches the real target device until the owner has driven it on the stand-in himself. A clean review is not permission to ship: the implementer's own run is evidence that it works, the owner's run is the gate that lets it reach hardware. | |
+| 7.5 | — | EVERY code-complete iteration is deployed to the mock and announced — not only the final one, not gated on review being clean — so Gabe can drive it while review and fix rounds continue | ✗ not in union: Stand every code-complete iteration up on the stand-in and say so, early and often, without waiting for the review to come back clean. Saving the hands-on run for the end is how a misread requirement survives three rounds of fixes before anyone who knows the real thing looks at it. | |
+| 7.6 | — | Whoever stands a mock up owns tearing it down: an iteration's mock stops when that UAT ends, a ticket's mock does not outlive the ticket's merge. Falsifying check: a process scan filtered to `mock-duet` returns nothing older than the current session's work | ✗ not in union: Whoever starts a stand-in owns stopping it. One started for a round of exercise ends with that round, and one started for a piece of work does not outlive its merge. The check is a process scan that returns nothing older than the current session's work. | |
+| 7.7 | — | Confirm a kill by PORT STATE, never by exit code — `pkill` exits 0 on Windows while leaving the process alive | ✗ not in union: Confirm that you actually stopped something by looking at whether it is still listening, never by the exit status of the command you used to stop it. A stop command can report success and leave the process alive. | |
+| 7.8 | — | Identify the mock you are driving by owning PID and start time (`Get-NetTCPConnection` cross-checked against `CreationDate`), never by "something answered on that port": a failed start still saw a healthy `rr_connect` reply from the previous evening's orphan, one step from a UAT that would have validated the wrong code | ✗ not in union: Before reporting a stand-in as running, confirm the process listening there is the one you just launched — its identifier and its start time. Something answering on the expected address is not evidence that the expected process produced it, and a leftover one may also be running with limits raised or authentication turned off, quietly disabling the very checks the exercise exists to apply. | |
 
 ## 8. Tool Output Hygiene
 
