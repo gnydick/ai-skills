@@ -11,10 +11,9 @@ session start.
   of — every design decision makes the bad state structurally impossible rather
   than forbidden by a rule someone has to remember, by a mechanism and never by
   a prose "must".
-- The rules below extend that skill and never substitute for it. Everything else
-  the reconciliation carried — the enforcement ladder, the techniques, and the
-  catalogue of ways a claim outruns its mechanism — is covered by the skill and
-  not restated here.
+- The rules below extend that skill and never substitute for it. The rest — the
+  enforcement ladder, the techniques, and the anti-patterns where a claim
+  outruns its mechanism — is covered by the skill and not restated here.
 - The strength rating measures only how hard a rule is to bypass. Whether the
   rule is the right rule is a separate question, checked separately.
 
@@ -47,9 +46,6 @@ session start.
 
 ## Weak claims and the enforcement ledger
 
-- A category, flag or case can be used to smuggle information that really wants
-  a channel of its own. Before adding or removing one, ask what it was actually
-  carrying.
 - Any tool that judges enforcement strength carries the published scale with it,
   so it never judges without it.
 - An entry in the ledger anchors on a named thing, never on a line number: a
@@ -131,6 +127,9 @@ session start.
 
 ## Absence and defaults
 
+- A category, flag or case can be used to smuggle information that really wants
+  a channel of its own. Before adding or removing one, ask what it was actually
+  carrying.
 - The ban on stand-in values covers a legal value made to stand for a different
   concept; it never covers a collection's own emptiness.
 - Which of the two shapes absence takes is fixed by the setting's class, not by
@@ -150,6 +149,7 @@ session start.
 - This is not "give everything a default". Filling one in everywhere is a
   regression, not a fix, because it silently severs every setting whose absence
   meant inherit.
+
 ## The three classes of setting
 
 - First class, a value someone sets directly: it declares a default, its
@@ -167,6 +167,7 @@ session start.
   targets is presence merely believed — resting on some other artifact nobody
   re-checks — rather than enforced when the thing is built or by the return type
   itself.
+
 ## External input
 
 - External input never crashes the product. A malformed or truncated file, a
@@ -279,7 +280,8 @@ session start.
   asks two questions — is it stated, and is it enforced?
 - The standing obligation shapes are: a field whose documentation names a
   sibling field; the same fact stored twice, such as a count kept beside the
-  collection it counts; a record holding a kind alongside fields meaningful for
+  collection it counts or a value kept beside a variant of itself; a record
+  holding a kind alongside fields meaningful for
   only some of those kinds; a comparison against a magic value or a domain value
   clamped at zero; taking the first or last element of a collection with a call
   that fails when it is empty, where nothing proves it is not; a quantity
@@ -327,7 +329,7 @@ session start.
   because a large mechanical fix and a small user-visible one look the same in a
   count.
 
-## Instrumentation and diagnostics
+## Carrying instrumentation
 
 - All code carries full instrumentation and profiling capability, and new code
   ships with it rather than acquiring it later.
@@ -346,6 +348,9 @@ session start.
   behind the code.
 - The bar is one question: when this site misbehaves a year from now, can it be
   interrogated without editing code? If not, the change is not done.
+
+## What a diagnostic and a measurement may claim
+
 - How serious a diagnostic is gets decided once, for each diagnostic code, in
   one place. The sites that raise it never pass a level of their own, so the same
   condition cannot come out as a warning in one caller and a passing remark in

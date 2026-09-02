@@ -82,6 +82,7 @@ session start.
   cannot fail the way real users fail.
 - If a suite has no way to express a given failure, it is not coverage for that
   failure, no matter how green it is.
+
 ## What a test can honestly claim
 
 - Asserting that something did not happen only counts if the observer was

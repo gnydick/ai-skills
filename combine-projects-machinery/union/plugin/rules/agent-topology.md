@@ -112,8 +112,8 @@ definition obeys. Loaded at session start.
   forbidden: a rule in the prompt is a promise.
 - Removing a capability has a consequence, and the agent's own definition states
   it. An agent that cannot work out its own scope has it supplied by the caller;
-  given neither, it says exactly that and stops. It never substitutes the whole
-  codebase, and never guesses the scope from timestamps or file contents.
+  given none, it says so and stops. It never substitutes the whole codebase, and
+  never guesses the scope from timestamps or file contents.
 - Where a job genuinely needs to build and run things, containment is weaker and
   the definition says so, replacing it with an explicit allowlist of the build,
   test and read-only inspection commands the agent may use.

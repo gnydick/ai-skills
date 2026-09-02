@@ -12,7 +12,7 @@ start.
   context for an assistant starting fresh.
 - The parent-and-companion relationship is reserved for that pair alone. Nothing
   else is ever filed as a child of anything.
-- The link that binds a ticket to its companion is a different kind of
+- The link that binds a ticket to its companion must be a different kind of
   relationship from the links that express ordering or dependency between an
   effort's tickets and the work tickets under it — different enough that a query
   tells the two apart by the relationship's own type, never by remembering which
