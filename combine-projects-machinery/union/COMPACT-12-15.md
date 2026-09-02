@@ -16,6 +16,33 @@ line and all their ids are listed. `⚔` marks the one genuine conflict in these
 groups. No row in 12–15 is excluded from the union and none defers to the
 mandatory design skill, so all 134 ids carry live statements here.
 
+## Decision sheet (owner, 2026-09-02)
+
+Groups 12–15 were ruled at mechanism level. This supersedes the "no row in 12–15
+is excluded" sentence above: eleven group-12 rows are now `✗ not in union`, and a
+`✗ ` on a line below means that line's rows are those drops.
+
+- DROP the field agent: 12.21, 12.23–12.27, 12.29–12.33. The lines carrying its
+  agent-wide demands are unmarked and stand — 12.22, 12.34, 12.46, and 12.28,
+  which is the opening rule of the stop-conditions line whose five conditions
+  (12.29–12.33) go with the agent.
+- DROP, outside these groups: the mapping-pass method (6.31–6.35) and the
+  render-drift check (6.22); the principle that a derived document is generated
+  rather than hand-maintained stands.
+- DROP the specific ledger-table check. Its line here carries no `✗`, because
+  14.10, 14.11 and 9.158 keep their rows: a table people rely on is still checked
+  structurally, and only that one document's check goes.
+- SIMPLIFY the parity verifier to a generic comparison agent — verdict first,
+  regression told from pre-existing difference, never edits to pass, never
+  rebakes — with the slicer-parity specifics left in the project.
+- SIMPLIFY the register to an index over `rules/` (the phase-3 shape ruling).
+- SIMPLIFY the commit gate to four fast checks: every commit, the register check,
+  the citation-target check, "bypass twice → fix the checker"; tracked in tree,
+  activated per clone. Heavy checks belong to the merge gate.
+- KEEP as written: the enforcement auditor, the agent conventions, the register
+  check, the decision records, the sweep guard, the merge gate, the ratchet and
+  the doc-vs-code gates.
+
 ---
 
 ## 12. Standing agents — 47 rows
@@ -46,14 +73,14 @@ mandatory design skill, so all 134 ids carry live statements here.
 - Order findings by severity and substantiate each from a file actually read; where the deciding code was not opened, report the rating as unverified rather than inferring it from a name. [12.19, 12.20]
 - Close with the ledger delta: which entries this change makes stale, which it should add. [12.18]
 
-**Field agent** — runs to add one configuration field, to audit one, to explain why a value is not reaching the product, and to review a change touching any of its surfaces — covers that field across all seven: its definition, its type, its wiring, whatever is generated from it, its inheritance and origin, its arrival from foreign inputs, and the gates over all of that — changes and reports, and stops rather than deciding — worked when: it named the authority for every layer, changed only the authority, ran the covering gates and quoted their real output, shipped a test, and either finished or filed and stopped. [12.21, 12.28]
+✗ **Field agent** — runs to add one configuration field, to audit one, to explain why a value is not reaching the product, and to review a change touching any of its surfaces — covers that field across all seven: its definition, its type, its wiring, whatever is generated from it, its inheritance and origin, its arrival from foreign inputs, and the gates over all of that — changes and reports, and stops rather than deciding — worked when: it named the authority for every layer, changed only the authority, ran the covering gates and quoted their real output, shipped a test, and either finished or filed and stopped. [12.21, 12.28]
 
 - It owns no layer's design: name the authority for each and verify against it, read fresh every time, because restating elsewhere a fact that lives somewhere is how that fact rots. [12.22]
-- Locate the field's current state on every surface before proposing any change, naming which layers it is complete at and which it is missing from. [12.23]
-- Make the change at its one authority — the hand-authored source, the wiring, or the design record — never at anything generated from them. [12.24]
-- Regenerate a generated file, never hand-patch one; if the generator cannot be run, say so and stop rather than editing its output. [12.25]
-- Run the gates covering what was changed and report their real output — the verdict and the count each printed, never a paraphrase; a gate reporting success with no count is not evidence (8.21). [12.26]
-- Ship a test with the change; nothing is too small to be exempt (3.21). [12.27]
+- ✗ Locate the field's current state on every surface before proposing any change, naming which layers it is complete at and which it is missing from. [12.23]
+- ✗ Make the change at its one authority — the hand-authored source, the wiring, or the design record — never at anything generated from them. [12.24]
+- ✗ Regenerate a generated file, never hand-patch one; if the generator cannot be run, say so and stop rather than editing its output. [12.25]
+- ✗ Run the gates covering what was changed and report their real output — the verdict and the count each printed, never a paraphrase; a gate reporting success with no count is not evidence (8.21). [12.26]
+- ✗ Ship a test with the change; nothing is too small to be exempt (3.21). [12.27]
 - Stop and file the work — never block on it, never resolve it silently, never improvise; an agent applies authority, it does not adjudicate design (6.15–6.18) — on any of: a value with no defined origin under the standing design, such as one arriving from another product's file [12.29]; two sources that could both supply a value with no stated winner [12.30]; something complete at the central wiring point but with no downstream consumer and no recognised reason for having none [12.31]; a change needing a new case in the design's own state set, which is the owner's amendment and not a per-field judgement [12.32]; a generated file that must change, whose generator cannot be run, with no safe hand-edit [12.33]. [12.28]
 
 **Comparison agent** — runs before merging anything that could move the product's output: engine changes, default-value changes, algorithmic or performance rewrites — a change to a default value must run it, because fallbacks further down drift silently and a default change passing only the unit suite is unverified, not verified — runs the product against the known-good reference — delivers the one verdict a merge decision rests on — worked when: it led with a one-word verdict and you could tell a regression from a pre-existing difference without re-running anything. [12.35, 12.41]

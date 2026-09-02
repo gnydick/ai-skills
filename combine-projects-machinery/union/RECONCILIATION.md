@@ -28,13 +28,16 @@ project terms) | proposed universal form (lay language) | your feedback.
 
 579 rows in 15 groups: 1 Straight Talk 10, 2 Rule Governance 34, 3 Verification
 & Evidence 50, 4 Agent Topology & Economy 25, 5 Worktree & Campaign Discipline
-40, 6 Work Tracking 36, 7 Test Double & UAT Discipline 8 (excluded from the
+40, 6 Work Tracking 36 (6 rows, 6.22 and 6.31–6.35, excluded by owner ruling —
+see the exclusion summary below), 7 Test Double & UAT Discipline 8 (excluded from the
 union by owner ruling — see the group heading), 8 Tool Output Hygiene
 32, 9 Design Invariants 185 (7 rows, 9.165–9.171, excluded from the union by
 owner ruling — see the group heading), 10 Reference Sources 14 (9 rows,
 10.6–10.14, excluded from the union by owner ruling — see the group heading),
 11 Environment & Platform
-11, 12 Standing Agents 47, 13 Register System 32, 14 Commit Gates 18, 15 Merge
+11, 12 Standing Agents 47 (11 rows, 12.21 and 12.23–12.33 bar 12.28, excluded by
+owner ruling — see the exclusion summary below), 13 Register System 32, 14
+Commit Gates 18, 15 Merge
 Gates & Ratchets 37.
 
 One disagreement remains ⚔, in a single row — a real conflict, where
@@ -106,6 +109,36 @@ CLAUDE.md-summary layer and its checks fall away. Rows whose only job is
 keeping a summary layer consistent with its durable home are carried into the
 union as subsumed by this layout, not restated; the demands behind them (one
 durable home, checked citations, supersession stamps) survive in the index.
+
+**Groups 12–15 decision sheet (owner, 2026-09-02):** ruled at mechanism level;
+this sheet is the record phase 3 builds from. Row ids named are the drops.
+
+- DROP config-field agent: 12.21, 12.23–12.27, 12.29–12.33 (the agent-wide
+  demands those rows sat beside stay at 12.22, 12.28, 12.34, 12.46).
+- DROP mapping-pass method (one sitting, uniformly shallow, source per row, no
+  defect organizes a pass, declared depth, both directions together): 6.31–6.35.
+- DROP render-drift check (a doc byte-identical to a fresh render): 6.22; the
+  generate-don't-hand-maintain principle stands (6.21, 6.23, 9.41, 15.36–15.37).
+- DROP ledger-table check: the specific check only. 14.10 and 14.11 keep their
+  rows, annotated, and 9.158 stands — the principle that a table people rely on
+  is checked structurally is not dropped.
+- SIMPLIFY parity verifier → generic comparison agent: verdict first, regression
+  told from pre-existing difference, never edits to pass, never rebakes; the
+  slicer-parity specifics stay in the project (12.35–12.45).
+- SIMPLIFY register → index over `rules/`: already ruled in the phase-3 shape
+  paragraph above; cross-referenced there, not restated here.
+- SIMPLIFY pre-commit gate → four fast checks: every commit (2.6/14.3); register
+  check; citation-target check (file exists, line not empty); "bypass twice → fix
+  the checker" (14.14); tracked in tree, activated per clone, never self-
+  installing (14.13). Heavy checks move to the merge gate, which is why the
+  commit gate had grown to over an hour: kinds of check had bled together.
+- KEEP as written: invariant auditor 12.12–12.20; agent conventions 12.1–12.11;
+  register_check 13.10–13.23; decision records 13.24–13.26; sweep guard 5.14;
+  merge gate 15.1–15.20, 15.31–15.35; ratchet 15.21–15.30; docs 15.36–15.37.
+
+**Excluded rows** (`✗ not in union`), 41 of 579: group 6 six (6.22, 6.31–6.35),
+group 7 all eight, group 9 seven (9.165–9.171), group 10 nine (10.6–10.14),
+group 12 eleven (12.21, 12.23–12.27, 12.29–12.33). No other group has any.
 
 ## 1. Straight Talk
 
@@ -341,7 +374,11 @@ document must be updated is 13.27–13.30. 6.36 is an owner ruling added at
 review: the link that binds a ticket to its companion must be a different KIND
 of relationship from the ordering and dependency links between an effort's
 tickets and the work under it, so a query discriminates the two by relationship
-type rather than by remembering field values.*
+type rather than by remembering field values. Owner ruling, 2026-09-02, at
+mechanism level: the render-drift check is dropped — 6.22 is marked `✗ not in
+union`, while the one-editable-home principle it enforced stands at 6.21, 6.23
+and 6.28 — and the mapping-pass method goes with it, marking 6.31–6.35; when a
+map must be updated (13.27–13.30) is untouched.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -366,7 +403,7 @@ type rather than by remembering field values.*
 | 6.19 | `needs-input` on BOTH halves when the pair is blocked on a decision from Gabe, plus a comment on the child saying exactly what input is needed; the autonomous pass skips it | — | When a pair is blocked on the owner's decision, label both halves as blocked and comment on the companion entry saying exactly what input is needed. An unattended pass skips anything so marked. | |
 | 6.20 | Close-out order: close the parent with a comment naming the merge commit, add a short AI-condensed learnings comment on the child, then close the child | — | Close a pair in order: close the ticket with a comment naming the change that landed, add the condensed learnings to the companion entry, then close it too. | |
 | 6.21 | The rule text has ONE editable home (`docs/rules/tracking-work.md`, between drift-gate markers); `docs/github-issue-rules.md` is rendered from it plus a template that holds no rule text, so there is no second home a divergent copy could ever be typed into | — | A rule that gets restated elsewhere has exactly one editable home, and every restatement is generated from it through a template that carries no rule text of its own. There is then no second place a divergent copy can be typed. | |
-| 6.22 | `gen_issue_rules_doc.sh --check`, blocking in pre-commit: the artifact must be byte-identical to a fresh render; on mismatch it REGENERATES in place and STILL exits non-zero, so the fix is to review and re-stage, never to hand-edit | — | A blocking check compares the generated copy against a fresh render and requires them to be identical. On a mismatch it rewrites the file correctly in place and still fails, so the fix is to review and re-stage the regenerated file, never to hand-edit it. | |
+| 6.22 | `gen_issue_rules_doc.sh --check`, blocking in pre-commit: the artifact must be byte-identical to a fresh render; on mismatch it REGENERATES in place and STILL exits non-zero, so the fix is to review and re-stage, never to hand-edit | — | ✗ not in union: A blocking check compares the generated copy against a fresh render and requires them to be identical. On a mismatch it rewrites the file correctly in place and still fails, so the fix is to review and re-stage the regenerated file, never to hand-edit it. | |
 | 6.23 | `--self-test` red-check fixture: perturbs the REAL artifact and the REAL authority in place (there is no second copy to perturb — that is the point), restores each byte-for-byte after its sub-test, and verifies the working tree is unchanged afterwards | — | A generator that leaves only one copy of anything must test itself against that copy: disturb the real file, watch the check go red, restore it exactly, and prove afterwards that the working tree is unchanged. Having no spare copy is the point, not an obstacle. | |
 | 6.24 | Learnings ship with the major commit or worktree, versioned like code; the notebook's dated entries are appended in the same commit as the work that produced them | Identical contract: dated entries appended in the same commit as the work that produced them, managed like any source file, and the file's history is the record of how understanding evolved | Learnings ship with the work that produced them — written in the same change, versioned and managed like source — so the history of the record is itself the record of how understanding changed. | |
 | 6.25 | Each notebook entry is self-contained: what prompted it, what was done, what was observed, what we conclude | Identical entry contract, word for word | Every entry stands on its own: what prompted it, what was done, what was observed, and what is concluded. | |
@@ -375,11 +412,11 @@ type rather than by remembering field values.*
 | 6.28 | The generated restatement adds what the verbatim rule lacks — the commands that execute it — so another session can follow it without the repo context | — | A restatement of a rule earns its place by adding what the rule text lacks: the exact commands that carry it out, so someone with no context can follow it. | |
 | 6.29 | Do not mark an item on the owner's own bug list fixed until the owner has confirmed the behaviour VISUALLY | — | An item on the owner's own list of complaints is marked fixed only when the owner has seen the behaviour and said so. Your own verification does not close it. | |
 | 6.30 | Do not rewrite the descriptions in the owner's bug list | — | Never rewrite the owner's own description of a problem. It is their record of what they saw, and editing it destroys the only account of the symptom that is not yours. | |
-| 6.31 | Each mapping pass is shallow enough to FINISH IN ONE SITTING: ragged — one part written deep beside many left blank — is worse than uniformly shallow | — | A pass over material to be documented is shallow enough to finish in one sitting. Uniformly shallow beats ragged: one part written deep beside many left blank tells a reader nothing about which gaps are real. | |
-| 6.32 | Every row of a mapping or analysis document carries its SOURCE LOCATION, so continuation costs nothing and a claim can be rechecked when either side moves | — | Every row of a mapping or analysis document carries where it came from. Continuing the work then costs nothing, and any claim can be rechecked when either side moves. | |
-| 6.33 | NO defect may be used as the organizing principle for a reading pass: steps are covered in the pipeline's own order, never in the order a bug makes them look relevant | — | A defect is never the organizing principle for a reading pass. Cover the material in its own order: reading it in the order a bug makes things look relevant produces a map of that bug, not of the system. | |
-| 6.34 | A pass DECLARES a depth limit up front and records only what that pass verified; an unverified fact is left ABSENT, never guessed — in prose and in the models alike | — | A pass states its depth limit before it starts and records only what it actually verified. An unverified fact is left absent rather than guessed, in the prose and in any model built beside it, because a guess in a reference document is indistinguishable from a finding. | |
-| 6.35 | Forward and backward analysis directions ADVANCE TOGETHER as one artefact at one depth; a pass is not complete if only one direction progressed | — | Where an analysis runs in two directions, both advance together as one artefact at one depth. A pass with only one direction moved is not a completed pass. | |
+| 6.31 | Each mapping pass is shallow enough to FINISH IN ONE SITTING: ragged — one part written deep beside many left blank — is worse than uniformly shallow | — | ✗ not in union: A pass over material to be documented is shallow enough to finish in one sitting. Uniformly shallow beats ragged: one part written deep beside many left blank tells a reader nothing about which gaps are real. | |
+| 6.32 | Every row of a mapping or analysis document carries its SOURCE LOCATION, so continuation costs nothing and a claim can be rechecked when either side moves | — | ✗ not in union: Every row of a mapping or analysis document carries where it came from. Continuing the work then costs nothing, and any claim can be rechecked when either side moves. | |
+| 6.33 | NO defect may be used as the organizing principle for a reading pass: steps are covered in the pipeline's own order, never in the order a bug makes them look relevant | — | ✗ not in union: A defect is never the organizing principle for a reading pass. Cover the material in its own order: reading it in the order a bug makes things look relevant produces a map of that bug, not of the system. | |
+| 6.34 | A pass DECLARES a depth limit up front and records only what that pass verified; an unverified fact is left ABSENT, never guessed — in prose and in the models alike | — | ✗ not in union: A pass states its depth limit before it starts and records only what it actually verified. An unverified fact is left absent rather than guessed, in the prose and in any model built beside it, because a guess in a reference document is indistinguishable from a finding. | |
+| 6.35 | Forward and backward analysis directions ADVANCE TOGETHER as one artefact at one depth; a pass is not complete if only one direction progressed | — | ✗ not in union: Where an analysis runs in two directions, both advance together as one artefact at one depth. A pass with only one direction moved is not a completed pass. | |
 | 6.36 | "The sub-issue relation is reserved for this pair alone. Nothing else is ever a sub-issue of anything" (mechanism-distinctness reason added by owner at review) | — | ✓ ruled: The link that binds a ticket to its companion must be a different KIND of relationship from the links that express ordering or dependency (blocked-by, depends-on) between an effort's tickets and the work tickets under it — different enough that a query can tell the two apart by the relationship's own type, never by remembering which values of a shared field mean which. Correct by construction: the tracker cannot confuse a companion with a dependency. | Gabe (chat 2026-09-01 19:23): added at review. |
 
 ## 7. Test Double & UAT Discipline
@@ -414,7 +451,10 @@ per-project cells remain here as the record.*
 *All of this is one project's; the other has no output-filtering machinery, so
 its column is empty throughout. These rows state observable behaviour rather
 than intent, because they are the specification the union's hook has to
-satisfy. 8.31's source is the generated-document gate rowed at 6.21–6.23.*
+satisfy. 8.31's source is the generated-document gate rowed at 6.21–6.23. That
+gate's render-drift check was dropped by the owner's mechanism ruling of
+2026-09-02 (6.22 marked `✗ not in union`); no row here is dropped with it —
+8.30 and 8.31 state general demands and stand on their own.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -736,7 +776,12 @@ whose trigger lives in an earlier group; those rows say so and cite the row
 rather than repeating it, and the note "trigger belongs with" marks a demand
 that would have been rowed earlier had the agent file been read then. Where an
 agent's model tier is fixed by its definition, the economy rules at 4.5 and
-4.23 are what fixed it.*
+4.23 are what fixed it. Owner ruling, 2026-09-02, at mechanism level: the
+config-field agent is dropped — 12.21, 12.23–12.27 and 12.29–12.33 are marked
+`✗ not in union` — while the agent-wide demands those rows sat beside stay
+(12.22, 12.28, 12.34, 12.46); the enforcement auditor is kept as written and
+the parity verifier is kept as a generic comparison agent (see the Reading
+guide's decision sheet).*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -760,19 +805,19 @@ agent's model tier is fixed by its definition, the economy rules at 4.5 and
 | 12.18 | It closes with a LEDGER DELTA: rows this change makes stale, and rows it should add | — | It closes with the delta to the ledger: which entries this change makes stale, and which ones it should add. | |
 | 12.19 | Report only what is substantiated by a file actually read, ordered by severity; a clean audit is a useful result stated in ONE line and never padded | — | It reports only what it can substantiate from a file it actually read, ordered by severity, and a clean result is stated in one line rather than padded into a report. | |
 | 12.20 | Never claim a mechanism you did not read: if the constructor is in a crate you did not open, say the rating is UNVERIFIED rather than inferring it from the type's name | — | It never claims a mechanism it did not read. Where the deciding code was not opened, the rating is reported as unverified rather than inferred from a name. | |
-| 12.21 | Config-field agent — job: one config field end to end across registry entry, type object, hub wiring, generation, inheritance and provenance, cross-product import, and gates. Triggers: add a key, "why is this value not reaching the engine", audit a field's provenance, pre-merge review of a change to the registry or the hub | — | The field agent owns one configuration field end to end, across every surface it touches: its definition, its type, its wiring, whatever is generated from it, its inheritance and origin, its arrival from foreign inputs, and the gates over all of that. It runs to add one, to audit one, to explain why a value is not arriving, and to review a change touching those surfaces. | |
+| 12.21 | Config-field agent — job: one config field end to end across registry entry, type object, hub wiring, generation, inheritance and provenance, cross-product import, and gates. Triggers: add a key, "why is this value not reaching the engine", audit a field's provenance, pre-merge review of a change to the registry or the hub | — | ✗ not in union: The field agent owns one configuration field end to end, across every surface it touches: its definition, its type, its wiring, whatever is generated from it, its inheritance and origin, its arrival from foreign inputs, and the gates over all of that. It runs to add one, to audit one, to explain why a value is not arriving, and to review a change touching those surfaces. | |
 | 12.22 | It does NOT own the design of any layer: it points at the authority for each and verifies against it, reading it fresh every time — restating a fact that lives elsewhere is how that fact rots | — | It owns none of those layers' designs. For each it names the authority and verifies against it, read fresh every time, because restating elsewhere a fact that lives somewhere is how that fact rots. | |
-| 12.23 | Locate the field's current state across all seven surfaces BEFORE proposing any change: a field can be complete at one layer and absent at another — name which | — | Locate the current state on every surface before proposing any change, and name which layers it is complete at and which it is missing from. Something can be finished at one layer and absent at the next. | |
-| 12.24 | Make the change at its ONE authority — the hand-authored source of truth, the wiring module, or the design record — never at a generated mirror | — | Make the change at its one authority — the hand-authored source, the wiring, or the design record — and never at anything generated from them. | |
-| 12.25 | Regenerate, never hand-patch, a generated file; if you cannot run its generator, SAY SO AND STOP rather than editing the output by hand | — | Regenerate a generated file; never hand-patch one. If the generator cannot be run, say so and stop rather than editing its output. | |
-| 12.26 | Run the gates that touch what you changed and report their REAL output — pass or fail plus the printed denominator; a gate that reports OK with no denominator is not evidence | — | Run the gates covering what was changed and report their real output, never a paraphrase: the verdict and the count it printed. A gate reporting success with no count is not evidence. The count requirement itself is 8.21. | |
-| 12.27 | Ship a test with the change — unit test, fixture generator, integration coverage — with no exemption for "just a config key" | — | The agent ships a test with its change, with no exemption for work that feels too small to need one. Trigger belongs with group 3, where the standing test obligation is 3.21. | |
+| 12.23 | Locate the field's current state across all seven surfaces BEFORE proposing any change: a field can be complete at one layer and absent at another — name which | — | ✗ not in union: Locate the current state on every surface before proposing any change, and name which layers it is complete at and which it is missing from. Something can be finished at one layer and absent at the next. | |
+| 12.24 | Make the change at its ONE authority — the hand-authored source of truth, the wiring module, or the design record — never at a generated mirror | — | ✗ not in union: Make the change at its one authority — the hand-authored source, the wiring, or the design record — and never at anything generated from them. | |
+| 12.25 | Regenerate, never hand-patch, a generated file; if you cannot run its generator, SAY SO AND STOP rather than editing the output by hand | — | ✗ not in union: Regenerate a generated file; never hand-patch one. If the generator cannot be run, say so and stop rather than editing its output. | |
+| 12.26 | Run the gates that touch what you changed and report their REAL output — pass or fail plus the printed denominator; a gate that reports OK with no denominator is not evidence | — | ✗ not in union: Run the gates covering what was changed and report their real output, never a paraphrase: the verdict and the count it printed. A gate reporting success with no count is not evidence. The count requirement itself is 8.21. | |
+| 12.27 | Ship a test with the change — unit test, fixture generator, integration coverage — with no exemption for "just a config key" | — | ✗ not in union: The agent ships a test with its change, with no exemption for work that feels too small to need one. Trigger belongs with group 3, where the standing test obligation is 3.21. | |
 | 12.28 | Gabe's standing rule: an undecided field is TICKETED, never blocked on and never silently resolved — file the pair and stop rather than picking an answer | — | An undecided question is filed as work and the agent stops. It is never blocked on, never silently resolved, and never improvised: an agent applies authority, it does not adjudicate design. Trigger belongs with group 6, whose ticket-pair machinery is 6.15–6.18. | |
-| 12.29 | Stop condition: a value with NO clear provenance state under the standing design — such as one arriving from a foreign import, currently unratified | — | Stop and file when a value has no defined origin under the standing design — for instance one arriving from another product's file, where nothing has been decided yet. | |
-| 12.30 | Stop condition: a PRECEDENCE question the standing design does not resolve, such as a new override axis it never contemplated | — | Stop and file when two sources could both supply a value and the standing design does not say which wins. | |
-| 12.31 | Stop condition: a key hub-complete but with NO clear downstream consumer, where it is not obvious which of the three legitimate not-yet-wired categories it belongs to | — | Stop and file when something is complete at the central point where settings are wired in but has no clear downstream consumer and no obvious reason from the recognised list for why it has none. | |
-| 12.32 | Stop condition: any change needing an 8th variant in the design's own state set — that is an amendment to the design record, Gabe's call, not a field-by-field judgment | — | Stop and file when the change would need a new case in the design's own state set. That is an amendment to the design, the owner's call, not a judgement to make one field at a time. | |
-| 12.33 | Stop condition: a generated file whose generator cannot be run — missing external checkout, missing tool — and no safe hand-edit exists | — | Stop and file when a generated file needs to change, its generator cannot be run, and there is no safe hand-edit. | |
+| 12.29 | Stop condition: a value with NO clear provenance state under the standing design — such as one arriving from a foreign import, currently unratified | — | ✗ not in union: Stop and file when a value has no defined origin under the standing design — for instance one arriving from another product's file, where nothing has been decided yet. | |
+| 12.30 | Stop condition: a PRECEDENCE question the standing design does not resolve, such as a new override axis it never contemplated | — | ✗ not in union: Stop and file when two sources could both supply a value and the standing design does not say which wins. | |
+| 12.31 | Stop condition: a key hub-complete but with NO clear downstream consumer, where it is not obvious which of the three legitimate not-yet-wired categories it belongs to | — | ✗ not in union: Stop and file when something is complete at the central point where settings are wired in but has no clear downstream consumer and no obvious reason from the recognised list for why it has none. | |
+| 12.32 | Stop condition: any change needing an 8th variant in the design's own state set — that is an amendment to the design record, Gabe's call, not a field-by-field judgment | — | ✗ not in union: Stop and file when the change would need a new case in the design's own state set. That is an amendment to the design, the owner's call, not a judgement to make one field at a time. | |
+| 12.33 | Stop condition: a generated file whose generator cannot be run — missing external checkout, missing tool — and no safe hand-edit exists | — | ✗ not in union: Stop and file when a generated file needs to change, its generator cannot be run, and there is no safe hand-edit. | |
 | 12.34 | Scope boundary: it is not the invariant auditor or the parity verifier — hand off to those for their questions and do not duplicate their checks | — | Each agent names the other agents whose questions are not its own, hands those off, and does not duplicate their checks. | |
 | 12.35 | Parity verifier — job: run the golden-oracle comparison and deliver a verdict a merge decision can rest on. Triggers: before merging any change that can move output — engine or geometry edits, schema default changes, algorithmic or performance rewrites | — | The comparison agent runs the product against the known-good reference and delivers a verdict a merge decision can rest on. It runs before merging anything that could move the product's output: engine changes, default changes, and algorithmic or performance rewrites. | |
 | 12.36 | Its one non-obvious job: the EXIT CODE is not the verdict — the harness exits non-zero on any mismatch and one mismatch is known pre-existing; a false alarm on that has cost real time, and a "pass" because a different row failed while the old one was fixed is worse | — | Its one non-obvious job: the exit status is not the verdict. The harness fails on any mismatch and one mismatch is known and expected, so reporting failure on that is a false alarm — and reporting a pass because a different row failed while the old one was fixed is worse. The rule itself is 3.29. | |
@@ -804,7 +849,10 @@ family of documents it belongs to — the dated ruling that is meant to go stale
 the living map that must not, and the two filing judgements that keep one rule
 from becoming two; 13.27–13.32 were added by the coverage sweep. Phase-3 shape:
 see the Reading guide's ruling — the union ships these rules as loaded rule
-files and keeps the register as an index.*
+files and keeps the register as an index. Owner ruling, 2026-09-02: no row here
+is dropped — the register_check demands, the decision-record rules (13.24–13.26)
+and the map-currency rules (13.27–13.30) all stand; the mapping-pass METHOD the
+sweep filed beside them was dropped at 6.31–6.35.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -854,7 +902,12 @@ the hook never runs, while leaving four of the hook's five with no hosted
 backstop at all (the merge gate is where those are caught) — while
 the other runs a one-check hook and has no hosted checks at all, which is where
 14.3's conflict came from — the owner ruled it on 2026-09-02 (run-always wins,
-same ruling as 2.6).*
+same ruling as 2.6). The same day, at mechanism level: the generated-document
+check this group cross-references is dropped (6.22), and so is the specific
+ledger-table check — 14.10 and 14.11 keep their rows because they also state
+the general principle, and say so in their universal cells — while the gate
+itself is simplified to four fast checks with the heavy ones moved to the merge
+gate (Reading guide's decision sheet).*
 
 | id | ferrislicer | dwc-ng | proposed universal form |                                                                                           |
 |---|---|---|---|-------------------------------------------------------------------------------------------|
@@ -867,8 +920,8 @@ same ruling as 2.6).*
 | 14.7 | Deliberately NOT checked, and said so in the header: whether the cited line SUPPORTS the claim beside it. No heuristic was found that would not risk flagging a correct citation, so it is left undone rather than approximated | — | The check states in its own header what it deliberately does not check, and why. Judging whether a citation supports the claim beside it needs a person, and a heuristic that flags correct ones would get the whole check disabled — so it is left undone and said so (9.96). |                                                                                           |
 | 14.8 | The gate and its self-test are excluded from their own scan: the self-test's fixtures are citation-SHAPED data, not real claims — found by dogfooding the gate against its own commit | — | A checking tool excludes itself and its own tests from its scan, because a self-test's fixtures are check-shaped data rather than real claims. Run the tool against its own change on purpose; that is how this gets found. |                                                                                           |
 | 14.9 | Every run prints "validated N new citation(s)", N=0 included, because most commits add none and that must read as a normal pass rather than silence indistinguishable from a broken diff | — | Every run prints its own count, including zero. Most runs have nothing to check, and that has to read as a normal pass rather than as silence that looks exactly like a broken check (8.21). |                                                                                           |
-| 14.10 | A blocking check on the enforcement ledger's TABLES: every row carries the header's cell count, because a short row still renders — it just silently drops or merges a column, in the one file whose whole purpose is that a claim resolves to its mechanism | — | A table people rely on is checked structurally rather than proofread: a row with the wrong number of cells still renders, it just renders wrong, silently dropping or merging a column. Where the document exists so a claim can be traced to its mechanism, an eaten cell is exactly the failure it exists to prevent (9.158). |                                                                                           |
-| 14.11 | The same check fails on an unresolved `TICKET-PENDING` placeholder: a row that names no ticket says so with an em dash, never with an IOU | — | The same check fails on a placeholder standing in for a reference nobody filled in. A row that names nothing says so plainly, rather than leaving an IOU that reads like a pending fact. |                                                                                           |
+| 14.10 | A blocking check on the enforcement ledger's TABLES: every row carries the header's cell count, because a short row still renders — it just silently drops or merges a column, in the one file whose whole purpose is that a claim resolves to its mechanism | — | A table people rely on is checked structurally rather than proofread: a row with the wrong number of cells still renders, it just renders wrong, silently dropping or merging a column. Where the document exists so a claim can be traced to its mechanism, an eaten cell is exactly the failure it exists to prevent (9.158). (The specific check is dropped; the principle stands.) |                                                                                           |
+| 14.11 | The same check fails on an unresolved `TICKET-PENDING` placeholder: a row that names no ticket says so with an em dash, never with an IOU | — | The same check fails on a placeholder standing in for a reference nobody filled in. A row that names nothing says so plainly, rather than leaving an IOU that reads like a pending fact. (The specific check is dropped; the principle stands.) |                                                                                           |
 | 14.12 | A gate written and never wired is not enforcement: a dead-gate audit found a table checker written months earlier and never called, and a live output filter with no tests at all — both are now blocking at commit time, where the consequence lands, and cost was not a factor (~0.007s) | — | A check that exists but nothing runs is not enforcement. Audit for those deliberately, and wire each one where the consequence of its regression actually lands. Runtime is rarely the reason not to. |                                                                                           |
 | 14.13 | Hooks live in a tracked directory in the tree, activated once per clone by pointing the hooks path at it — never self-installing | Same shape, with the reason in the hook itself: a hook nobody can see in the tree is a hook nobody maintains, and one that installs itself silently is worse | Commit hooks are tracked in the repository and activated per clone by one explicit command. A hook nobody can see in the tree is a hook nobody maintains, and one that installs itself silently is worse. |                                                                                           |
 | 14.14 | — | The bypass is stated in the hook itself, for a genuine emergency: "if you find yourself doing that twice, the checker is wrong — fix the checker" | The gate names its own escape hatch for a genuine emergency, and names what using it twice means: that is evidence the checker is wrong, and the fix is the checker, not the habit. |                                                                                           |
