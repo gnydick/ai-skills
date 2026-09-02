@@ -47,11 +47,29 @@ Files:
 ```
 ~/.claude/dream/
 ├── run-log.json   every run: mode, the overview it left (path, sha256, history copy),
-│                  the dream file, which F-items were applied, the email id
-└── pending.json   written by `status` at the start of a run, consumed by `record`
+│                  the dream file, which F-items were applied, the email id, the review page URL
+├── pending.json   written by `status` at the start of a run, consumed by `record`
+└── review.html    the last rendered review page (what was published)
 ```
 
-## Step 0: Establish the facts
+## Step 0: Pull in ticks from the review page, then establish the facts
+
+The overview file is the source of truth, but the user usually ticks on the
+review page (Step 5), a private claude.ai page that saves ticks into itself.
+So before reading the file, bring the page's ticks into it. If the run log
+has a `pageUrl` (the `status` output shows it; on the very first run there is
+none, skip to the status command):
+
+1. Read the page with the Artifact tool, `action: "read"`, `url: <pageUrl>`.
+   The page is large, so the tool saves it to a local file and names the
+   path; pass that path to the sync:
+   ```sh
+   node "<skill-dir>/scripts/review.mjs" sync [--home <dir>] --page "<saved html path>"
+   ```
+   It sets `[x]` on every open item the page has ticked and prints which.
+   It never unticks: a tick made in the file directly stays, so a stale page
+   cannot withdraw an approval.
+2. Then establish the facts:
 
 ```sh
 node "<skill-dir>/scripts/runlog.mjs" status --mode <mode> [--home <dir>]
@@ -143,24 +161,48 @@ ticked items; full mode with no new sessions, a consumed dream, and nothing
 ticked). A no-op run has nothing to log, and logging it would make the hash
 comparison meaningless.
 
-## Step 5: Report
+## Step 5: Publish the review page and report
 
-When the run applied, analyzed or improved anything, report it by invoking
-the send-results skill with `"<overview path>" --from dream -- <summary>`.
-The file is always the Memory Improvement Overview, because that is the file
-the user acts on. Do not email the user directly; send-results owns the
-format and the label so every automation's report lands in the same place.
-If send-results reports that Gmail is not connected, say so in the final
-message and leave the file path there instead.
+When the run applied, analyzed or improved anything, first turn the final
+overview into the review page:
+
+```sh
+node "<skill-dir>/scripts/review.mjs" render [--home <dir>]
+```
+
+It writes `~/.claude/dream/review.html`: every open item as a real checkbox
+with the change under it, the applied sections folded, the notes at the end.
+Publish it with the Artifact tool: `file_path` the rendered page,
+`capabilities: {artifact: {}}` (the page saves ticks by republishing itself),
+and `url: <pageUrl>` from the run log when there is one so the link stays
+stable run after run; on the first publish pass a `favicon` (🌙) and a
+one-line `description`. The page is private to the user's account. Then
+store the URL:
+
+```sh
+node "<skill-dir>/scripts/runlog.mjs" record [--home <dir>] --page "<artifact url>"
+```
+
+Then report by invoking the send-results skill with
+`"<overview path>" --from dream -- <summary>`. The file is always the Memory
+Improvement Overview, because that is the file the user acts on, and the
+summary ends with `Review page: <url>` so the phone has a form to tick. Do
+not email the user directly; send-results owns the format and the label so
+every automation's report lands in the same place. If send-results reports
+that Gmail is not connected, say so in the final message and leave both the
+file path and the page URL there instead. If the Artifact tool is not
+available in this session, skip the page, say so in the summary, and the
+file's `[ ]` boxes remain the way to approve.
 
 The summary is two or three sentences the user reads on a phone to decide
-whether to open the file now. Build it from the status lines noted above,
+whether to open the page now. Build it from the status lines noted above,
 in this order, dropping any clause that does not apply:
 
 > Applied `<k>` approved items (`<s>` held back, target changed). Analyzed
 > `<N>` sessions across `<M>` projects, `<window>`: `<c>` candidates.
 > Memory pass applied `<a>` changes and flagged `<f>` for you (`<d>`
 > decisions, `<p>` instruction-file proposals), `<c>` carried forward.
+> Review page: `<url>`
 
 A run that changed nothing sends nothing. The user asked for one place to
 look, not for a heartbeat.
@@ -171,7 +213,7 @@ Reply with these lines and nothing else — no overview text, no question:
 
 ```
 Dream loop done (<mode>): <what ran, e.g. "applied 2 approved items, analyzed 14 sessions, memory pass run" or "nothing new since <date>">.
-Overview: ~/.claude/improve-memory/Memory Improvement Overview.md — <f> items need you (<c> carried forward).
+Overview: ~/.claude/improve-memory/Memory Improvement Overview.md — <f> items need you (<c> carried forward). Review page: <url> | no page (<reason>).
 Emailed as <message id> | Not emailed (<reason>).
 Run <n> logged in ~/.claude/dream/run-log.json.
 ```
@@ -203,5 +245,9 @@ anything outside `<dir>`; when testing, stop before it and say so.
 
 - `scripts/runlog.mjs` — `status` (facts, verdict, steps; snapshots the
   ticked items) and `record` (appends the run, diffs applied items, stores
-  the overview hash). `--help` prints the contract.
+  the overview hash, the message id and the page URL). `--help` prints the
+  contract.
+- `scripts/review.mjs` — `render` (overview → the review page with real
+  checkboxes) and `sync` (ticks from a published page → `[x]` in the
+  overview file, additive only). `--help` prints the contract.
 - `evals/evals.json` — test prompts against the fixture tree.

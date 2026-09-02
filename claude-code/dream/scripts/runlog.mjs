@@ -37,7 +37,7 @@ import path from "node:path";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
-const opt = { home: path.join(os.homedir(), ".claude"), mode: "full", applied: null, sent: null, note: null };
+const opt = { home: path.join(os.homedir(), ".claude"), mode: "full", applied: null, sent: null, note: null, page: null };
 for (let i = 1; i < argv.length; i++) {
   const a = argv[i];
   const next = () => { if (i + 1 >= argv.length) die(`${a} needs a value`); return argv[++i]; };
@@ -47,6 +47,7 @@ for (let i = 1; i < argv.length; i++) {
     case "--applied": opt.applied = next().split(",").map((s) => s.trim()).filter(Boolean); break;
     case "--sent": opt.sent = next(); break;
     case "--note": opt.note = next(); break;
+    case "--page": opt.page = next(); break;
     default: die(`unknown option ${a}`);
   }
 }
@@ -181,6 +182,7 @@ function gather() {
     sessionAnalysisLastRunAt: saState?.runs?.dream?.lastRunAt || null,
     improveMemoryState: imState,
     lastRun,
+    pageUrl: log.pageUrl || null,
     appliedSoFar: Object.keys(log.applied),
     runsSoFar: log.runs.length,
   };
@@ -238,11 +240,12 @@ function record() {
   // `record --sent <id>` after the run was already recorded (no snapshot left)
   // stores the message id on that run rather than inventing a second one.
   const last = log.runs.at(-1);
-  if (!pending && opt.sent && last && !last.sent && last.overview?.sha256 === s.overview.sha256) {
-    last.sent = opt.sent;
+  if (!pending && (opt.sent || opt.page) && last && last.overview?.sha256 === s.overview.sha256) {
+    if (opt.sent) last.sent = opt.sent;
+    if (opt.page) { last.page = opt.page; log.pageUrl = opt.page; }
     if (opt.note) last.note = opt.note;
     fs.writeFileSync(P.log, JSON.stringify(log, null, 2) + "\n");
-    console.log(JSON.stringify({ updated: { n: last.n, sent: last.sent }, logPath: P.log }, null, 2));
+    console.log(JSON.stringify({ updated: { n: last.n, sent: last.sent || null, page: last.page || null }, logPath: P.log }, null, 2));
     return;
   }
   const openNow = new Set(s.overview.items?.map((i) => i.key) || []);
@@ -272,8 +275,9 @@ function record() {
     } : null,
     dream: s.dream.exists ? { path: s.dream.datedPath, runAt: s.dream.runAt, window: s.dream.window, sessions: s.dream.sessions, candidates: s.dream.candidates, newThisRun: dreamNew } : null,
     applied, appliedButTargetMoved: targetMoved,
-    sent: opt.sent, note: opt.note,
+    sent: opt.sent, page: opt.page || log.pageUrl || null, note: opt.note,
   };
+  if (opt.page) log.pageUrl = opt.page;
   for (const k of applied) log.applied[k] = { run: n, at: s.now, overviewRun: s.overview.run || null };
   log.runs.push(entry);
 
