@@ -12,6 +12,9 @@ project terms) | proposed universal form (lay language) | your feedback.
   demand is already stated in the named section of the mandatory skill, so the
   union points at it instead of restating it; the project columns still show
   where the demand reached us from.
+- `, plus:` after such a pointer = the skill states the row's core demand, and
+  what follows the `plus:` is the one thing the row adds and the union must
+  still carry.
 - Leave your verdict in the last column: blank/OK = approved as written;
   anything else = instruction for phase 3.
 
@@ -38,17 +41,17 @@ it must survive.
 Two groups are worth reading in halves rather than straight through. **Group 9**
 has been reconciled against the mandatory `cant-break-by-design` skill, and the
 skill is now the group's first seam: 9.1 states that the skill is mandatory, and
-84 of the 181 rows were found to demand exactly what it already demands, so
-their universal cell is a pointer to the section that governs (`→
-cant-break-by-design § …`) rather than a restatement. Those pointers cluster
-hard in the first half — 78 of the 88 rows up to 9.88 — which is the half about
-how strongly an invariant is held: the enforcement ladder, the techniques, the
-catalogue of ways a claim outruns its mechanism. The 96 rows that extend the
-skill are what is left to read: nine stragglers in the first half (9.11, 9.33,
-9.34, 9.42, 9.51, 9.52, 9.72, 9.79, 9.84), then all of 9.89–9.181 bar six rows
-— the standing invariants themselves and the method for auditing them, which
-the skill does not state. So the old 9.89 split still holds, and the second half
-is now where nearly all the remaining reading is.
+85 of the 181 rows point at it rather than restating it (`→ cant-break-by-design
+§ …`) — 81 because the skill makes that demand in full, and four (9.13, 9.35,
+9.85, 9.111) that keep a `, plus:` clause for the one thing they add. Those
+pointers cluster hard in the first half — 78 of the 88 rows up to 9.88 — which
+is the half about how strongly an invariant is held: the enforcement ladder, the
+techniques, the catalogue of ways a claim outruns its mechanism. The 95 rows
+that extend the skill outright are what is left to read: nine stragglers in the
+first half (9.11, 9.33, 9.34, 9.42, 9.51, 9.52, 9.72, 9.79, 9.84), then all of
+9.89–9.181 bar seven rows — the standing invariants themselves and the method
+for auditing them, which the skill does not state. So the old 9.89 split still
+holds, and the second half is now where nearly all the remaining reading is.
 
 **Group 5** reads in three parts: 5.1–5.23 are
 ordinary working-copy lifecycle; 5.24–5.38 are one self-contained procedure —
@@ -400,12 +403,15 @@ satisfy. 8.31's source is the generated-document gate rowed at 6.21–6.23.*
 ## 9. Design Invariants
 
 **The `cant-break-by-design` skill is mandatory** (9.1): it is invoked for every
-design decision and every code path, in any language. Every row whose universal
-cell reads `→ cant-break-by-design § …` states a demand that skill already
-makes — 84 of the 181 — and the union will not restate it; the pointer names the
-section that governs, and the two project columns stay as the record of where
-the demand reached us from. The remaining 96 rows extend the skill: each adds a
-demand, a mechanism or a scope it does not state. Extensions, never substitutes.
+design decision and every code path, in any language. 85 of the 181 rows point
+at it. In 81 of them the pointer is the whole cell, because the skill already
+makes that demand in full and the union will not restate it; in the other four
+(9.13, 9.35, 9.85, 9.111) a `, plus:` clause follows, holding the one thing the
+row adds to the section it points at. Either way the pointer names the section
+that governs, and the two project columns stay as the record of where the
+demand reached us from. The remaining 95 rows extend the skill outright: each
+adds a demand, a mechanism or a scope it does not state. Extensions, never
+substitutes.
 
 *The largest group, and the one whose rules are most entangled with what each
 project builds — so every universal cell states the underlying engineering
@@ -455,7 +461,7 @@ them rather than repeating it.*
 | 9.32 | Never pass raw numbers across a boundary where the unit or frame matters; distinct types per unit and domain make mixing them a type error | — | → cant-break-by-design § 2. Techniques — units as types |                                                      |
 | 9.33 | A newtype is only as strong as where it is MINTED: hand-wrapping at a call site lets two adjacent wraps be transposed and catches nothing — mint at the authority that reads the source of truth, so key, direction and return type are declared together | — | A distinguishing type is only as strong as the place it is created. Wrapped by hand at each call site, two adjacent wrappings can be swapped and the type catches nothing. Create it at the authority that reads the source of truth, so the source, the direction and the type are declared in one place. |                                                      |
 | 9.34 | When the minter and the consumer are modules that do not depend on each other, the type lives in the zero-dependency vocabulary module — promoting the consumer into the minter's dependencies pays for the invariant with whatever property that module was built for | — | When the place that creates such a type and the place that consumes it do not depend on each other, the type goes in a shared vocabulary unit with no dependencies of its own. Making one depend on the other pays for the invariant with whatever property that unit was built to have. |                                                      |
-| 9.35 | The wrapper's own fields go private in the SAME change, with compile-fail proofs for the field read, the struct literal and the cross-assignment | — | → cant-break-by-design § 5. Anti-patterns — A5.1; the fields go private in the same commit |                                                      |
+| 9.35 | The wrapper's own fields go private in the SAME change, with compile-fail proofs for the field read, the struct literal and the cross-assignment | — | → cant-break-by-design § 5. Anti-patterns — A5.1, plus: with proofs that the field read, the direct build and the cross-assignment each fail to compile. |                                                      |
 | 9.36 | A function requiring a prepared input takes ONLY the type whose sole constructor performs that preparation, never the raw underlying type, so skipping it is a compile error | — | → cant-break-by-design § 2. Techniques — sealed pipelines and sinks |                                                      |
 | 9.37 | Enforcement is the TYPE, not a review rule: the type is constructed only by its owning module, and consumers must name the grade or variant they are entitled to as a parameter | — | → cant-break-by-design § 2. Techniques — smart constructors and capability objects |                                                      |
 | 9.38 | A composite with multiple derived substructures gets a single sole constructor that builds them all in one pass, so they can never be born desynchronized | — | → cant-break-by-design § 2. Techniques — derive, don't duplicate; one constructor builds every part |                                                      |
@@ -481,7 +487,7 @@ them rather than repeating it.*
 | 9.58 | A module stating "enforcement is the caller's job" has no invariant of its own: either accept a type buildable only from conforming input, or record the invariant against the caller, never the module | — | → cant-break-by-design § 5. Anti-patterns — A5.6, a unit disclaiming enforcement has no invariant |                                                      |
 | 9.59 | A type name or doc-comment warning is not prevention: if two meanings of a value are both legitimate, they must be two types, never one name with a caveat | — | → cant-break-by-design § 5. Anti-patterns — A5.2, naming is not prevention |                                                      |
 | 9.60 | Co-location of two pieces of data in the same file is not a mechanism: either one derives from the other, or they are a single value | — | → cant-break-by-design § 5. Anti-patterns — A5.3, co-location is not a mechanism |                                                      |
-| 9.61 | "These two cannot disagree, because one is built from the other" is a claim about the PRODUCER and says nothing about the value once it exists: a stored re-derivation is still a re-derivation — store each fact once and compose on demand | — | → cant-break-by-design § 5. Anti-patterns — A5.3; a stored re-derivation is still stored twice |                                                      |
+| 9.61 | "These two cannot disagree, because one is built from the other" is a claim about the PRODUCER and says nothing about the value once it exists: a stored re-derivation is still a re-derivation — store each fact once and compose on demand | — | → cant-break-by-design § 2. Techniques — derive, don't duplicate; a stored re-derivation is still stored twice |                                                      |
 | 9.62 | A bound such as a numeric limit exists in exactly one place: stated twice, the two copies will disagree, so one derives from the other or both import a shared constant | — | → cant-break-by-design § 5. Anti-patterns — A5.7, a bound may exist in exactly one place |                                                      |
 | 9.63 | A hand-maintained mirror of another module's data needs a GENERATOR, not a drift test: generate the list, invert the dependency, or move the consumer | — | → cant-break-by-design § 5. Anti-patterns — A5.8, a mirror needs a generator, not a drift test |                                                      |
 | 9.64 | Duplicating the same clamp or bound check in every setter is the tripwire: use a single constructor or a range newtype instead | — | → cant-break-by-design § 5. Anti-patterns — A5.9, clamping in every setter is the tripwire |                                                      |
@@ -531,7 +537,7 @@ them rather than repeating it.*
 | 9.108 | An empty-collection default is NOT a sentinel: `-1` for "inherit the fill angle" smuggles a different concept inside a legal value, while `default = ""` on a list-shaped key decoding to zero elements IS the value. One question tells them apart: does absence mean inherit ANOTHER key's value, or zero elements of THIS key's own collection? | — | An empty collection used as a default is not a stand-in value: a magic number meaning "inherit" smuggles a different concept inside a legal value, whereas an empty list decoding to zero elements simply is the value. One question separates them: does absence mean inherit another setting's value, or zero elements of this setting's own collection? |                                                      |
 | 9.109 | Inherits another key → declare NO default, ever: a fabricated default on an override key silently severs inheritance, the exact damage this rule exists to stop | — | If absence means inherit another setting's value, declare no default at all, ever. A fabricated default there silently severs the inheritance, which is the exact damage this rule exists to prevent. |                                                      |
 | 9.110 | Zero elements of its own collection → declare the empty value AS the default, matching the reference format's own empty defaults; withholding it from a UI-exposed, non-override key panics the registry BUILD | — | If absence means zero elements of that setting's own collection, declare the empty value as its default, matching the reference format's own empty defaults. Withholding it makes the definition table fail to build. |                                                      |
-| 9.111 | "Flag anything that can panic on absence — literally anything. That's cant-break-by-design" | — | Flag anything that can fail catastrophically because a value is absent — anything at all. That is what by-construction means here. |                                                      |
+| 9.111 | "Flag anything that can panic on absence — literally anything. That's cant-break-by-design" | — | → cant-break-by-design § 5. Anti-patterns — A5.15, plus: the sweep is unbounded — anything at all that can fail catastrophically on absence gets flagged, not only the sites someone suspects. |                                                      |
 | 9.112 | NOT "give everything a default": filling one in for every key is a regression, not a fix, because it silently severs the keys whose absence means "inherit the base value" | — | This is not "give everything a default". Filling one in everywhere is a regression, not a fix, because it silently severs every setting whose absence meant inherit. |                                                      |
 | 9.113 | Class one, a directly-set value: must declare a default, the accessor returns a plain value, and absence must be impossible BY CONSTRUCTION — not merely believed because some layout row happens to exist today | — | First class, a value someone sets directly: it declares a default, its accessor returns a plain value, and its absence is impossible by construction — not merely believed, because some other table happens to carry a matching row today. |                                                      |
 | 9.114 | Class two, computed by a registered relation and never authored directly: no static default is meaningful, and the accessor must never fall through to a raw registry read of a key never meant to carry one | — | Second class, a value computed from others and never authored directly: no fixed default means anything for it, and its accessor never falls back to a raw lookup of something that was never meant to hold a stored value. |                                                      |
