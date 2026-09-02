@@ -58,11 +58,9 @@ export function render(lines, keep, header) {
   }
   const out = [header];
   let prev = -1;
-  let hadNote = false;
   for (const k of idx) {
-    if (k === null) { out.push(note); hadNote = true; continue; }
-    if (!hadNote && prev >= 0 && k !== prev + 1) out.push(`... [${k - prev - 1} lines omitted] ...`);
-    hadNote = false;
+    if (k === null) { out.push(note); continue; }
+    if (prev >= 0 && k !== prev + 1) out.push(`... [${k - prev - 1} lines omitted] ...`);
     out.push(lines[k]);
     prev = k;
   }

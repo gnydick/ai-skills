@@ -69,8 +69,9 @@ test('render caps at MAX_SHOWN with 3/5 head + 2/5 tail and both markers (step 2
   const ls = Array.from({ length: 500 }, (_, i) => `error: e${i}`);
   const keep = new Set(ls.map((_, i) => i));
   const out = shown(ls, keep);
-  assert.equal(out.length, MAX_SHOWN + 1);
+  assert.equal(out.length, MAX_SHOWN + 2);
   assert.equal(out[120], `... [${500 - MAX_SHOWN} kept lines elided between head and tail] ...`);
+  assert.equal(out[121], `... [${420 - 119 - 1} lines omitted] ...`);
   assert.equal(out[0], 'error: e0'); assert.equal(out.at(-1), 'error: e499');
 });
 
