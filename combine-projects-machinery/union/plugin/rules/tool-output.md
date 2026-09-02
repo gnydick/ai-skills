@@ -44,4 +44,4 @@ fall on the tools it filters.
 - A long-running tool that goes past one interval without emitting a heartbeat
   is itself a defect, on the same footing as a check that reports no count.
 
-<!-- rows: 8.21–8.27, 8.30–8.31 -->
+<!-- rows: 8.21–8.27, 8.30–8.31; heartbeat shape (final review, 2026-09-02) -->

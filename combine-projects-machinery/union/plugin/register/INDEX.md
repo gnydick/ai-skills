@@ -17,7 +17,7 @@ never holds the only copy of a rule.
 | `rules/design-invariants.md` | Extensions to the mandatory design skill | 🟢 | 92 |
 | `rules/reference-sources.md` | Reading someone else's implementation | 🟢 | 5 |
 | `rules/environment-and-platform.md` | Platform scope, tool resolution, dependencies | 🟢 | 11 |
-| `rules/tool-output.md` | Proof lines, denominators, heartbeats | 🟢 | 9 |
+| `rules/tool-output.md` | Proof lines, denominators, heartbeats | 🟢 | 10 |
 
 That list is the cheap surface a search for where-does-this-belong reads first.
 

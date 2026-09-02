@@ -163,14 +163,18 @@ source (`ferrislicer/docs/rules/panic-on-absence.md`), and
 leaving the refinement reading as though it applied to all three classes.
 **Fixed** (F9).
 
-**Register index counts.** Mechanically checked: for each of the ten rule
-files, the "Rules" count in `register/INDEX.md` § Contents equals the number of
-top-level bullets in that file. Ten out of ten match. For nine of the ten the
-bullet count also equals the number of rows the file's own row comment claims;
-`design-invariants.md` carries 99 rows in 92 bullets, so seven rows are merged
-pairs. Checked that this is compaction and not loss: every one of the 99
-claimed rows' distinctive vocabulary is present in the file (0 rows below a
-42% keyword-coverage threshold). No silent drop.
+**Register index counts.** Mechanically checked (2026-09-02): for each of the
+ten rule files, the "Rules" count in `register/INDEX.md` § Contents equals the
+number of top-level bullets in that file. Ten out of ten match. For eight of
+the ten the bullet count also equals the number of rows the file's own row
+comment claims; `design-invariants.md` carries 99 rows in 92 bullets, so seven
+rows are merged pairs, and `tool-output.md` carries 10 bullets against the 9
+rows named in its comment, the tenth being the heartbeat-shape addition its
+comment now flags rather than numbers. Checked that this is compaction and not
+loss: every one of the 99 claimed rows in `design-invariants.md` and the
+heartbeat-shape addition in `tool-output.md` has its distinctive vocabulary
+present in the file (0 rows below a 42% keyword-coverage threshold). No silent
+drop.
 
 ---
 
@@ -1000,7 +1004,7 @@ DATA ROWS: 579  OQ ROWS: 4  HEADERS: 16  SEPS: 16
 MALFORMED: 0
 
 # by-convention bullet, compared across its two homes
-rules/agent-topology.md and skills/effort-lifecycle/SKILL.md — identical wording (re-checked after the consistency fix of 2026-09-02)
+rules/agent-topology.md and skills/effort-lifecycle/SKILL.md — identical wording across the three items (the skill adds its own pointer to skills/rule-intake/SKILL.md) (re-checked after the consistency fix of 2026-09-02)
 ```
 
 No `RECONCILIATION.md` row other than OQ.1 was touched, and no feedback cell was
