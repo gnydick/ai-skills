@@ -72,7 +72,11 @@ gate that runs the register check.
   names what it supersedes. The old text is never rewritten in place.
 - Close the loop on a captured rule by replacing pending with either where it
   was filed or why it is not a rule, and commit the rule's home, the register
-  and the inbox together.
+  and the inbox together where they share a repository. A universal rule's
+  home and its register row are in the shared skill while the entry that
+  captured it is in the project, so the home and its row land together there
+  and the disposition lands in the project in the same sitting, never left for
+  later.
 - Run the complete register check before calling a filing done. The cheap
   commit-time subset is not the whole check, and what it skips is exactly what a
   bad filing looks like.

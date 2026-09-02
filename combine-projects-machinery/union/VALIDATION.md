@@ -65,9 +65,12 @@ activation command and the bypass — which is the correct division and was left
 as written.
 
 **Rule filing in the project root, everywhere.** One contradiction found.
-`rules/agent-topology.md` § Where an agent works reserves both the capture and
-the filing commit for the shared copy; `skills/rule-intake/SKILL.md` § Where
-this runs says "In the project root, never in an isolated working copy";
+`rules/agent-topology.md` § Where an agent works reserved both the capture and
+the filing commit for the shared copy at the time of validation; the owner's
+11:56 ruling made capture a mechanism (the hook writes the project root's
+inbox from any working copy), so only the filing commit is reserved now.
+`skills/rule-intake/SKILL.md` § Where this runs says "In the project root,
+never in an isolated working copy";
 `skills/effort-lifecycle/SKILL.md` § Does this apply? repeats the same
 by-convention list. But `hooks/rule-capture.md` step 5 asserted the opposite
 workflow as normal — "a session running in an isolated working copy writes
@@ -88,14 +91,18 @@ That reading is excluded by 4.20 and validation had no business re-opening it.
 appears in exactly two places and is identical in both:
 `rules/agent-topology.md` § Where an agent works and
 `skills/effort-lifecycle/SKILL.md` § Does this apply? — three items in the same
-order (filing a dictated rule, both capture and filing commit; merging a
-finished effort's branch into the shared line locally, running the merge gate
-on that result, and pushing it once every leg on it is green; creating, listing
-and tearing down the copies). `README.md` does not carry the list, so it cannot
-diverge from it. Both places state the no-size-exception rule in the same
-terms, and both carry the second-commit backstop with the same "not a licence
-for the first commit" qualification. The middle item was reworded in both
-places in the fix pass (X2) — see § Fix pass and § 2 loop (b).
+order (filing a dictated project rule — the filing commit; capture is
+location-independent by mechanism, and a universal rule reaches every session
+through the reloaded skill instead; merging a finished effort's branch into
+the shared line locally, running the merge gate on that result, and pushing it
+once every leg on it is green; creating, listing and tearing down the copies).
+`README.md` does not carry the list, so it cannot diverge from it. Both places
+state the no-size-exception rule in the same terms, and both carry the
+second-commit backstop with the same "not a licence for the first commit"
+qualification. The middle item was reworded in both places in the fix pass
+(X2) — see § Fix pass and § 2 loop (b); the first item was brought to
+identical wording, mirroring `rules/agent-topology.md`, in the later
+consistency fix (2026-09-02).
 
 **The register is an index, with no summary layer anywhere.** No contradiction.
 `README.md` § How the pieces relate and § Installing it ("nothing needs a
@@ -103,10 +110,10 @@ summary layer"; "Do not summarise a rule file down to a bullet and leave the
 full text elsewhere"), `register/INDEX.md` § Maintenance contract ("The index
 cites; it never originates"), `rules/rule-governance.md` § Where a rule lives
 ("The register cites; it never originates"), and
-`skills/rule-intake/SKILL.md` steps 6 and 7 ("there is no summary copy of the
+`skills/rule-intake/SKILL.md` steps 7 and 8 ("there is no summary copy of the
 rule anywhere else"; "That summary characterises a group of rows; it is not a
 second copy of any rule's text") all agree. The one apparent tension — that
-`rules/rule-governance.md` § Finding the group it joins and rule-intake step 2
+`rules/rule-governance.md` § Finding the group it joins and rule-intake step 3
 both tell you to read "the summaries" — resolves cleanly: those are *group*
 summaries characterising a disagreement, which `register/INDEX.md` § What a
 row records requires, not summaries of any rule's text, which the same files
@@ -119,7 +126,7 @@ and no leakage. `grep -rn "ladder\|rung"` over `plugin/` and
 ladder as living in the skill and explicitly not restated (`README.md:101`,
 `rules/design-invariants.md:15`, `agents/invariant-auditor.md:40`), one row
 comment saying the same, and two about an unrelated *filing* ladder in
-`rules/rule-governance.md:54` and `skills/rule-intake` step 5. The catalog of
+`rules/rule-governance.md:54` and `skills/rule-intake` step 6. The catalog of
 ways a claim outruns its mechanism is referenced by row range in
 `COMPACT-12-15.md` (9.49–9.75) and by name in `agents/invariant-auditor.md`,
 and is reproduced nowhere. The mandate itself is stated once, in
@@ -176,21 +183,21 @@ marked and fixed.
 
 | # | Step | File carrying it |
 |---|---|---|
-| 1 | The session is told how to dictate, where capture lands, what stays blocked, where the register lives | `hooks/session-banner.md` steps 1–2 |
+| 1 | The session is told how to dictate, where capture lands, what stays blocked, where the register lives, and that a universal rule goes through the universal-rules skill's own trigger rather than the project mark | `hooks/session-banner.md` steps 1–2 |
 | 2 | A standing rule is dictated behind an agreed prefix; the mark is the only trigger | `rules/rule-governance.md` § Dictating a rule |
 | 3 | The mark is detected before the reply; one entry is appended verbatim, disposition pending | `hooks/rule-capture.md` steps 3–7 |
 | 4 | The session is told to file it now and what will fail until it does | `hooks/rule-capture.md` step 8 + *What the user sees* |
 | 5 | A rule ruled without the mark is written into the inbox by hand, with a note why capture did not fire | `rules/rule-governance.md` § Dictating a rule; `skills/rule-intake/SKILL.md` § When it starts |
 | 6 | Intake starts, from any of five triggers | `skills/rule-intake/SKILL.md` § When it starts |
 | 7 | It runs in the project root, per the by-convention list | `skills/rule-intake/SKILL.md` § Where this runs → `rules/agent-topology.md` § Where an agent works |
-| 8 | The group is found cheaply; agree/sharpen/contradict; the two-groups test | steps 2–4 → `rules/rule-governance.md` § Finding the group it joins; `register/INDEX.md` § Two rules that look alike |
-| 9 | Placement by ladder | step 5 → `rules/rule-governance.md` § Finding the group it joins |
-| 10 | The durable home is written first — the index never originates | step 6 → `rules/rule-governance.md` § Where a rule lives |
-| 11 | The citing row is added: date, one sentence, section citation | step 7 → `register/INDEX.md` § What a row records |
-| 12 | Supersession stamped in both directions, owner's call | step 8 → `rules/rule-governance.md` § Filing and closing the loop; `register/INDEX.md` § What a row records |
-| 13 | The inbox entry is dispositioned; the inbox stays append-only | step 9 → `rules/rule-governance.md` § Filing and closing the loop |
-| 14 | The full register check runs, not the cheap subset | step 10 → `rules/rule-governance.md` § Filing and closing the loop; `register/INDEX.md` § What the check verifies |
-| 15 | Home, index and inbox commit together, paths named | step 11 → `rules/rule-governance.md` § Where a rule lives |
+| 8 | The group is found cheaply; agree/sharpen/contradict; the two-groups test | steps 3–5 → `rules/rule-governance.md` § Finding the group it joins; `register/INDEX.md` § Two rules that look alike |
+| 9 | Placement by ladder | step 6 → `rules/rule-governance.md` § Finding the group it joins |
+| 10 | The durable home is written first — the index never originates | step 7 → `rules/rule-governance.md` § Where a rule lives |
+| 11 | The citing row is added: date, one sentence, section citation | step 8 → `register/INDEX.md` § What a row records |
+| 12 | Supersession stamped in both directions, owner's call | step 9 → `rules/rule-governance.md` § Filing and closing the loop; `register/INDEX.md` § What a row records |
+| 13 | The inbox entry is dispositioned; the inbox stays append-only | step 10 → `rules/rule-governance.md` § Filing and closing the loop |
+| 14 | The full register check runs, not the cheap subset | step 11 → `rules/rule-governance.md` § Filing and closing the loop; `register/INDEX.md` § What the check verifies |
+| 15 | Home, index and inbox commit together, paths named | step 12 → `rules/rule-governance.md` § Where a rule lives |
 | 16 | The commit gate blocks on any entry still pending | `gates/commit-gate.md` step 3 + acceptance check 3 |
 | 17 | A clone that never activated is caught on the hosted half; the merge gate re-runs the checks in full | `gates/commit-gate.md` steps 10 and 13; `gates/merge-gate.md` step 7 *Governance backstop*; `WIRING.md` § Activation, per clone |
 | 18 | Every active copy sees the new rule at its next session start | `rules/agent-topology.md` § Where an agent works |
@@ -666,7 +673,7 @@ step 9 had to stop and reconcile; it passes now.
 
 **Skills — pass, after one fix.** `skills/refresh-diverged-branch` passes
 outright and is the model: the premise is one paragraph, and each step is one
-move naming its input. `skills/rule-intake` passes — eleven steps, each one
+move naming its input. `skills/rule-intake` passes — twelve steps, each one
 action. `skills/effort-lifecycle` failed on steps 8 and 9, where the order made
 the sequence unexplainable without an apology ("gate the merge result, then
 merge"); **fixed** (F5) and re-checked: the sequence now reads create, reset,
@@ -685,7 +692,7 @@ was only implied.
 ## 6. Each step stands alone or names its input
 
 Checked over every numbered sequence: the three skills and the eight stories'
-"What it does" lists — 11 + 11 + 8 steps in the skills, 27 + 11 + 6 + 11 + 13 +
+"What it does" lists — 12 + 11 + 8 steps in the skills, 27 + 11 + 6 + 11 + 13 +
 13 + 15 + 10 in the stories.
 
 **Two defects found, both fixed.**
@@ -993,7 +1000,7 @@ DATA ROWS: 579  OQ ROWS: 4  HEADERS: 16  SEPS: 16
 MALFORMED: 0
 
 # by-convention bullet, compared across its two homes
-rules/agent-topology.md and skills/effort-lifecycle/SKILL.md — identical wording
+rules/agent-topology.md and skills/effort-lifecycle/SKILL.md — identical wording (re-checked after the consistency fix of 2026-09-02)
 ```
 
 No `RECONCILIATION.md` row other than OQ.1 was touched, and no feedback cell was

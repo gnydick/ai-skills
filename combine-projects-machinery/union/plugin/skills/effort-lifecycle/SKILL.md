@@ -21,9 +21,12 @@ commits below which the shared copy is acceptable
 The shared copy is reserved for a short, named list of operations that run
 there by convention:
 
-- filing a dictated rule — the filing commit is the reserved operation, capture
-  being location-independent by mechanism (`hooks/rule-capture.md`); the
-  sequence is `skills/rule-intake/SKILL.md`;
+- filing a dictated **project** rule — the filing commit is the reserved
+  operation, capture being location-independent by mechanism
+  (`hooks/rule-capture.md`) — so that every active working copy, all of which
+  live under the project root, sees the new rule the next time a session there
+  starts; a universal rule reaches every session through the reloaded skill
+  instead; the sequence is `skills/rule-intake/SKILL.md`;
 - merging a finished effort's branch into the shared line locally, running the
   merge gate on that result, and pushing it once every verification leg on it
   is green;
