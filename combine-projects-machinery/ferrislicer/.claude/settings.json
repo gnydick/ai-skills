@@ -1,0 +1,73 @@
+{
+  "worktree": {
+    "baseRef": "head"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/quiet_hook.py\"",
+            "timeout": 15,
+            "statusMessage": "Quiet-output check"
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/create_worktree.py\"",
+            "timeout": 300,
+            "statusMessage": "Creating worktree (unprefixed branch)"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/rule_capture.py\"",
+            "timeout": 30,
+            "statusMessage": "Checking for RULE: mark"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/rule_nudge.py\"",
+            "timeout": 30,
+            "statusMessage": "Register nudge check"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "echo 'Governance: dictate a standing rule by starting the prompt with RULE: (captured to docs/rule-inbox.md; blocks commits where core.hooksPath is set to .githooks, or via CI on push, until filed via /rule-intake). Register: docs/RULES-GROUPED.md.'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
