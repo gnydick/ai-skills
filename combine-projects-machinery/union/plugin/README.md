@@ -68,6 +68,13 @@ plugin/
 
 ## How the pieces relate
 
+**This plugin is the shared universal-rules skill.** A rule that holds in any
+project is filed here, not in a project's own tree: edit the matching
+`rules/<group>.md` file and reload the skill. Project-specific rules stay out
+of this plugin entirely — they live in each project's own rules directory and
+go through that project's own capture-to-gate pipeline, which this plugin does
+not run.
+
 **Rules bind every session.** Each file under `rules/` is loaded at session
 start, unconditionally, and it is the authority for the rules it holds. Where
 a skill repeats a rule's instruction at the step that carries it out, the rule

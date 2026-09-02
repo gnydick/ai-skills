@@ -46,17 +46,24 @@ authority.
    word; its disposition reads pending. Work from that text, not from your
    memory of the conversation.
 
-2. **Shortlist where it belongs, cheaply.** Read the index's contents list and
+2. **Check whether the entry states a universal rule.** If the entry states a
+   universal rule — one that would hold in any project — it was captured
+   through the wrong channel: file it in the shared universal-rules skill
+   (this plugin's matching rule file, then reload the skill) and disposition
+   the entry as moved; the rest of this sequence is for project-specific rules
+   only.
+
+3. **Shortlist where it belongs, cheaply.** Read the index's contents list and
    the summaries of the two or three plausible rule files, then search those
    files for the rule's key words. Do not read the whole set. Put a shortlist
    of at most three in front of the owner, with one line of reasoning each.
 
-3. **For each candidate on the shortlist from step 2, say whether the new rule
+4. **For each candidate on the shortlist from step 3, say whether the new rule
    agrees with that file's standing, sharpens it, or contradicts it.** A
    contradiction is not a problem to smooth over; it is the interesting case,
-   and steps 5 and 7 carry it through.
+   and steps 6 and 8 carry it through.
 
-4. **Before folding the rule into whichever candidate from step 3 looks most
+5. **Before folding the rule into whichever candidate from step 4 looks most
    like its home, ask whether that group's own remedy would have produced this
    rule's fix.** If
    it would not, they are different rules however alike they read. A rule that
@@ -64,60 +71,60 @@ authority.
    and cross-referenced from the other with the reason — never copied in twice
    (`register/INDEX.md` § Two rules that look alike).
 
-5. **Decide its place by ladder, from the candidate you settled on in step 4.**
-   This step decides only; steps 6 and 7 are what write.
+6. **Decide its place by ladder, from the candidate you settled on in step 5.**
+   This step decides only; steps 7 and 8 are what write.
    - It fits an existing group: the rule joins that group.
    - No group fits, but related loose rules exist: those and this one become a
      new group.
    - No siblings at all: it is a loose rule under its area, and a loose rule
      has neither a summary nor a status mark.
 
-   Note here too what step 3 found. A contradiction means the group's status
+   Note here too what step 4 found. A contradiction means the group's status
    mark changes and its account of the disagreement gains a verdict, both
-   written in step 7. Only a real decision moves a mark toward settled: the
+   written in step 8. Only a real decision moves a mark toward settled: the
    owner's ruling, or a change that lands and settles the question.
 
-6. **Write the durable home.** The rule text is written here and only here;
+7. **Write the durable home.** The rule text is written here and only here;
    the index cites it and never originates it (`rules/rule-governance.md`
    § Where a rule lives). A working-agreement rule goes into the rule file for
-   the group you chose in step 5, `rules/<group>.md`, which is loaded whole at
+   the group you chose in step 6, `rules/<group>.md`, which is loaded whole at
    every session start — there is no summary copy of the rule anywhere else. A
    rule about one subsystem's design goes to the specification that owns that
    subsystem. A claim about how strongly something is enforced is declared
    beside the mechanism itself and regenerated into the enforcement ledger;
    this sequence never hand-edits that file.
 
-7. **Write the index entries for what step 5 decided and step 6 landed.**
+8. **Write the index entries for what step 6 decided and step 7 landed.**
 
    - The row: three things and only three — when the rule was adopted, the
      rule in one sentence, and a citation to the file and section where it
      lives. Cite the section, never a line number.
-   - If step 5 made a new group, write that group's own furniture in the
+   - If step 6 made a new group, write that group's own furniture in the
      index: a summary saying in plain words what binds its rules, a status
      mark, and an honest statement of how strongly its rules are actually
      enforced, naming the mechanism where one exists and saying plainly that
      nothing enforces it where none does. That summary characterises a group
      of rows; it is not a second copy of any rule's text, which lives only in
-     the file from step 6.
-   - If step 3 found a contradiction, write the verdict into that group's
+     the file from step 7.
+   - If step 4 found a contradiction, write the verdict into that group's
      account of the disagreement and update its status mark.
 
-8. **If the rule supersedes another, stamp both directions in this same
+9. **If the rule supersedes another, stamp both directions in this same
    change.** The retired document gets a stamp pointing at the group that
    replaced it, and the new row names what it supersedes. The old text is
    never rewritten in place. Supersession is the owner's call whenever the
    losing rule was theirs: propose it, never presume it.
 
-9. **Disposition the inbox entry.** Replace pending with either where the rule
-   was filed — the group and its home — or why it is not a rule. Nothing is
-   deleted from the inbox; it is append-only history.
+10. **Disposition the inbox entry.** Replace pending with either where the rule
+    was filed — the group and its home — or why it is not a rule. Nothing is
+    deleted from the inbox; it is append-only history.
 
-10. **Run the register check in full, not the cheap commit-time subset**
+11. **Run the register check in full, not the cheap commit-time subset**
     (`rules/rule-governance.md` § Filing and closing the loop, which is why —
     what the cheap subset skips is exactly what a bad filing looks like; what
     the check itself covers is `register/INDEX.md` § What the check verifies).
 
-11. **Commit the rule's home, the index and the inbox together, naming the
+12. **Commit the rule's home, the index and the inbox together, naming the
     exact paths.** One change, so no reader can find the rule without the row
     or the row without the rule.
 

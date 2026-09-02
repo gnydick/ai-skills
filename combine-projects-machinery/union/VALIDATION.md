@@ -780,10 +780,12 @@ Four, appended to `RECONCILIATION.md` under `## Open questions` in the same
 five-column format, ids `OQ.1`–`OQ.4`, project cells `—`, feedback empty. They
 are questions, not decisions: none changed a row, and none was resolved here.
 
-- **OQ.1** — Where does a rule dictated from *inside* an isolated working copy
-  get filed? The capture mechanism writes whichever inbox the session runs
-  against; the convention reserves capture and filing for the shared copy. Two
-  defensible readings; validation named the seam and did not choose.
+- **OQ.1 — RULED** (Gabe, chat 2026-09-02 11:42–11:45): project-specific rules
+  go in the project's root; universal rules go in the shared universal-rules
+  skill — this plugin — filed by editing its rule file and reloading the
+  skill, never through a project inbox. The mechanical residue named above is
+  now scoped to project rules only and stays open: how a project-rule entry
+  captured inside a working copy reaches the root inbox.
 - **OQ.2** — One project's inbox still carries an undispositioned entry (a test
   loop should not feed the agent unless something failed). The union's intake
   sequence handles it unchanged; whether it is a standing rule for the union,

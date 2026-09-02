@@ -5,7 +5,9 @@ that no rule depends on the session remembering it. The rules it serves are in
 `rules/rule-governance.md`; this is the mechanism.
 
 **When it runs:** On the assistant's prompt-submit event — after the person
-sends a prompt and before the assistant composes any part of its reply.
+sends a prompt and before the assistant composes any part of its reply. This
+hook captures PROJECT rules; a universal rule is captured through the shared
+universal-rules skill's own trigger and never lands in this inbox.
 
 **What it reads:**
 
@@ -94,5 +96,8 @@ no text at all: nothing. Silence is the normal case.
 - Given two marked prompts carrying identical text, when both are submitted,
   then the inbox holds two entries: the hook never deduplicates and never
   edits.
+- Given a universal rule, when it is dictated, then it is filed through the
+  shared universal-rules skill's own trigger and no inbox entry is created
+  here.
 
 <!-- rows: 2.1, 2.2, 2.3, 2.4, 2.25, 2.27; filing location per the 4.20 ruling -->

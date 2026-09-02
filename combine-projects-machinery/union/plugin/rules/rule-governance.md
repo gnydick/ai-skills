@@ -39,6 +39,12 @@ gate that runs the register check.
   position, and any edit above it silently moves what the row points at.
 - A change that adds, changes or supersedes a standing rule updates the register
   in the same commit as the rule's own home.
+- A project-specific rule has exactly one home: the project's own rules
+  directory. A universal rule — one that would hold in any project — has
+  exactly one home: the shared universal-rules skill, this plugin. File it
+  there through the skill's own trigger, editing the matching
+  `rules/<group>.md` file and reloading the skill; it is never filed through a
+  project inbox.
 
 ## Finding the group it joins
 
