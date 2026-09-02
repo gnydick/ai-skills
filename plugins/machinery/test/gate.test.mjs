@@ -45,6 +45,19 @@ test('a stale (hand-edited) index blocks (spec I28)', () => {
   } finally { r.cleanup(); }
 });
 
+test('partial staging: a staged rule edit without its regenerated (unstaged) index blocks; staging the index too passes (spec I28)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root);
+    write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n- a second rule\n');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', '.claude/rules/t.md');
+    let res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /register_check: index is stale/);
+    g(r.root, 'add', '.claude/machinery/INDEX.md');
+    res = gate(r.root); assert.equal(res.code, 0, res.stdout + res.stderr);
+  } finally { r.cleanup(); }
+});
+
 test('a new path:line citation to a blank line blocks; a real one passes (spec I26)', () => {
   const r = makeRepo();
   try {

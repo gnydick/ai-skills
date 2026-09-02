@@ -9,7 +9,15 @@ export function readRules(rulesDir) {
 }
 
 export function generateIndex(rulesDir) {
-  const files = readRules(rulesDir);
+  const entries = fs.readdirSync(rulesDir).filter((f) => f.endsWith('.md')).sort()
+    .map((f) => ({ name: f, text: fs.readFileSync(path.join(rulesDir, f), 'utf8') }));
+  return generateIndexFrom(entries);
+}
+
+// entries: [{name, text}] — the rule files being indexed, already read (spec I28: lets a caller
+// build the index from the STAGED tree instead of the working tree). Pure; no I/O.
+export function generateIndexFrom(entries) {
+  const files = entries.map((e) => parseRuleFile(e.text, e.name));
   const known = new Set(files.flatMap((f) => f.sections.map((s) => `rules/${f.name} § ${s.heading}`)));
   const rows = files.map((f) => `| rules/${f.name} | ${f.status} | ${f.rules} | ${f.sections.map((s) => s.heading).join('; ')} |`);
   const sup = [];

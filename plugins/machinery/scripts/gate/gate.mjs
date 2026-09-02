@@ -18,7 +18,7 @@ const layout = universal
   : { rulesDir: path.join(root, '.claude', 'rules'), inbox: path.join(root, '.claude', 'machinery', 'inbox.md'), index: path.join(root, '.claude', 'machinery', 'INDEX.md') };
 
 const CHECKS = Object.freeze([
-  () => registerCheck(layout),
+  () => registerCheck({ ...layout, root }),
   () => citationTarget({ root, mergeMode }),
 ]);
 let ok = true;
