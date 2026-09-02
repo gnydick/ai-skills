@@ -15,8 +15,11 @@ function stagedRuleEntries(root, rulesDir) {
   if (ls.code !== 0) throw new Error(`git ls-files failed: ${ls.stderr}`);
   const files = ls.stdout.split('\n').filter((f) => f && f.endsWith('.md')).sort();
   return files.map((f) => {
-    const show = git(['show', `:${f}`], root);
-    if (show.code !== 0) throw new Error(`git show :${f} failed: ${show.stderr}`);
+    // `:./<path>` resolves relative to cwd (root); plain `:<path>` resolves relative to the
+    // git top level, which breaks when root is itself a subdirectory of the enclosing repo
+    // (e.g. the universal plugin checkout nested inside a monorepo).
+    const show = git(['show', `:./${f}`], root);
+    if (show.code !== 0) throw new Error(`git show :./${f} failed: ${show.stderr}`);
     return { name: posixBasename(f), text: show.stdout };
   });
 }
@@ -24,7 +27,7 @@ function stagedRuleEntries(root, rulesDir) {
 // The STAGED index file's content, or null when nothing is staged there.
 function stagedIndex(root, indexFile) {
   const rel = toPosix(path.relative(root, indexFile));
-  const r = git(['show', `:${rel}`], root);
+  const r = git(['show', `:./${rel}`], root);
   return r.code === 0 ? r.stdout : null;
 }
 
