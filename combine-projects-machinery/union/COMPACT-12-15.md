@@ -3,8 +3,10 @@
 These are the four most detailed groups — standing agents, the register system,
 commit gates, merge gates and ratchets — compressed so each mechanism fits in
 one look and you can judge whether it worked. RECONCILIATION.md remains the
-record: every statement here ends with the row ids it came from, and nothing
-those 134 universal cells demanded has been dropped.
+record: every statement here ends with the row ids it came from, and every
+demand, trigger, blocking status, ordering and exception those 134 universal
+cells carry is still derivable here — rationale, incident narrative and
+cross-reference chains are what was cut.
 
 **How to read.** A mechanism is one line in a fixed shape: **name — when it runs
 — what it checks — blocks / warns / reports — what "worked" looks like**.
@@ -92,16 +94,16 @@ mandatory design skill, so all 134 ids carry live statements here.
 - On a rule that matters to two groups: file it in the one whose trigger it actually fires on and cross-reference from the other with the reason; never copy it in as a second row, because two copies drift and neither knows it. [13.31]
 - Before folding a new rule into a group that looks like its home: ask whether that group's own remedy would have produced this rule's fix. If it would not, they are different rules however alike they read. [13.32]
 
-**Register check** — runs over the register and the documents it cites — its own header enumerates what it blocks on and, separately, what it only advises — advisory output never changes the exit status — worked when: a reader of either the header or the output can tell blocking from advisory without reading the code. [13.10]
+**Register check** — runs in the commit gate and in the hosted check, over the register and the documents it cites — its own header enumerates what it blocks on and, separately, what it only advises — advisory output never changes the exit status — worked when: a reader of either the header or the output can tell blocking from advisory without reading the code. [13.10, 13.23]
 
 Blocks on:
 
-- Every row citation naming a file that exists — line numbers drifting is normal and tolerated, the file being gone is not [13.11]; exactly one status mark on every group heading and none on a lone-rule heading [13.13]; every section citation resolving to a real heading, matched on its leading words, so a row may name a heading that itself carries a suffix [13.15].
+- Every row citation naming a file that exists — line numbers drifting is normal and tolerated, the file being gone is not [13.11] — and a line that is not empty [13.12]; exactly one status mark on every group heading and none on a lone-rule heading [13.13]; every section citation resolving to a real heading, matched on its leading words, so a row may name a heading that itself carries a suffix [13.15].
 - Retirement in both directions: every stamp on a retired document names a group that exists, and every supersession row names a real file carrying the stamp pointing back. One direction alone is a dangling link neither side can see from where it stands. [13.14]
 
 Deliberate limits, each stated in the tool's own header:
 
-- It never checks that a cited line still supports the claim beside it: a citation whose target drifted onto different real content passes, by design, and the header says so. [13.12]
+- The citation checks are structural only: they never check that a cited line still supports the claim beside it, so a citation whose target drifted onto different real content passes, by design — and a check whose name sounds like it validates something says in its own header exactly what it validates and what it does not. [13.12]
 - It skips fenced code blocks when reading headings — a line inside a quoted snippet matches the heading pattern exactly, and a citation would resolve to something that is not a section. [13.16]
 - Where two checks split a space, each covers its own half completely: a file cited only in the form one check reads is reported missing by that check, never left to the other, which will never see it. [13.17]
 - It reads only the rows carrying live claims, never the prose around them; otherwise the section documenting the format fails the rule it states, and a header's example reads as a real entry. [13.18]
@@ -132,7 +134,7 @@ Trusting it:
 - State in the header what is deliberately not checked and why: judging whether a citation supports the claim beside it needs a person, and a heuristic that flagged correct ones would get the whole check disabled, so it is left undone and said so (9.96). [14.7]
 - A checking tool excludes itself and its own tests from its scan, because a self-test's fixtures are check-shaped data rather than real claims. Run the tool against its own change on purpose; that is how this gets found. [14.8]
 
-**Ledger-table check** — runs at commit time — every row carries the header's cell count, and no row holds a placeholder standing in for a reference nobody filled in — blocks — worked when: no row silently dropped or merged a column in the one document whose purpose is that a claim resolves to its mechanism (9.158), and a row naming nothing said so plainly with a dash rather than leaving an IOU that reads like a pending fact. [14.10, 14.11]
+**Table-structure check** — runs at commit time over any table people rely on, which is checked structurally rather than proofread: a row with the wrong number of cells still renders, it just silently drops or merges a column, and where the document exists so a claim can be traced to its mechanism that eaten cell is exactly the failure it exists to prevent (9.158) — every row carries the header's cell count, and no row holds a placeholder standing in for a reference nobody filled in — blocks — worked when: every rendered row shows the full set of columns, and a row naming no reference shows a plain dash rather than an IOU that reads like a pending fact. [14.10, 14.11]
 
 - Audit deliberately for checks that exist but nothing runs — a gate written and never wired is not enforcement — and wire each one where the consequence of its regression actually lands. Runtime is rarely the reason not to. [14.12]
 - Track hooks in the repository and activate them per clone by one explicit command; never self-installing. A hook nobody can see in the tree is one nobody maintains, and one that installs itself silently is worse. [14.13]
