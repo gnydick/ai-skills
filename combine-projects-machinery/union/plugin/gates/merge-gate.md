@@ -14,7 +14,9 @@ outlawed the form you wrote, since you branched. These legs live wherever they
 actually execute — when the hosted checks are absent, or turn out not to be
 running, they move locally to merge time. Confirm they ran rather than assume
 it: a hosted service can fail in a way that reports failure for days while
-everything keeps landing.
+everything keeps landing. Where no hosted check exists, this gate is the only
+blocking run of the document checks (`gates/commit-gate.md`'s hosted
+paragraph).
 
 **What it reads:**
 

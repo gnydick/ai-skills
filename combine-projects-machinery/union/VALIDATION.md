@@ -786,16 +786,16 @@ are questions, not decisions: none changed a row, and none was resolved here.
   skill, never through a project inbox. The mechanical residue named above is
   now scoped to project rules only and stays open: how a project-rule entry
   captured inside a working copy reaches the root inbox.
-- **OQ.2** — One project's inbox still carries an undispositioned entry (a test
-  loop should not feed the agent unless something failed). The union's intake
-  sequence handles it unchanged; whether it is a standing rule for the union,
-  and which file it would join, is the owner's call.
-- **OQ.3** — Six supersession stamps point outside the copied subset. Re-verify
-  against the full source repository before promoting the plugin, or carry the
-  demand forward and leave the six as a stated limit of this snapshot?
-- **OQ.4** — Is a hosted document check blocking, in the universal form? Rows
-  14.15–14.18 never say. The union reads it as blocking and now labels that
-  reading inferred; a ruling would let the label come off.
+- **OQ.2 — RULED** (Gabe, chat 2026-09-02 11:48): do not include that in the
+  union. The undispositioned entry stays out; it joins neither
+  `rules/verification-and-evidence.md` § Tests nor `rules/tool-output.md`.
+- **OQ.3 — RULED** (Gabe, chat 2026-09-02 11:48): not part of this — rejected.
+  No re-verification against the full source repository is part of this work;
+  the six unverifiable supersession stamps remain a stated limit of this
+  snapshot, not a defect the union corrects.
+- **OQ.4 — RULED** (Gabe, chat 2026-09-02 11:51): the hosted check blocks —
+  that is where it would normally run; no hosted CI exists at present. The
+  "inferred" label on the blocking status comes off.
 
 ---
 

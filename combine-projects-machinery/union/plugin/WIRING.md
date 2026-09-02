@@ -95,7 +95,8 @@ gates, whose whole purpose is to block.
 - **Platform must provide:** a pre-commit entry point that runs on every commit
   and rejects on a non-zero exit; a way to read the content *being committed*
   rather than the working copy; a documented bypass; and a hosted check that
-  can run the same checks on push, for clones that never activated the hooks.
+  can run the same checks on push, for clones that never activated the hooks —
+  blocking, as ruled in `gates/commit-gate.md`.
 
 ### `gates/merge-gate.md`
 

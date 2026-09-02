@@ -103,7 +103,10 @@ clone that never activated the hooks is still caught.
     it was measured passing on the commit that introduced it and has a
     demonstrated way of going red — each checker's own self-test runs as a gate
     beside it, because a gate nobody has seen fail is indistinguishable from a
-    broken one.
+    broken one. The hosted check blocks: a red hosted run stops the merge or
+    publish it guards. Where no hosted service is in use, the local merge gate
+    (`gates/merge-gate.md`) is the sole blocking backstop and must carry the
+    same document checks.
 
 **What the user sees:**
 
