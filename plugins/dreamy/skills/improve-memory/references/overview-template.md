@@ -4,6 +4,14 @@ Write exactly this structure. `apply` parses the flagged items, so the
 `- [ ] **F<n>**` lines and the fenced action blocks under them are load-bearing;
 the prose around them is for the user.
 
+A flagged item's box has three states, and the user sets them by editing the
+file or through the review page that `/dream` publishes:
+
+- `- [ ]` open — not decided yet; carried forward, dropped after three runs
+- `- [x]` approved — `apply` executes it
+- `- [-]` declined — `apply` (or the next pass) moves it to "## Declined";
+  it is never re-proposed and nothing is written
+
 ```markdown
 ---
 skill: improve-memory
@@ -122,6 +130,13 @@ text alone. Every action block is executable without judgement.>
       target_sha256: new
   ```
 
+## Declined
+
+<F-items the user marked `[-]`, one line each: original ID, the date it was
+declined, what it proposed. Not re-proposed; the history file from the run
+that first flagged them has the full text. A later dream that surfaces the
+same fact again gets a new item, since the evidence is new.>
+
 ## Dropped
 
 <F-items unticked for three runs, one line each with their original ID and
@@ -141,9 +156,11 @@ approval", which say "Nothing." so the reader knows the pass looked.
 
 Move each applied F-item's bullet into "Applied" under a heading
 `### Applied from approvals, <date>` with the checkbox removed and the
-action block deleted. Items whose target moved stay in "Needs your approval"
-with a line appended: `Target changed since proposal (sha mismatch); will be
-re-proposed next run.` Update the frontmatter counts.
+action block deleted. Move each `[-]` item into "## Declined" as one line
+(ID, date, what it proposed), deleting its block. Items whose target moved
+stay in "Needs your approval" with a line appended: `Target changed since
+proposal (sha mismatch); will be re-proposed next run.` Update the
+frontmatter counts.
 
 ## Status line (chat reply)
 
@@ -157,7 +174,7 @@ Tick what you approve, then /improve-memory apply.
 For `apply`:
 
 ```
-Applied <k> of <ticked> ticked items; <s> skipped because the target changed since the proposal.
+Applied <k> of <ticked> ticked items; <s> skipped because the target changed since the proposal; <d> declined items filed.
 Overview updated: ~/.claude/improve-memory/Memory Improvement Overview.md
 ```
 

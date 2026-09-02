@@ -273,9 +273,10 @@ function readTicked() {
   const p = path.join(opt.home, "improve-memory", "Memory Improvement Overview.md");
   if (!exists(p)) return { path: p, exists: false, ticked: [], open: [] };
   const text = readText(p);
-  const ticked = [], open = [];
-  for (const m of text.matchAll(/^\s*-\s*\[( |x|X)\]\s*\*\*(F\d+)\*\*/gm)) (m[1].trim() ? ticked : open).push(m[2]);
-  return { path: p, exists: true, ticked, open };
+  // [ ] open, [x] approved, [-] declined
+  const ticked = [], open = [], declined = [];
+  for (const m of text.matchAll(/^\s*-\s*\[( |x|X|-)\]\s*\*\*(F\d+)\*\*/gm)) (m[1] === "-" ? declined : m[1].trim() ? ticked : open).push(m[2]);
+  return { path: p, exists: true, ticked, open, declined };
 }
 
 // ---------- assemble ----------

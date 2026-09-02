@@ -177,7 +177,10 @@ Use the exact template in `references/overview-template.md`. Write it to
 were neither ticked nor obsoleted are carried forward with their original
 IDs and the run they first appeared in, so the user sees what has been
 waiting; after three runs unticked they move to a "Dropped" list, one line
-each, and stop being re-proposed.
+each, and stop being re-proposed. An item the user marked `[-]` is declined:
+it moves to the "Declined" list on this pass, one line each, nothing is
+written for it, and it is not re-proposed. A tick means yes, a `[-]` means
+no, and an untouched box means not yet.
 
 Then reply with the status line from the template — four lines, no overview
 pasted into chat, no question.
@@ -197,6 +200,8 @@ For each ticked item:
   file.
 - Move the item into the overview's "Applied" section with the date, and
   leave the unticked ones where they are.
+- An item marked `[-]` is declined: move it to the overview's "Declined"
+  list as one line with the date, delete its block, write nothing.
 
 `apply` is the only path by which this skill writes into a repository, and
 only because the user ticked the box.

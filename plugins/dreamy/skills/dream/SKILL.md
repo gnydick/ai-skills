@@ -88,6 +88,9 @@ and prints JSON. The fields that drive the run:
   improve-memory run the item first appeared in; improve-memory carries
   unticked items forward under their original ID, so the ID alone is not
   unique across overviews.
+- `declinedKeys` — items the user marked `[-]` ("no"). They go through the
+  same apply step, which files them under "Declined" instead of executing
+  them. An untouched box means "not yet" and is carried forward.
 - `dream.consumedByImproveMemory` — whether the dream file on disk has been
   consumed. `false` means improve-memory has work waiting even if the
   analysis finds no new sessions.
@@ -100,12 +103,14 @@ items forward, so the new overview is "what changed since" plus what is
 still waiting — exactly the file the user asked for when they have not
 looked yet.
 
-## Step 1: Apply what was approved (when `tickedKeys` is not empty)
+## Step 1: Apply what was approved (when `tickedKeys` or `declinedKeys` is not empty)
 
 Invoke the improve-memory skill with the argument `apply` (plus `--home <dir>`
 when given). It executes every ticked item and moves each into the
 overview's "Applied" section; an item whose target file changed since it
 was proposed stays flagged with a note, and that is correct — do not force it.
+It also files every `[-]` item under "Declined" so it is never re-proposed;
+a decline writes nothing, which is why it still counts as something to do.
 
 Note its status line ("Applied k of n ticked items; s skipped …").
 

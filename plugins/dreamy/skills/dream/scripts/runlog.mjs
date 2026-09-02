@@ -100,11 +100,12 @@ function parseOverview(text) {
   for (const line of lines) {
     if (/^## /.test(line)) { inApproval = /^## Needs your approval/i.test(line); continue; }
     if (!inApproval) continue;
-    const m = /^- \[([ xX])\] \*\*(F\d+)\*\*(.*)$/.exec(line);
+    const m = /^- \[([ xX-])\] \*\*(F\d+)\*\*(.*)$/.exec(line);
     if (!m) continue;
     const since = /since run (\d+)/i.exec(m[3]);
     const sinceRun = since ? Number(since[1]) : run;
-    items.push({ id: m[2], sinceRun, key: `${m[2]}@run${sinceRun ?? "?"}`, ticked: m[1] !== " " });
+    // [ ] open, [x] approved, [-] declined
+    items.push({ id: m[2], sinceRun, key: `${m[2]}@run${sinceRun ?? "?"}`, ticked: /x/i.test(m[1]), declined: m[1] === "-" });
   }
   return { run, runAt: fm.run_at || null, dreamConsumed: fm.dream_consumed || null, items };
 }
@@ -163,8 +164,9 @@ function gather() {
   // or any edit at all since this skill last recorded the file's hash.
   let reviewedBecause;
   const tickedKeys = ov.exists ? ov.items.filter((i) => i.ticked && !log.applied[i.key]).map((i) => i.key) : [];
+  const declinedKeys = ov.exists ? ov.items.filter((i) => i.declined && !log.declined?.[i.key]).map((i) => i.key) : [];
   if (!ov.exists) reviewedBecause = "no-overview";
-  else if (tickedKeys.length) reviewedBecause = "ticked";
+  else if (tickedKeys.length || declinedKeys.length) reviewedBecause = "ticked";
   else if (!lastRun || !lastRun.overview?.sha256) reviewedBecause = "never-recorded";
   else if (lastRun.overview.sha256 !== ov.sha256) reviewedBecause = "edited";
   else reviewedBecause = "unchanged";
@@ -177,7 +179,7 @@ function gather() {
 
   return {
     home: opt.home, mode: opt.mode, now: new Date().toISOString(),
-    overview: ov, tickedKeys, reviewed, reviewedBecause,
+    overview: ov, tickedKeys, declinedKeys, reviewed, reviewedBecause,
     dream: { ...dream, consumedByImproveMemory: dream.exists ? !dreamUnconsumed : null },
     sessionAnalysisLastRunAt: saState?.runs?.dream?.lastRunAt || null,
     improveMemoryState: imState,
@@ -193,8 +195,11 @@ function gather() {
 function status() {
   const s = gather();
   const steps = [];
-  if (s.tickedKeys.length) {
-    steps.push({ step: "apply", because: `${s.tickedKeys.length} ticked item(s) not yet applied: ${s.tickedKeys.join(", ")}` });
+  if (s.tickedKeys.length || s.declinedKeys.length) {
+    const why = [];
+    if (s.tickedKeys.length) why.push(`${s.tickedKeys.length} ticked item(s) not yet applied: ${s.tickedKeys.join(", ")}`);
+    if (s.declinedKeys.length) why.push(`${s.declinedKeys.length} declined item(s) to file: ${s.declinedKeys.join(", ")}`);
+    steps.push({ step: "apply", because: why.join("; ") });
   }
   if (opt.mode === "full") {
     steps.push({ step: "analyze", because: s.sessionAnalysisLastRunAt ? `sessions since ${s.sessionAnalysisLastRunAt}` : "no previous dream run; the analysis falls back to 14 days" });
@@ -212,7 +217,7 @@ function status() {
   }
   s.steps = steps;
   s.summary = s.overview.exists
-    ? `overview run ${s.overview.run} (${s.overview.items.length} open, ${s.tickedKeys.length} ticked) — ${s.reviewedBecause}; dream ${s.dream.exists ? `${path.basename(s.dream.datedPath)} ${s.dream.consumedByImproveMemory ? "consumed" : "UNCONSUMED"}` : "none"}; ${s.runsSoFar} dream run(s) logged`
+    ? `overview run ${s.overview.run} (${s.overview.items.length} open, ${s.tickedKeys.length} ticked, ${s.declinedKeys.length} declined) — ${s.reviewedBecause}; dream ${s.dream.exists ? `${path.basename(s.dream.datedPath)} ${s.dream.consumedByImproveMemory ? "consumed" : "UNCONSUMED"}` : "none"}; ${s.runsSoFar} dream run(s) logged`
     : `no overview yet; dream ${s.dream.exists ? path.basename(s.dream.datedPath) : "none"}; ${s.runsSoFar} dream run(s) logged`;
 
   // A run the plan already calls a no-op records nothing, so it needs no
@@ -221,7 +226,7 @@ function status() {
   else fs.mkdirSync(path.dirname(P.pending), { recursive: true }), fs.writeFileSync(P.pending, JSON.stringify({
     startedAt: s.now, mode: opt.mode,
     overviewSha256: s.overview.sha256 || null, overviewRun: s.overview.run || null,
-    openKeys: s.overview.items?.map((i) => i.key) || [], tickedKeys: s.tickedKeys,
+    openKeys: s.overview.items?.map((i) => i.key) || [], tickedKeys: s.tickedKeys, declinedKeys: s.declinedKeys,
     dreamDatedPath: s.dream.datedPath || null, dreamRunAt: s.dream.runAt || null,
     sessionAnalysisLastRunAt: s.sessionAnalysisLastRunAt,
   }, null, 2) + "\n");
@@ -250,7 +255,7 @@ function record() {
   }
   const openNow = new Set(s.overview.items?.map((i) => i.key) || []);
 
-  let applied, targetMoved = [];
+  let applied, targetMoved = [], declined = [];
   if (opt.applied) {
     applied = opt.applied;
   } else if (pending) {
@@ -258,6 +263,7 @@ function record() {
     // there after apply is the sha-mismatch case improve-memory leaves flagged.
     applied = pending.tickedKeys.filter((k) => !openNow.has(k));
     targetMoved = pending.tickedKeys.filter((k) => openNow.has(k));
+    declined = (pending.declinedKeys || []).filter((k) => !openNow.has(k));
   } else {
     applied = [];
     console.error("runlog: no pending.json (status was not run first) and no --applied; recording zero applied items");
@@ -274,11 +280,13 @@ function record() {
       history: s.overview.latestHistory, openItems: [...openNow], changedThisRun: overviewNew,
     } : null,
     dream: s.dream.exists ? { path: s.dream.datedPath, runAt: s.dream.runAt, window: s.dream.window, sessions: s.dream.sessions, candidates: s.dream.candidates, newThisRun: dreamNew } : null,
-    applied, appliedButTargetMoved: targetMoved,
+    applied, appliedButTargetMoved: targetMoved, declined,
     sent: opt.sent, page: opt.page || log.pageUrl || null, note: opt.note,
   };
   if (opt.page) log.pageUrl = opt.page;
   for (const k of applied) log.applied[k] = { run: n, at: s.now, overviewRun: s.overview.run || null };
+  log.declined ||= {};
+  for (const k of declined) log.declined[k] = { run: n, at: s.now };
   log.runs.push(entry);
 
   fs.mkdirSync(path.dirname(P.log), { recursive: true });

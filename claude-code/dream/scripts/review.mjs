@@ -67,7 +67,7 @@ function frontmatter(text) {
 function parseOverview(text) {
   const { fm, body } = frontmatter(text.replace(/\r\n/g, "\n"));
   const lines = body.split("\n");
-  const model = { title: "", fm, intro: "", applied: [], groups: [], notActed: "", notes: "", ticked: [], savedAt: null };
+  const model = { title: "", fm, intro: "", applied: [], groups: [], notActed: "", notes: "", ticked: [], declined: [], savedAt: null };
   let section = null, group = null, block = [], item = null, appliedHead = null;
   const flushBlock = () => {
     const text = block.join("\n").trim(); block = [];
@@ -86,12 +86,13 @@ function parseOverview(text) {
     if (h2) { flushItem(); flushBlock(); const t = h2[1].trim(); section = /^Applied/i.test(t) ? "applied" : /^Needs your approval/i.test(t) ? "approval" : /^Not acted/i.test(t) ? "notActed" : /^(Pass notes|Notes)/i.test(t) ? "notes" : /^Dropped/i.test(t) ? "notActed" : "other"; appliedHead = null; group = null; if (section === "notActed" && /^Dropped/i.test(t)) block.push(`### ${t}`); continue; }
     const h3 = /^### (.*)$/.exec(l);
     if (h3) { flushItem(); flushBlock(); if (section === "applied") appliedHead = h3[1].trim(); else if (section === "approval") { group = { title: h3[1].trim(), intro: "", items: [] }; model.groups.push(group); } else block.push(l); continue; }
-    const it = /^- \[([ xX])\] \*\*(F\d+)\*\*(.*)$/.exec(l);
+    const it = /^- \[([ xX-])\] \*\*(F\d+)\*\*(.*)$/.exec(l);
     if (it && section === "approval") {
       flushItem(); flushBlock();
       if (!group) { group = { title: "Items", intro: "", items: [] }; model.groups.push(group); }
       const since = /since run (\d+)/i.exec(it[3]);
-      item = { id: it[2], key: `${it[2]}@run${since ? since[1] : fm.run || "?"}`, meta: it[3].replace(/^\s*·\s*/, "").trim(), ticked: it[1] !== " ", lines: [], action: null, inAction: false };
+      // [ ] open, [x] approved, [-] declined
+      item = { id: it[2], key: `${it[2]}@run${since ? since[1] : fm.run || "?"}`, meta: it[3].replace(/^\s*·\s*/, "").trim(), ticked: /x/i.test(it[1]), declined: it[1] === "-", lines: [], action: null, inAction: false };
       continue;
     }
     if (item) {
@@ -105,6 +106,7 @@ function parseOverview(text) {
   }
   flushItem(); flushBlock();
   model.ticked = model.groups.flatMap((g) => g.items.filter((i) => i.ticked).map((i) => i.key));
+  model.declined = model.groups.flatMap((g) => g.items.filter((i) => i.declined).map((i) => i.key));
   return model;
 }
 function finishItem(item) {
@@ -146,7 +148,9 @@ details.applied{border-top:1px solid var(--line);padding:.5rem 0}details.applied
 .item input[type=checkbox]{width:1.45rem;height:1.45rem;margin:.15rem 0 0;accent-color:var(--tick);cursor:pointer}.item input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .item .head{display:flex;flex-wrap:wrap;gap:.35rem .6rem;align-items:baseline}.item .id{font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--accent)}
 .chip{font-size:.78rem;padding:.05rem .5rem;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}.chip.decision{color:var(--warn);border-color:var(--warn)}.chip.reversal{color:var(--warn);border-color:var(--warn)}
-.item .body{grid-column:2}.item .body p{margin:.3rem 0}.item.ticked .body{opacity:.75}
+.item .body{grid-column:2}.item .body p{margin:.3rem 0}.item.ticked .body{opacity:.75}.item.declined .body{opacity:.5}
+.item .no{margin-left:auto;font:inherit;font-size:.82rem;padding:.1rem .6rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}.item .no[aria-pressed="true"]{color:var(--warn);border-color:var(--warn);font-weight:600}.item .no:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.item .saved.declined{color:var(--warn)}
 .item details{grid-column:2;margin-top:.3rem}.item summary{cursor:pointer;color:var(--muted);font-size:.9rem}.item details[open] summary{color:var(--ink)}
 .item .saved{grid-column:2;font-size:.82rem;color:var(--ok)}
 .savebar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;pointer-events:none;padding:1rem}.savebar[hidden]{display:none}
@@ -165,34 +169,39 @@ const SRC = document.currentScript.textContent;
 const FONTS = ${JSON.stringify(FONTS)};
 const model = JSON.parse(document.getElementById("model").textContent);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Three states per item: approved (the checkbox), declined (the No button),
+// or neither — "not yet", which improve-memory carries forward.
 const ticked = new Set(model.ticked);
+const declined = new Set(model.declined || []);
 const initial = new Set(model.ticked);
+const initialDeclined = new Set(model.declined || []);
 const open = model.groups.flatMap((g) => g.items);
 const fmtWhen = (iso) => iso ? new Date(iso).toLocaleString() : null;
 
 function itemHtml(it) {
-  const on = ticked.has(it.key);
-  return '<div class="item' + (on ? " ticked" : "") + '" data-key="' + esc(it.key) + '">' +
+  const on = ticked.has(it.key), no = declined.has(it.key);
+  return '<div class="item' + (on ? " ticked" : "") + (no ? " declined" : "") + '" data-key="' + esc(it.key) + '">' +
     '<input type="checkbox" id="cb-' + esc(it.id) + '" aria-label="Approve ' + esc(it.id) + '"' + (on ? " checked" : "") + '>' +
     '<div class="head"><label class="id" for="cb-' + esc(it.id) + '">' + esc(it.id) + '</label>' +
     '<span class="chip ' + esc(it.kind) + '">' + esc(it.kind) + '</span>' +
     (it.project ? '<span class="chip">' + esc(it.project) + '</span>' : "") +
-    '<span class="chip">' + esc(it.meta.split("·").slice(1).map((s) => s.trim()).filter((s) => s && !/^(decision|reversal|promote|edit|cut|cross-duplicate|proposal)$/i.test(s)).join(" · ")) + '</span></div>' +
+    '<span class="chip">' + esc(it.meta.split("·").slice(1).map((s) => s.trim()).filter((s) => s && !/^(decision|reversal|promote|edit|cut|cross-duplicate|proposal)$/i.test(s)).join(" · ")) + '</span>' +
+    '<button type="button" class="no" aria-pressed="' + (no ? "true" : "false") + '" aria-label="Decline ' + esc(it.id) + '">No</button></div>' +
     '<div class="body">' + it.body + '</div>' +
     (it.action ? '<details><summary>What approving does</summary><pre>' + esc(it.action) + '</pre></details>' : "") +
-    (initial.has(it.key) ? '<div class="saved">approved</div>' : "") +
+    (initial.has(it.key) ? '<div class="saved">approved</div>' : initialDeclined.has(it.key) ? '<div class="saved declined">declined</div>' : "") +
     '</div>';
 }
 
 function render() {
-  const counts = { open: open.length, ticked: ticked.size, applied: model.applied.reduce((n, a) => n + (a.html.match(/<li>/g) || []).length, 0) };
+  const counts = { open: open.length, ticked: ticked.size, declined: declined.size, applied: model.applied.reduce((n, a) => n + (a.html.match(/<li>/g) || []).length, 0) };
   // Render into a container, never over the body: the style and data blocks
   // beside it are what buildDoc regenerates the page from on save.
   const app = document.getElementById("app") || document.body.appendChild(Object.assign(document.createElement("div"), { id: "app" }));
   app.innerHTML =
     '<div class="layout"><aside class="rail"><div class="eyebrow">Memory improvement</div>' +
-    '<div class="counts"><b>' + counts.applied + '</b><span>changes applied</span><b>' + counts.open + '</b><span>need you</span><b id="tickedCount">' + counts.ticked + '</b><span>approved</span></div>' +
-    '<div class="filters" role="group" aria-label="Show"><button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="open">Unticked</button><button aria-pressed="false" data-f="ticked">Ticked</button></div>' +
+    '<div class="counts"><b>' + counts.applied + '</b><span>changes applied</span><b>' + counts.open + '</b><span>need you</span><b id="tickedCount">' + counts.ticked + '</b><span>approved</span><b id="declinedCount">' + counts.declined + '</b><span>declined</span></div>' +
+    '<div class="filters" role="group" aria-label="Show"><button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="open">Undecided</button><button aria-pressed="false" data-f="ticked">Approved</button><button aria-pressed="false" data-f="declined">Declined</button></div>' +
     '<nav>' + model.groups.map((g, i) => '<a href="#g' + i + '">' + esc(g.title) + ' <span class="mono">' + g.items.length + '</span></a>').join("") + '<a href="#applied">Applied</a><a href="#notes">Notes</a></nav>' +
     (model.savedAt ? '<p class="eyebrow" style="margin-top:1.2rem">Saved ' + esc(fmtWhen(model.savedAt)) + '</p>' : "") +
     '</aside><main>' +
@@ -204,16 +213,36 @@ function render() {
     '</main></div>' +
     '<div class="savebar" id="savebar" hidden><div><span class="status" id="savestatus"></span><button id="save">Save approvals</button></div></div>';
   document.querySelectorAll(".item input").forEach((cb) => cb.addEventListener("change", onToggle));
+  document.querySelectorAll(".item .no").forEach((b) => b.addEventListener("click", onNo));
   document.querySelectorAll(".filters button").forEach((b) => b.addEventListener("click", () => setFilter(b.dataset.f)));
   document.getElementById("save").addEventListener("click", save);
   updateBar();
 }
 
 let filter = "all";
-function setFilter(f) { filter = f; document.querySelectorAll(".filters button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === f))); document.querySelectorAll(".item").forEach((el) => { const on = ticked.has(el.dataset.key); el.classList.toggle("hide", filter === "open" ? on : filter === "ticked" ? !on : false); }); }
-function onToggle(e) { const el = e.target.closest(".item"); if (e.target.checked) ticked.add(el.dataset.key); else ticked.delete(el.dataset.key); el.classList.toggle("ticked", e.target.checked); document.getElementById("tickedCount").textContent = ticked.size; updateBar(); }
-function dirty() { if (ticked.size !== initial.size) return true; for (const k of ticked) if (!initial.has(k)) return true; return false; }
-function updateBar() { const bar = document.getElementById("savebar"); const d = dirty(); bar.hidden = !d; if (d) { const added = [...ticked].filter((k) => !initial.has(k)).length, removed = [...initial].filter((k) => !ticked.has(k)).length; document.getElementById("savestatus").textContent = (added ? added + " new approval" + (added === 1 ? "" : "s") : "") + (added && removed ? ", " : "") + (removed ? removed + " withdrawn" : ""); } }
+function setFilter(f) { filter = f; document.querySelectorAll(".filters button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === f))); document.querySelectorAll(".item").forEach((el) => { const k = el.dataset.key, on = ticked.has(k), no = declined.has(k); el.classList.toggle("hide", filter === "open" ? (on || no) : filter === "ticked" ? !on : filter === "declined" ? !no : false); }); }
+function setState(el, state) {
+  const k = el.dataset.key;
+  ticked.delete(k); declined.delete(k);
+  if (state === "yes") ticked.add(k); else if (state === "no") declined.add(k);
+  el.querySelector("input").checked = state === "yes";
+  el.querySelector(".no").setAttribute("aria-pressed", String(state === "no"));
+  el.classList.toggle("ticked", state === "yes"); el.classList.toggle("declined", state === "no");
+  document.getElementById("tickedCount").textContent = ticked.size;
+  document.getElementById("declinedCount").textContent = declined.size;
+  updateBar();
+}
+function onToggle(e) { setState(e.target.closest(".item"), e.target.checked ? "yes" : "none"); }
+function onNo(e) { const el = e.target.closest(".item"); setState(el, declined.has(el.dataset.key) ? "none" : "no"); }
+const diff = (a, b) => [...a].filter((k) => !b.has(k)).length;
+function dirty() { return diff(ticked, initial) + diff(initial, ticked) + diff(declined, initialDeclined) + diff(initialDeclined, declined) > 0; }
+function updateBar() {
+  const bar = document.getElementById("savebar"); const d = dirty(); bar.hidden = !d; if (!d) return;
+  const parts = [];
+  const a = diff(ticked, initial), w = diff(initial, ticked), n = diff(declined, initialDeclined), u = diff(initialDeclined, declined);
+  if (a) parts.push(a + " approved"); if (n) parts.push(n + " declined"); if (w) parts.push(w + " approval" + (w === 1 ? "" : "s") + " withdrawn"); if (u) parts.push(u + " decline" + (u === 1 ? "" : "s") + " withdrawn");
+  document.getElementById("savestatus").textContent = parts.join(", ");
+}
 
 function buildDoc(m) {
   const json = JSON.stringify(m).replace(/<\//g, "<\\/");
@@ -230,8 +259,8 @@ function showNotice(text) { const n = document.getElementById("notice"); n.textC
 async function save() {
   const btn = document.getElementById("save"); btn.disabled = true; btn.textContent = "Saving…";
   if (!artifact) { btn.disabled = false; btn.textContent = "Save approvals"; showNotice(artifactState === "pending" ? "Still connecting to claude.ai — try again in a moment." : "This copy cannot save. Open the page from your claude.ai account, or tick the [ ] in the overview file directly."); return; }
-  const next = Object.assign({}, model, { ticked: [...ticked], savedAt: new Date().toISOString() });
-  try { sessionStorage.setItem("dream-review-pending", JSON.stringify(next.ticked)); } catch {}
+  const next = Object.assign({}, model, { ticked: [...ticked], declined: [...declined], savedAt: new Date().toISOString() });
+  try { sessionStorage.setItem("dream-review-pending", JSON.stringify({ ticked: next.ticked, declined: next.declined })); } catch {}
   try {
     await artifact.publish(buildDoc(next));
     btn.textContent = "Saved";
@@ -246,7 +275,17 @@ async function save() {
 }
 
 render();
-try { const pend = JSON.parse(sessionStorage.getItem("dream-review-pending") || "null"); if (pend && !dirty()) { for (const k of pend) if (open.some((i) => i.key === k) && !ticked.has(k)) { ticked.add(k); const el = document.querySelector('.item[data-key="' + k.replace(/"/g, '\\"') + '"]'); if (el) { el.querySelector("input").checked = true; el.classList.add("ticked"); } } document.getElementById("tickedCount").textContent = ticked.size; updateBar(); } sessionStorage.removeItem("dream-review-pending"); } catch {}
+// After a conflict reload, re-apply what this tab was about to save so the
+// viewer's choices are not lost under the other version.
+try {
+  const pend = JSON.parse(sessionStorage.getItem("dream-review-pending") || "null");
+  if (pend && !dirty()) {
+    const find = (k) => document.querySelector('.item[data-key="' + k.replace(/"/g, '\\"') + '"]');
+    for (const k of pend.ticked || []) { const el = find(k); if (el && !ticked.has(k)) setState(el, "yes"); }
+    for (const k of pend.declined || []) { const el = find(k); if (el && !declined.has(k)) setState(el, "no"); }
+  }
+  sessionStorage.removeItem("dream-review-pending");
+} catch {}
 `;
 
 function renderPage(model) {
@@ -273,28 +312,35 @@ function sync() {
   const m = /<script id="model" type="application\/json">([\s\S]*?)<\/script>/.exec(html);
   if (!m) die("no data block in the page; is this a review page?");
   const page = JSON.parse(m[1].replace(/<\\\//g, "</"));
-  const pageTicked = new Set(page.ticked || []);
+  // The page's explicit state (approved or declined) is the user's latest
+  // word and overwrites the file's mark. Neutral on the page says nothing, so
+  // a mark made in the file directly survives a stale page.
+  const pageState = new Map();
+  for (const k of page.ticked || []) pageState.set(k, "x");
+  for (const k of page.declined || []) pageState.set(k, "-");
   const text = fs.readFileSync(OVERVIEW, "utf8");
   const eol = /\r\n/.test(text) ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
   const run = frontmatter(text.replace(/\r\n/g, "\n")).fm.run;
-  const synced = [], alreadyInFile = [], untickedOnPage = [];
+  const approved = [], declinedNow = [], unchanged = [], fileOnly = [];
   let inApproval = false;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     if (/^## /.test(l)) { inApproval = /^## Needs your approval/i.test(l); continue; }
     if (!inApproval) continue;
-    const it = /^- \[([ xX])\] \*\*(F\d+)\*\*(.*)$/.exec(l);
+    const it = /^- \[([ xX-])\] \*\*(F\d+)\*\*(.*)$/.exec(l);
     if (!it) continue;
     const since = /since run (\d+)/i.exec(it[3]);
     const key = `${it[2]}@run${since ? since[1] : run || "?"}`;
-    const fileTicked = it[1] !== " ";
-    if (pageTicked.has(key) && !fileTicked) { lines[i] = l.replace(/^- \[ \]/, "- [x]"); synced.push(key); }
-    else if (pageTicked.has(key) && fileTicked) alreadyInFile.push(key);
-    else if (!pageTicked.has(key) && fileTicked) untickedOnPage.push(key);
+    const fileMark = it[1] === "-" ? "-" : it[1].trim() ? "x" : " ";
+    const want = pageState.get(key);
+    if (!want) { if (fileMark !== " ") fileOnly.push(key); continue; }
+    if (want === fileMark) { unchanged.push(key); continue; }
+    lines[i] = l.replace(/^- \[[ xX-]\]/, `- [${want}]`);
+    (want === "x" ? approved : declinedNow).push(key);
   }
-  if (synced.length) fs.writeFileSync(OVERVIEW, lines.join(eol));
-  console.log(JSON.stringify({ overview: OVERVIEW, pageSavedAt: page.savedAt || null, synced, alreadyInFile, tickedInFileNotOnPage: untickedOnPage }, null, 2));
+  if (approved.length || declinedNow.length) fs.writeFileSync(OVERVIEW, lines.join(eol));
+  console.log(JSON.stringify({ overview: OVERVIEW, pageSavedAt: page.savedAt || null, approved, declined: declinedNow, unchanged, markedInFileOnly: fileOnly }, null, 2));
 }
 
 switch (cmd) {
