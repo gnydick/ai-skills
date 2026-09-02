@@ -96,6 +96,15 @@ captured 2026-09-01 ("the test loop shouldn't feed the agent unless there is a
 failure") still marked pending. Adjudicating it is yours, not this table's, and
 phase 3 must not lose it.
 
+**Phase-3 shape ruling (owner, 2026-09-01):** The owner noted Claude Code's
+`.claude/rules/` convention, rule files loaded at session launch, path-scoped
+or unconditional, and ruled yes: phase 3 adopts it. Rules ship as loaded
+`rules/<group>.md` files; the register becomes an index over them; the
+CLAUDE.md-summary layer and its checks fall away. Rows whose only job is
+keeping a summary layer consistent with its durable home are carried into the
+union as subsumed by this layout, not restated; the demands behind them (one
+durable home, checked citations, supersession stamps) survive in the index.
+
 ## 1. Straight Talk
 
 *dwc-ng has no straight-talk section. Its honesty demands fire on verification
@@ -119,7 +128,9 @@ group 3, not duplicated here.*
 
 *The rule-intake procedure's commit hygiene demands (explicit pathspecs, ticket
 marker in the message) live with the commit rules, not here; only "file the
-three files together" is rowed below.*
+three files together" is rowed below. Phase-3 shape: see the Reading guide's
+ruling — the union ships these rules as loaded rule files and keeps the
+register as an index.*
 
 | id | ferrislicer | dwc-ng | proposed universal form |                                                                                                               |
 |---|---|---|---|---------------------------------------------------------------------------------------------------------------|
@@ -789,7 +800,9 @@ where the rows came from is 2.33, and stating each group's real enforcement is
 2.21. Rows 13.24–13.32 widen the group one step, from the register alone to the
 family of documents it belongs to — the dated ruling that is meant to go stale,
 the living map that must not, and the two filing judgements that keep one rule
-from becoming two; 13.27–13.32 were added by the coverage sweep.*
+from becoming two; 13.27–13.32 were added by the coverage sweep. Phase-3 shape:
+see the Reading guide's ruling — the union ships these rules as loaded rule
+files and keeps the register as an index.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
