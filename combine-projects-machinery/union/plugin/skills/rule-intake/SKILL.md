@@ -12,9 +12,11 @@ file wins — and the reason behind a step lives in the rule file section the
 step names, not here.
 
 **Where this runs.** In the project root, never in an isolated working copy —
-both the capture and the filing commit (`rules/agent-topology.md` § Where an
-agent works, which lists filing among the operations reserved for the shared
-copy).
+the filing commit is the reserved operation (`rules/agent-topology.md` § Where
+an agent works, which lists filing among the operations reserved for the shared
+copy). Capture itself is location-independent by mechanism: the hook resolves
+the project root and writes that root's inbox from any working copy
+(`hooks/rule-capture.md`).
 
 **What this sequence is not.** It is not what keeps a rule safe: capture and
 the register check are mechanical, so if nobody ever runs this sequence the
@@ -47,11 +49,19 @@ authority.
    memory of the conversation.
 
 2. **Check whether the entry states a universal rule.** If the entry states a
-   universal rule — one that would hold in any project — it was captured
-   through the wrong channel: file it in the shared universal-rules skill
-   (this plugin's matching rule file, then reload the skill) and disposition
-   the entry as moved; the rest of this sequence is for project-specific rules
-   only.
+   universal rule — one that would hold in any project — it came in through
+   the project channel and its home is elsewhere: it goes to the shared
+   universal-rules skill, this plugin. Set the home now, then carry on through
+   this same sequence with that home in place of a project one. What a
+   universal rule skips is only what belongs to the project channel: the
+   project inbox beyond dispositioning this entry as moved, and the project's
+   commit gate. Everything else still runs — steps 3 to 7 choose and write the
+   plugin's matching `rules/<group>.md`, step 8 adds its index row, step 9
+   stamps any supersession, step 11 runs the register check — all against
+   `register/INDEX.md` of this plugin, which indexes this plugin's own
+   `rules/`. When the change is committed, reload the skill so the rule takes
+   effect without a new session (`WIRING.md` § What a platform must provide
+   overall).
 
 3. **Shortlist where it belongs, cheaply.** Read the index's contents list and
    the summaries of the two or three plausible rule files, then search those
@@ -94,7 +104,10 @@ authority.
    beside the mechanism itself and regenerated into the enforcement ledger;
    this sequence never hand-edits that file.
 
-8. **Write the index entries for what step 6 decided and step 7 landed.**
+8. **Write the index entries for what step 6 decided and step 7 landed**, in
+   the register of whichever home the rule went to — the project's own
+   register for a project rule, this plugin's `register/INDEX.md` for a
+   universal one.
 
    - The row: three things and only three — when the rule was adopted, the
      rule in one sentence, and a citation to the file and section where it
@@ -110,8 +123,9 @@ authority.
      account of the disagreement and update its status mark.
 
 9. **If the rule supersedes another, stamp both directions in this same
-   change.** The retired document gets a stamp pointing at the group that
-   replaced it, and the new row names what it supersedes. The old text is
+   change**, in the register of whichever home the rule went to. The retired
+   document gets a stamp pointing at the group that replaced it, and the new
+   row names what it supersedes. The old text is
    never rewritten in place. Supersession is the owner's call whenever the
    losing rule was theirs: propose it, never presume it.
 
@@ -119,14 +133,18 @@ authority.
     was filed — the group and its home — or why it is not a rule. Nothing is
     deleted from the inbox; it is append-only history.
 
-11. **Run the register check in full, not the cheap commit-time subset**
+11. **Run the register check in full, not the cheap commit-time subset**,
+    against the register of whichever home the rule went to
     (`rules/rule-governance.md` § Filing and closing the loop, which is why —
     what the cheap subset skips is exactly what a bad filing looks like; what
     the check itself covers is `register/INDEX.md` § What the check verifies).
 
 12. **Commit the rule's home, the index and the inbox together, naming the
     exact paths.** One change, so no reader can find the rule without the row
-    or the row without the rule.
+    or the row without the rule. A universal rule's home and index are in this
+    plugin while the entry that captured it is in the project, so that is two
+    commits, one per repository — the home and its row still land together,
+    and the disposition lands in the same sitting, never left for later.
 
 ## Red flags
 

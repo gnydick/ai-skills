@@ -6,8 +6,11 @@ that no rule depends on the session remembering it. The rules it serves are in
 
 **When it runs:** On the assistant's prompt-submit event — after the person
 sends a prompt and before the assistant composes any part of its reply. This
-hook captures PROJECT rules; a universal rule is captured through the shared
-universal-rules skill's own trigger and never lands in this inbox.
+hook is the project channel. A universal rule is dictated through the
+universal-rules skill's own trigger, which does not write this inbox; a
+universal rule dictated with THIS mark will be captured here and moved by
+intake (`skills/rule-intake/SKILL.md` step 2). The split is a matter of
+channel, not of kind: this hook classifies nothing.
 
 **What it reads:**
 
@@ -95,8 +98,11 @@ no text at all: nothing. Silence is the normal case.
 - Given two marked prompts carrying identical text, when both are submitted,
   then the inbox holds two entries: the hook never deduplicates and never
   edits.
-- Given a universal rule, when it is dictated, then it is filed through the
-  shared universal-rules skill's own trigger and no inbox entry is created
-  here.
+- Given a universal rule dictated through the universal-rules skill's own
+  trigger, when it is dictated, then no entry is created here.
+- Given a universal rule dictated with this hook's project mark, when it is
+  submitted, then it is captured here like any other marked prompt and intake
+  moves it to the universal-rules skill (`skills/rule-intake/SKILL.md`
+  step 2), dispositioning the entry as moved.
 
 <!-- rows: 2.1, 2.2, 2.3, 2.4, 2.25, 2.27; filing location per the 4.20 ruling -->

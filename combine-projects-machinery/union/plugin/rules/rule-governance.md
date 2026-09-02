@@ -113,8 +113,9 @@ gate that runs the register check.
   mechanical, so a rule cannot be silently lost even if nobody ever runs the
   procedure — it just stays visibly unfiled.
 - Every session opens with this protocol: how to dictate a standing rule, where
-  the capture lands, what stays blocked until it is filed, and where the
-  register lives.
+  the capture lands, what stays blocked until it is filed, where the register
+  lives, and that a universal rule goes through the universal-rules skill's own
+  trigger rather than the project mark.
 - Say where the register's rows came from. If no provenance record exists, do
   not write one by hand — generate it from version-control history or do
   without it.
@@ -122,4 +123,4 @@ gate that runs the register check.
   citation landing on a blank line is not a weak citation, it is no citation,
   and it blocks.
 
-<!-- rows: 2.1–2.34 -->
+<!-- rows: 2.1–2.34; OQ.1 (owner ruling 2026-09-02) -->

@@ -9,7 +9,7 @@ never holds the only copy of a rule.
 | Rule file | What it governs | Status | Rules |
 |---|---|---|---|
 | `rules/straight-talk.md` | What you claim, what you admit, how briefly | 🟢 | 10 |
-| `rules/rule-governance.md` | Dictating, filing and superseding a standing rule | 🟢 | 34 |
+| `rules/rule-governance.md` | Dictating, filing and superseding a standing rule | 🟢 | 35 |
 | `rules/verification-and-evidence.md` | Predictions, evidence, tests, measurement | 🟢 | 50 |
 | `rules/agent-topology.md` | Dispatch, models, containment, agent conventions | 🟢 | 41 |
 | `rules/worktree-discipline.md` | The life of an isolated working copy | 🟢 | 25 |

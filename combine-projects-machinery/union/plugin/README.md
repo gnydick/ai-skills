@@ -70,7 +70,10 @@ plugin/
 
 **This plugin is the shared universal-rules skill.** A rule that holds in any
 project is filed here, not in a project's own tree: edit the matching
-`rules/<group>.md` file and reload the skill. Project-specific rules stay out
+`rules/<group>.md` file, add the row that cites it to `register/INDEX.md` —
+this plugin's own register indexes this plugin's own `rules/` — and reload the
+skill. The plugin is installed by reference, so the file you edit is the only
+copy. Project-specific rules stay out
 of this plugin entirely — they live in each project's own rules directory and
 go through that project's own capture-to-gate pipeline, which this plugin does
 not run.
@@ -114,13 +117,21 @@ extend it.
 
 ## Installing it
 
+**Install by reference, never by copying.** This repository is the repo of
+record and the only copy: a rule is filed by editing the file here, so a second
+copy elsewhere is a fork that drifts the moment anything is filed. Link the
+platform's rules directory at this plugin's `rules/` in place, or point it
+there by whatever configuration it offers.
+
 **On a platform with a rules directory** — one that loads a set of instruction
-files at session start, unconditionally or scoped to a path — copy `rules/`
-into it as it stands. That is the layout these files were written for: each
+files at session start, unconditionally or scoped to a path — point it at
+`rules/` as it stands. That is the layout these files were written for: each
 rule file loads whole, the register's citations name a file and a section
-inside it, and nothing needs a summary layer. Put `skills/` and `agents/`
-wherever that platform discovers skills and agent definitions, and implement
-each hook and gate story per `WIRING.md`.
+inside it, and nothing needs a summary layer. Point that platform at `skills/`
+and `agents/` the same way wherever it discovers skills and agent definitions,
+and implement each hook and gate story per `WIRING.md`. A platform that can
+only copy must treat its copy as read-only and re-copy after each filing;
+editing the copy is how the repo of record stops being the record.
 
 **On a platform with no rules directory**, which loads one always-present
 instruction document instead, inline the rule files into that document, one
@@ -130,7 +141,9 @@ the section names the register cites survive the move. The register's
 citations then name that document and those sections rather than ten separate
 files, and everything else is unchanged. Do not summarise a rule file down to
 a bullet and leave the full text elsewhere: a summary layer is a second copy,
-and the two drift.
+and the two drift. That inlined document is itself a copy, so it falls under
+the read-only rule above: it is regenerated from this plugin after each filing
+and never edited in place.
 
 ## Where the verdicts came from
 

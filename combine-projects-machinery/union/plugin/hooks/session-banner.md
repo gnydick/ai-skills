@@ -15,9 +15,10 @@ edited in the same change that moves what it describes.
 **What it does:**
 
 1. Emit the governance banner into the session's opening context.
-2. State four things and no more: how to dictate a standing rule, where the
-   capture lands, what stays blocked until it is filed, and where the register
-   lives.
+2. State five things and no more: how to dictate a standing rule, where the
+   capture lands, what stays blocked until it is filed, where the register
+   lives, and that a universal rule goes through the universal-rules skill's
+   own trigger, not this mark.
 3. State the true gating condition rather than a general claim of enforcement.
    Gating happens in two places and only those two: in a clone whose hooks-path
    setting has been pointed at the tracked hooks directory, and on the hosted
@@ -41,7 +42,8 @@ the rule's own home first, then the citing register row, then the entry's
 disposition. Until it is filed the register check fails — which blocks commits
 in any clone whose hooks path is pointed at the tracked hooks directory, and is
 caught on the hosted check for a clone that never did. Register: the rules
-index.
+index. A universal rule goes through the universal-rules skill's own trigger,
+not this mark.
 ```
 
 Where a project has no hosted check, the second half reads instead: *…which
@@ -52,8 +54,9 @@ hook is ungated.*
 **Acceptance checks:**
 
 - Given a new session, when it opens, then the banner appears before the first
-  reply and names all four: the mark, where the capture lands, what stays
-  blocked, and where the register lives.
+  reply and names all five: the mark, where the capture lands, what stays
+  blocked, where the register lives, and that a universal rule goes through the
+  universal-rules skill's own trigger rather than this mark.
 - Given the banner claims a gate, when a reader checks the claim against the
   machinery, then the condition the banner names is the condition that actually
   gates — a clone with the hooks path configured, or the hosted check — and not

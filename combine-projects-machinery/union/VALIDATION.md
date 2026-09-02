@@ -25,13 +25,15 @@ own register check requires):
 
 ```
 FILES: 26
-REFS CHECKED: 82
+REFS CHECKED: 104
 BAD: 0
 ```
 
-All 82 name a file that exists; every one of the 11 that names a section
-resolves to a real heading in that file, matched on leading words. Run after
-the fixes below; the pre-fix run was 78 refs, also 0 bad.
+All 104 name a file that exists; every one of the 19 that names a section
+resolves to a real heading in that file, matched on leading words. Recounted
+after the phase-3 consistency pass; earlier runs of the same resolver recorded
+78 refs before the fix pass and 82 in the report as first written, each also
+0 bad.
 
 ### The named coherence pairs
 
@@ -735,10 +737,12 @@ pre-edit positions in the file named.
 | F14 | `COMPACT-12-15.md` | decision sheet, commit-gate bullet | "four fast checks" followed by five items, one of which is a property not a check. Rewritten to the same two-and-two split as F1, with the advisory named. (Triage, check 1) |
 
 Plus one labelling change, listed separately because it adds a caveat rather
-than fixing an error: `COMPACT-12-15.md`'s hosted-document-checks line now
-marks its blocking status **inferred** and says why, per the union's own rule
-that an unruled verdict is labelled rather than asserted
-(`register/INDEX.md` § What a row records). See OQ.4.
+than fixing an error: `COMPACT-12-15.md`'s hosted-document-checks line marked
+its blocking status **inferred** and said why, per the union's own rule that an
+unruled verdict is labelled rather than asserted (`register/INDEX.md` § What a
+row records). **Superseded by the OQ.4 ruling** (2026-09-02): the hosted check
+blocks, so the "inferred" label comes off; with no hosted CI in use the local
+merge gate is the sole blocking backstop.
 
 No `RECONCILIATION.md` row was modified. No feedback cell was touched.
 
@@ -768,17 +772,18 @@ it named.
 | Table 9.165 "strictly greater" | **Not inherited** — 9.165 is excluded and nothing of it reaches `plugin/` (see the leak check above). Nothing to fix. |
 | Table 11.5 restates 8.31 | **Inherited, fixed in the union file** (F11) by applying the union's own two-rules-that-look-alike remedy to itself. Both rules kept; neither weakened. |
 | Table 5.6 traded vagueness for some jargon | **Left, with reason.** The words at issue ("reset", "branch", "newer") are the precise ones, and `rules/straight-talk.md` § How much to say scopes the plain-analogy rule to conversation explicitly, exempting written artifacts because precision matters there. Replacing them would cost the demand its edge. Inherited in `rules/worktree-discipline.md` § Creating one and `skills/effort-lifecycle` step 4, both of which state the *why* alongside. |
-| Table 14.15–14.18 blocking status inferred | **Left as a demand, labelled as inferred, and raised** (OQ.4). `COMPACT-12-15.md` now marks the status inferred and says exactly which rows do and do not carry it — which is the union's own remedy for an unruled verdict rather than a fix. |
+| Table 14.15–14.18 blocking status inferred | **Left as a demand, labelled as inferred, and raised** (OQ.4). `COMPACT-12-15.md` marked the status inferred and said exactly which rows do and do not carry it — the union's own remedy for an unruled verdict rather than a fix. **Superseded by the OQ.4 ruling** (2026-09-02): the hosted check blocks and the label comes off; where no hosted service is in use the local merge gate is the sole blocking backstop (`plugin/WIRING.md` § Per mechanism, `plugin/gates/merge-gate.md`). |
 | Six `Supersedes:` stamps point outside the copied subset | **Recorded as a known limit, and raised** (OQ.3). Both directions of those six links are unverifiable from this snapshot: the register check verifies stamp bidirectionality, and the documents the stamps point at were not copied. This is a limit of the phase-1 subset, not a defect in the union, and the union's own demand is unaffected. |
-| One project's open PENDING inbox entry (captured 2026-09-01) | **Confirmed handled, and raised** (OQ.2). Traced against `skills/rule-intake/SKILL.md`: the entry is an ordinary pending entry with a heading, a verbatim body and `Disposition: PENDING`, so § When it starts trigger 3 fires on it, step 1 reads it as written, and steps 2–11 dispose of it unchanged. Nothing about it is a special case for the union's sequence. What the union cannot do is decide the rule, which is why it is an open question and not a fix. Its pre-existing presence in the source repository is recorded under § Source repositories below. |
+| One project's open PENDING inbox entry (captured 2026-09-01) | **Confirmed handled, and raised** (OQ.2). Traced against `skills/rule-intake/SKILL.md`: the entry is an ordinary pending entry with a heading, a verbatim body and `Disposition: PENDING`, so § When it starts trigger 3 fires on it, step 1 reads it as written, and steps 2–12 dispose of it unchanged. Nothing about it is a special case for the union's sequence. What the union cannot do is decide the rule, which is why it is an open question and not a fix. Its pre-existing presence in the source repository is recorded under § Source repositories below. |
 
 ---
 
 ## Open questions
 
 Four, appended to `RECONCILIATION.md` under `## Open questions` in the same
-five-column format, ids `OQ.1`–`OQ.4`, project cells `—`, feedback empty. They
-are questions, not decisions: none changed a row, and none was resolved here.
+five-column format, ids `OQ.1`–`OQ.4`, project cells `—`. They were raised
+empty on 2026-09-02 and ruled by the owner the same day — see each item for
+its ruling. No row of the comparison table was changed by any of them.
 
 - **OQ.1 — RULED** (Gabe, chat 2026-09-02 11:42–11:45): project-specific rules
   go in the project's root; universal rules go in the shared universal-rules
@@ -806,7 +811,7 @@ are questions, not decisions: none changed a row, and none was resolved here.
 
 ```
 FILES: 26
-REFS CHECKED: 82
+REFS CHECKED: 104
 BAD: 0
 ```
 
@@ -972,9 +977,9 @@ fixed.
 ```
 # cross-references, all of plugin/
 FILES: 26
-REFS CHECKED: 82
+REFS CHECKED: 104
 BAD: 0
-# 18 of the 82 now carry a § section (was 11) — every one resolves, including
+# 19 of the 104 now carry a § section (was 11) — every one resolves, including
 # the citation added to gates/merge-gate.md's opening
 
 # project-noun scan, plugin/ + COMPACT-12-15.md, list widened with `slicer`

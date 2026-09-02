@@ -6,9 +6,9 @@ and `gates/`; this document is only the attachment map.
 
 ## What a platform must provide overall
 
-Five event kinds and one entry point. A platform missing one of them cannot run
-the mechanism that hangs off it, and saying so plainly is part of claiming the
-mechanism exists.
+Five event kinds, one entry point, and one on-demand capability. A platform
+missing one of them cannot run the mechanism that hangs off it, and saying so
+plainly is part of claiming the mechanism exists.
 
 - An event when a prompt is submitted, firing before the assistant composes a
   reply, whose handler's output is folded into the turn's context.
@@ -21,6 +21,10 @@ mechanism exists.
   standard output is the contract and a non-zero exit aborts creation.
 - A pre-commit entry point in version control, invoked on every commit,
   where a non-zero exit rejects the commit.
+- A way to reload the universal-rules skill on demand, so a rule filed into it
+  takes effect without a new session. Without it, a rule filed here binds only
+  the sessions that start afterwards, and saying so is part of claiming the
+  filing took effect.
 
 Two conventions run across all of them. Every handler is given the project root
 of the checkout the session is running in, so a mechanism that writes a file
@@ -100,7 +104,11 @@ gates, whose whole purpose is to block.
   and rejects on a non-zero exit; a way to read the content *being committed*
   rather than the working copy; a documented bypass; and a hosted check that
   can run the same checks on push, for clones that never activated the hooks —
-  blocking, as ruled in `gates/commit-gate.md`.
+  blocking, as ruled in `gates/commit-gate.md`. Where no hosted service is in
+  use, that last one has no platform to sit on: the local merge gate
+  (`gates/merge-gate.md`) is then the sole blocking backstop, and a clone that
+  never activated the hooks is ungated until the merge gate runs. Say that
+  rather than claiming a hosted check that does not exist.
 
 ### `gates/merge-gate.md`
 

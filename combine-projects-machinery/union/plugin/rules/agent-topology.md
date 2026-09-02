@@ -64,9 +64,12 @@ definition obeys. Loaded at session start.
 - All work happens in an isolated working copy of its own, however small the
   work is; there is no general size exception. The shared copy is reserved for a
   short, named list of operations that run there by convention: filing a
-  dictated rule — both the capture and the filing commit — so that every active
-  working copy, all of which live under the project root, sees the new rule the
-  next time a session there starts; merging a finished effort's branch into the
+  dictated **project** rule — the filing commit is the reserved operation,
+  capture being location-independent by mechanism (`hooks/rule-capture.md`) —
+  so that every active working copy, all of which live under the project root,
+  sees the new rule the next time a session there starts; a universal rule
+  reaches every session through the reloaded skill instead; merging a finished
+  effort's branch into the
   shared line locally, running the merge gate on that result, and pushing it
   once every verification leg on it is green; and creating, listing and tearing
   down the working copies themselves. Anything not on that list gets a copy of
