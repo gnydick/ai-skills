@@ -38,7 +38,11 @@ gates, whose whole purpose is to block.
 - **Timeout:** thirty seconds. It writes one small append and prints one line.
 - **Platform must provide:** the prompt text and a session identifier in the
   payload; the project root; the handler's output folded into the turn's
-  context.
+  context. This is the one mechanism that does not follow the "right copy"
+  convention above: it resolves the project root to the top of the repository
+  that owns the working copy, not to the working copy itself, and always
+  appends to that root's inbox — a session running inside an isolated working
+  copy still files there, never into the copy's own inbox.
 
 ### `hooks/rule-nudge.md`
 

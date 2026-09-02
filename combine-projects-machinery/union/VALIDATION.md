@@ -784,8 +784,9 @@ are questions, not decisions: none changed a row, and none was resolved here.
   go in the project's root; universal rules go in the shared universal-rules
   skill — this plugin — filed by editing its rule file and reloading the
   skill, never through a project inbox. The mechanical residue named above is
-  now scoped to project rules only and stays open: how a project-rule entry
-  captured inside a working copy reaches the root inbox.
+  now scoped to project rules only. **Residue ruled** (Gabe, chat 2026-09-02
+  11:56): the capture hook resolves the project root and writes the entry
+  there from any working copy — nothing further is open.
 - **OQ.2 — RULED** (Gabe, chat 2026-09-02 11:48): do not include that in the
   union. The undispositioned entry stays out; it joins neither
   `rules/verification-and-evidence.md` § Tests nor `rules/tool-output.md`.

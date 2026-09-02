@@ -13,9 +13,10 @@ universal-rules skill's own trigger and never lands in this inbox.
 
 - The event payload: the prompt text as typed, and the identifier of the
   session it was typed in.
-- The project root of the checkout this session is running in — the harness's
-  project-root variable when it is set, the current working directory
-  otherwise.
+- The project root that owns this session's working copy — resolved to the
+  top of the repository, never to the working copy itself, using the
+  harness's project-root variable when it is set and the resolved repository
+  root otherwise.
 - Nothing else. It does not read the register, the rule files, the inbox's
   existing contents, or the change under way.
 
@@ -32,12 +33,11 @@ universal-rules skill's own trigger and never lands in this inbox.
 4. If the mark is absent, do nothing and report success. An unmarked prompt is
    never stored anywhere.
 5. If the mark is present, resolve the inbox file under the project root read
-   above. The hook writes wherever the session is running, and the convention
-   that dictating and filing a rule happen in the shared copy is stated in
-   `rules/agent-topology.md` § Where an agent works, not enforced here: a
-   session that dictates a rule from inside an isolated working copy writes
-   that copy's inbox instead, which is the mechanism being honest about a
-   convention it cannot itself hold.
+   above. The hook writes to the project root's inbox regardless of which
+   checkout the session is running in: a session working inside an isolated
+   working copy resolves the same project root as one working in the shared
+   checkout, and the entry is appended there, never into the working copy's
+   own inbox.
 6. Append exactly one entry to that file: a blank separator line, a heading
    carrying the capture time in coordinated universal time and the session
    identifier (a fixed placeholder when the payload carries none), the prompt
@@ -89,10 +89,9 @@ no text at all: nothing. Silence is the normal case.
 - Given a marked prompt, when the session ignores the printed instruction and
   the turn then dies part-way through, then the entry is still in the inbox
   with its pending disposition.
-- Given a marked prompt submitted from a session whose project root is an
-  isolated working copy, when the entry is written, then it lands in that
-  copy's inbox and not in the shared checkout's — the hook enforces no
-  convention about where a rule may be dictated from.
+- Given a session running inside an isolated working copy, when a marked
+  prompt is submitted, then the entry appears in the project root's inbox and
+  nowhere in the copy.
 - Given two marked prompts carrying identical text, when both are submitted,
   then the inbox holds two entries: the hook never deduplicates and never
   edits.
