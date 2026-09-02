@@ -1,0 +1,62 @@
+{
+  "skill_name": "improve-memory",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "/improve-memory --home <FIXTURE>",
+      "expected_output": "Runs unattended against the fixture home. Applies: merge cargo-clean-often into run-cargo-clean-frequently; supersede one-agent-at-a-time and deploy-after-every-commit from the two high-confidence 'updates' candidates; promote the global high candidate into both projects' memory; fix alpha's dangling index entry, unindexed file and broken [[worktree-hygiene]] link; create beta's missing MEMORY.md. Flags: the worktree-replication decision, the medium and low promotions with drafted files, the alpha/beta gui-mouse-bindings cross-duplicate, a ~/.claude/rules proposal for the global candidate, and a CLAUDE.md proposal for alpha with the Mock server section moved to a paths-scoped .claude/rules file and a FIDELITY.md ledger. Writes 'Memory Improvement Overview.md', a history copy and state.json; replies with a four-line status and no question.",
+      "files": ["fixtures/make-fixture.mjs"],
+      "assertions": [
+        "Writes <home>/improve-memory/Memory Improvement Overview.md with the frontmatter fields skill, run, dream_consumed, applied, flagged",
+        "cargo-clean-often.md is gone and run-cargo-clean-frequently.md survives with its content intact",
+        "one-agent-at-a-time.md and deploy-after-every-commit.md are rewritten as superseded (description starts SUPERSEDED or body opens with Superseded) rather than silently deleted or left contradicting",
+        "The global high-confidence candidate (windows-shell-gotchas) exists as a memory file in both alpha and beta memory directories",
+        "alpha MEMORY.md has no line pointing at a missing file and every alpha memory file is indexed",
+        "The broken [[worktree-hygiene]] link in build-cache-location.md is repointed or unbracketed",
+        "beta has a MEMORY.md after the run",
+        "The medium candidate (no-env-var-toggles) is NOT written as a memory file; it appears as an F-item with the full drafted file in an action block",
+        "The low candidate (prefers-worked-numeric-examples) is NOT written as a memory file; it appears as an F-item",
+        "The worktree-replication decision appears as an F-item with both sides quoted and no memory file written for it",
+        "The gui-mouse-bindings cross-project duplicate is flagged, not merged or deleted",
+        "No file under <home>/repos/ was modified",
+        "A proposal set exists under <home>/improve-memory/proposals/X--fixture-alpha/ containing CLAUDE.md, a .claude/rules/*.md file with a paths: frontmatter covering packages/mock, and FIDELITY.md",
+        "The proposed CLAUDE.md is shorter than the original and keeps every H2 rule heading or accounts for it in FIDELITY.md",
+        "A history copy exists under <home>/improve-memory/history/",
+        "Chat reply is a short status (under 8 lines), pastes no overview, asks no question"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "/improve-memory apply --home <FIXTURE_WITH_OVERVIEW>",
+      "expected_output": "Reads the standing overview where F2 (medium promotion) and F4 (CLAUDE.md swap) are ticked and F1, F3 are not. Writes the F2 memory file and its index line. Verifies the alpha CLAUDE.md sha matches, then copies the proposal set into the fixture repo (CLAUDE.md, .claude/rules/mock.md, docs/rules/*.md). Moves F2 and F4 into an 'Applied from approvals' section, leaves F1 and F3 open, updates frontmatter counts, replies with the two-line apply status.",
+      "files": ["fixtures/make-fixture.mjs"],
+      "assertions": [
+        "no-env-var-toggles-branch-is-the-switch.md exists in alpha's memory directory with the content from the F2 action block",
+        "alpha MEMORY.md contains the F2 index line",
+        "<home>/repos/alpha/CLAUDE.md now equals the proposal file",
+        "<home>/repos/alpha/.claude/rules/mock.md exists with a paths: frontmatter",
+        "<home>/repos/alpha/docs/rules/agents.md, deploys.md, mock.md, windows.md exist",
+        "prefers-worked-numeric-examples.md (F3, unticked) was NOT written",
+        "No memory file was written for F1 (unticked decision)",
+        "The overview still lists F1 and F3 as open checkboxes and lists F2 and F4 under an Applied heading without checkboxes",
+        "Overview frontmatter flagged count decreased and applied count increased",
+        "Chat reply is a short status and asks no question"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "/improve-memory --home <FIXTURE_NO_DREAM>",
+      "expected_output": "The fixture's session-analysis directory has been removed, so there is no dream file. The pass still runs the hygiene half: merges the cargo-clean duplicate, fixes alpha's index and broken link, creates beta's index, flags the cross-project duplicate and the alpha CLAUDE.md proposal. The overview's frontmatter says dream_consumed: none and the scope note says no session findings were available. No supersessions are applied (nothing in the user's words says so). Status line names the dream as none.",
+      "files": ["fixtures/make-fixture.mjs"],
+      "assertions": [
+        "Overview frontmatter has dream_consumed: none",
+        "cargo-clean-often.md merged into run-cargo-clean-frequently.md",
+        "one-agent-at-a-time.md and deploy-after-every-commit.md are unchanged (no dream evidence to supersede them)",
+        "alpha index has no dangling entries and no unindexed files; beta has a MEMORY.md",
+        "The CLAUDE.md proposal for alpha exists under proposals/ with FIDELITY.md",
+        "No file under <home>/repos/ was modified",
+        "Chat reply is a short status, does not ask a question, and does not claim to have read a dream"
+      ]
+    }
+  ]
+}

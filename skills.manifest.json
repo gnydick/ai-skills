@@ -16,6 +16,13 @@
         "opencode",
         "pi"
       ]
+    },
+    "claude-code": {
+      "description": "Claude Code only. May bundle scripts, name Claude Code tools, and assume the ~/.claude layout (projects/, memory directories, CLAUDE.md, .claude/rules). Runs nowhere else without adaptation.",
+      "targets": [
+        "claude-personal",
+        "claude-plugin"
+      ]
     }
   },
 
@@ -38,6 +45,13 @@
             "be-reasonable",
             "cant-break-by-design",
             "developer-friendliness"
+          ]
+        },
+        "dreamy": {
+          "path": "plugins/dreamy",
+          "skills": [
+            "session-analysis",
+            "improve-memory"
           ]
         }
       }

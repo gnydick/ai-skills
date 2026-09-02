@@ -1,0 +1,45 @@
+{
+  "skill_name": "session-analysis",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "/session-analysis dream",
+      "expected_output": "Runs unattended: builds the digest since the last dream run (14d fallback), chunks and fans out if large, writes ~/.claude/session-analysis/dream/<timestamp>.md plus latest.md with frontmatter and at most 20 numbered candidates each carrying type/project/confidence/status, marks the run, and replies with a three-line status. Asks no questions, writes no memory files.",
+      "files": [],
+      "assertions": [
+        "Writes the overview file under ~/.claude/session-analysis/dream/ and updates latest.md",
+        "Output file has the frontmatter fields skill, subcommand, run_at, window, sessions, candidates",
+        "Numbered candidates carry type, project, confidence and new/updates status",
+        "At most 20 numbered candidates",
+        "Does not re-propose an already-saved memory as new",
+        "No memory files were created or modified",
+        "state.json records a dream run after the pass",
+        "Chat reply is a short status, not the overview, and asks no question"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "/session-analysis dream --since 30d --project ai-skills",
+      "expected_output": "Same file output restricted to ai-skills folders; notes if a sibling project matched the substring; because --since/--project were explicit the run is NOT marked in state.json.",
+      "files": [],
+      "assertions": [
+        "Writes the overview file under ~/.claude/session-analysis/dream/",
+        "Evidence restricted to the ai-skills project",
+        "Does not mark the run in state.json because the window was explicit",
+        "Chat reply is a short status and asks no question"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "/session-analysis time-analysis",
+      "expected_output": "States that time-analysis is not implemented yet, lists the available subcommands (currently only dream), and does not fabricate a time analysis or parse transcripts.",
+      "files": [],
+      "assertions": [
+        "States that 'time-analysis' is not implemented / not available yet",
+        "Lists 'dream' as the available subcommand",
+        "Does not fabricate a time analysis",
+        "Reply is short: a redirect, not a report"
+      ]
+    }
+  ]
+}

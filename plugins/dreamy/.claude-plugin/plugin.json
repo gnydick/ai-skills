@@ -1,0 +1,20 @@
+{
+  "name": "dreamy",
+  "description": "Maintenance loop for Claude Code's long-term memory: session-analysis distills the JSONL transcripts into a 'dream' overview of what deserves remembering, and improve-memory consumes it — merging duplicate memories, resolving contradictions, promoting high-confidence findings, and proposing CLAUDE.md upgrades in the crib-sheet-plus-rules-files structure — auto-applying the obvious and flagging the rest as checkboxes for approval",
+  "version": "0.1.0",
+  "author": {
+    "name": "Gabe E. Nydick",
+    "email": "gnydick@nydick.net"
+  },
+  "homepage": "https://github.com/gnydick/ai-skills",
+  "repository": "https://github.com/gnydick/ai-skills",
+  "license": "GPL-3.0",
+  "keywords": [
+    "skills",
+    "memory",
+    "claude-md",
+    "session-analysis",
+    "consolidation",
+    "rules-files"
+  ]
+}
