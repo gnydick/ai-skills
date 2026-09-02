@@ -199,7 +199,7 @@ function render() {
     '<h1>' + esc(model.title) + '</h1><div class="intro">' + model.intro + '</div>' +
     '<div class="notice" id="notice" hidden></div>' +
     model.groups.map((g, i) => '<section id="g' + i + '"><h2>' + esc(g.title) + '</h2>' + (g.intro ? '<div class="group-intro">' + g.intro + '</div>' : "") + g.items.map(itemHtml).join("") + '</section>').join("") +
-    '<section id="applied"><h2>Applied this run</h2>' + model.applied.map((a) => '<details class="applied"><summary>' + esc(a.heading.replace(/\s*\(` + "`" + `.*$/, "")) + '</summary>' + a.html + '</details>').join("") + '</section>' +
+    '<section id="applied"><h2>Applied this run</h2>' + model.applied.map((a) => '<details class="applied"><summary>' + esc(a.heading.replace(/\s*\(\x60.*$/, "")) + '</summary>' + a.html + '</details>').join("") + '</section>' +
     '<section id="notes" class="misc"><h2>Not acted on</h2>' + model.notActed + '<h2>Pass notes</h2>' + model.notes + '</section>' +
     '</main></div>' +
     '<div class="savebar" id="savebar" hidden><div><span class="status" id="savestatus"></span><button id="save">Save approvals</button></div></div>';
