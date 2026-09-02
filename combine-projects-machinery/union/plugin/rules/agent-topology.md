@@ -67,9 +67,10 @@ definition obeys. Loaded at session start.
   dictated rule — both the capture and the filing commit — so that every active
   working copy, all of which live under the project root, sees the new rule the
   next time a session there starts; merging a finished effort's branch into the
-  shared line once every verification leg is green, and pushing it; and
-  creating, listing and tearing down the working copies themselves. Anything not
-  on that list gets a copy of its own.
+  shared line locally, running the merge gate on that result, and pushing it
+  once every verification leg on it is green; and creating, listing and tearing
+  down the working copies themselves. Anything not on that list gets a copy of
+  its own.
 - At most one agent per working copy. Two agents in one copy each mistake the
   other's half-written files for the state they are reasoning about, and neither
   can tell which changes are its own. An agent's promise not to touch things is

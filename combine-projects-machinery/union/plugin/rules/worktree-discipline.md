@@ -71,8 +71,12 @@ committing from it, merging it, and taking it down. Loaded at session start.
 
 ## Merging and tearing down
 
-- Merge only after every required verification leg has passed. Passing one leg
-  is not passing.
+- The merge is made locally first, into a private merge result nobody else can
+  see, because the gate judges that result and it has to exist to be judged.
+  Publish only when every required verification leg on it is green; a red
+  result is discarded, never pushed. Passing one leg is not passing, and a
+  merge that exists only locally is not yet a merge anyone has to live with —
+  which is exactly what makes discarding it cheap.
 - Branches kept for exploration are never merged automatically. Merging one is
   always a deliberate decision.
 - Delete the working copy and its branch immediately after the merge, in the

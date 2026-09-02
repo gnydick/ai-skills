@@ -3,8 +3,9 @@
 The full battery, run on the merged result before it is pushed. Everything the
 commit gate is too frequent to afford lives here. The standing-measurement
 ratchet is one of its legs and has its own story in `gates/ratchets.md`; the
-merge bar it enforces — every required leg green before a merge starts — is in
-`rules/worktree-discipline.md`.
+merge bar it enforces — every required leg green on the merge result before
+that result is published — is in `rules/worktree-discipline.md` § Merging and
+tearing down.
 
 **When it runs:** At merge time, locally, against the merged result and never
 against the branch alone. A branch that passes tells you nothing about the tree

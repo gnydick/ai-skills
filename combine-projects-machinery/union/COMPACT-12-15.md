@@ -36,7 +36,7 @@ also cites a kept row, which is called out on the line itself.
   structurally, and only that one document's check goes.
 - SIMPLIFY the parity verifier to a generic comparison agent — verdict first,
   regression told from pre-existing difference, never edits to pass, never
-  rebakes — with the slicer-parity specifics left in the project.
+  rebakes — with the product-specific parity checks left in the project.
 - SIMPLIFY the register to an index over `rules/` (the phase-3 shape ruling).
 - SIMPLIFY the commit gate to four fast checks, run on every commit: the
   register check and the citation-target check, which the gate executes and

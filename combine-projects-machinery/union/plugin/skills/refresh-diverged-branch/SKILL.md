@@ -7,6 +7,9 @@ description: Use when a long-lived parallel edition branch has drifted so far fr
 
 This is one procedure, read or skipped as a unit. Read the premise first: every
 step below assumes it, and each step names what it takes from the step before.
+Version control is the mechanism here rather than the platform underneath one,
+so this is the one place in the plugin that carries concrete commands; they are
+the procedure, not an implementation of it.
 
 ## The premise
 

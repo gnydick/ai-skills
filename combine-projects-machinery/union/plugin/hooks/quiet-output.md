@@ -37,10 +37,13 @@ wrapper then runs in the command's own place.
 5. If the command redirects its output to a file, do not wrap — but only when
    the line carries no token merging the error stream into the normal stream.
    That token anywhere on the line cancels this exemption outright, even
-   alongside a genuine file redirect, because merging the two streams is how a
-   noisy command's chatter reaches the terminal despite the redirect. So a
-   redirect alone exempts; a redirect written together with the merge token
-   does not.
+   alongside a genuine file redirect. Written before the redirect it really
+   does leave the error stream on the terminal; written after, it does not.
+   Telling those apart means parsing the shell's ordering, so the check is a
+   deliberate blanket on the token instead: it wraps some commands whose output
+   was fully redirected, which costs nothing, rather than missing the ones
+   whose chatter still arrives. So a redirect alone exempts; a redirect written
+   together with the merge token does not.
 6. If the command line contains a content read — viewing, listing, diffing or
    statusing a ticket or change request, an interface request, a search, or a
    listing of releases, runs, repositories, labels, projects, snippets or

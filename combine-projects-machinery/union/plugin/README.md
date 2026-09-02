@@ -5,8 +5,10 @@ rules a session works under, the register that indexes them, the mechanisms
 that enforce them, the sequences that carry out multi-step procedures, and the
 briefs for the agents that are dispatched to judge work.
 
-It is all prose, and it is platform-neutral. Nothing here is a script, a
-configuration file or a command line for one particular harness. A mechanism
+It is all prose, and it is platform-neutral. Nothing here is a script or
+configuration for one particular assistant harness; where version control
+itself is the mechanism, its commands appear as the only concrete tooling. A
+mechanism
 is written as a story — when it runs, what it reads, what it does, what the
 user sees, and the checks that say it works — so that any platform can
 implement it in whatever its own hooks and gates look like. `WIRING.md` is the
@@ -47,7 +49,8 @@ plugin/
     quiet-output.md                the filter every tool's output passes
                                    through
   gates/
-    commit-gate.md                 the four fast checks that run at commit time
+    commit-gate.md                 the four fast checks at commit time — two
+                                   executed, two the header states
     merge-gate.md                  the full battery, run on the merge result
     ratchets.md                    the standing-measurement leg of the merge
                                    gate

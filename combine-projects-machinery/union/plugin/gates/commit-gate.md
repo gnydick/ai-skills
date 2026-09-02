@@ -2,10 +2,11 @@
 
 Four cheap checks and one advisory warning, run on every commit — two checks
 the gate executes and rejects the commit on, and two that its header states and
-a person applies. It is cheap on purpose. Anything heavier belongs to the merge gate: the every-commit
-gate in one project had grown past an hour because different kinds of check had
-bled together, and separating them by cost is the only thing that keeps a gate
-this frequent affordable enough for people to leave switched on.
+a person applies. It is cheap on purpose. Anything heavier belongs to the merge
+gate: the every-commit gate in one project had grown past an hour because
+different kinds of check had bled together, and separating them by cost is the
+only thing that keeps a gate this frequent affordable enough for people to
+leave switched on.
 
 **When it runs:** On every commit, unconditionally, in a clone that has
 activated the tracked hooks. The cheap checks are deliberately *not* gated on
@@ -106,8 +107,10 @@ clone that never activated the hooks is still caught.
 
 **What the user sees:**
 
-- Every check prints its own count line, zero included, in the declared
-  proof-line format so it survives the output filter and any log redirect:
+- Each of the two executed checks prints its own count line, zero included, in
+  the declared proof-line format so it survives the output filter and any log
+  redirect. The other two checks print nothing, because they are properties the
+  header states rather than steps the gate runs:
 
 ```
 <check name>: <n> citation files, <m> groups, 0 errors (fast)
@@ -136,7 +139,7 @@ ADVISORY: docs commit stages a newly-tracked non-doc file: <path> — confirm no
 **Acceptance checks:**
 
 - Given a commit touching nothing the gate checks — one source file, say — when
-  it is made in an activated clone, then all four checks still run and each
+  it is made in an activated clone, then both executed checks still run and each
   prints its own count line, zero included.
 - Given a commit adding a citation of the form `path:line` that resolves to a
   blank line, then the gate blocks and names that citation; given the same

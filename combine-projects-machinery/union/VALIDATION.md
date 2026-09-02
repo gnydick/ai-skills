@@ -43,13 +43,24 @@ executes" and `WIRING.md` says "its **two** executable blocking checks first".
 Two of the four block nothing. **Fixed** (F1) — the opening now reads "two
 checks the gate executes and rejects the commit on, and two that its header
 states and a person applies". `COMPACT-12-15.md`'s decision-sheet bullet had
-the same fault in a different shape and is fixed with it (F14). After the
-fixes, all five places agree: `README.md` line 51, `gates/commit-gate.md` line
-3, `WIRING.md` § `gates/commit-gate.md`, `hooks/quiet-output.md`'s closing
-acceptance check ("the commit gate stays at its four cheap checks"), and
-`COMPACT-12-15.md`'s decision sheet. `rules/rule-governance.md` § Honesty
-about the machinery and `skills/rule-intake/SKILL.md` describe the gate
-without a count and conflict with none of them.
+the same fault in a different shape and is fixed with it (F14).
+
+The first pass fixed the claim where it was *stated* and missed it where it was
+*used*: three places still said or implied that all four checks execute —
+`gates/commit-gate.md`'s "What the user sees" ("Every check prints its own
+count line") and its first acceptance check ("all four checks still run and
+each prints its own count line"), and `README.md` line 50's map entry. Only two
+of the four can print anything. All three corrected in the fix pass (X1); see
+§ Fix pass. After both passes, all six places agree: `README.md` line 50,
+`gates/commit-gate.md` lines 3, 109 and 139, `WIRING.md` § `gates/commit-gate.md`,
+`hooks/quiet-output.md`'s closing acceptance check ("the commit gate stays at
+its four cheap checks"), and `COMPACT-12-15.md`'s decision sheet.
+`rules/rule-governance.md` § Honesty about the machinery and
+`skills/rule-intake/SKILL.md` describe the gate without a count and conflict
+with none of them. `gates/commit-gate.md` step 1 and its last acceptance check
+say the header "enumerates every check it runs" and separately names the
+activation command and the bypass — which is the correct division and was left
+as written.
 
 **Rule filing in the project root, everywhere.** One contradiction found.
 `rules/agent-topology.md` § Where an agent works reserves both the capture and
@@ -63,20 +74,26 @@ is written in" — which is a filing path the rule file rules out. **Fixed** (F2
 F3): the mechanism fact stays (the hook writes whichever inbox the session
 runs against — its acceptance check pins that, and the hook genuinely cannot
 enforce a convention), but it now names the convention and the rule file that
-holds it rather than asserting a competing one. **Which workflow is correct
-for an entry that does land in a copy is the owner's call and is OQ.1** — the
-fix removed the flat contradiction without choosing.
+holds it rather than asserting a competing one. **Where filing happens is not
+in question** — row 4.20 rules it: filing, both capture and the filing commit,
+happens in the project root so every active copy sees it. The residue is purely
+mechanical — by what means an entry captured inside a copy reaches the project
+root's inbox — and that is OQ.1, reframed in the fix pass after the first
+draft wrongly offered filing-from-the-copy as one of two defensible readings.
+That reading is excluded by 4.20 and validation had no business re-opening it.
 
 **All-work-in-a-copy, and the by-convention list.** No contradiction. The list
 appears in exactly two places and is identical in both:
 `rules/agent-topology.md` § Where an agent works and
 `skills/effort-lifecycle/SKILL.md` § Does this apply? — three items in the same
 order (filing a dictated rule, both capture and filing commit; merging a
-finished effort once every leg is green, and pushing it; creating, listing and
-tearing down the copies). `README.md` does not carry the list, so it cannot
+finished effort's branch into the shared line locally, running the merge gate
+on that result, and pushing it once every leg on it is green; creating, listing
+and tearing down the copies). `README.md` does not carry the list, so it cannot
 diverge from it. Both places state the no-size-exception rule in the same
 terms, and both carry the second-commit backstop with the same "not a licence
-for the first commit" qualification.
+for the first commit" qualification. The middle item was reworded in both
+places in the fix pass (X2) — see § Fix pass and § 2 loop (b).
 
 **The register is an index, with no summary layer anywhere.** No contradiction.
 `README.md` § How the pieces relate and § Installing it ("nothing needs a
@@ -194,20 +211,43 @@ asserted, with the workflow question handed to the owner (OQ.1).
 | 5 | Commit by naming exact paths; no blanket add; flags before the separator; protected records never staged | step 5 → `rules/worktree-discipline.md` § Committing from it |
 | 6 | The effort's running ledger, shipped with the work | step 6 → `rules/work-tracking.md` § The learnings record |
 | 7 | Temporary instrumentation announced before it is written, removed after | step 7 → `rules/worktree-discipline.md` § Working in it |
-| 8 | The merge is made locally in the project root; the gate judges that merged tree; every required leg green | step 8 → `gates/merge-gate.md` (whole), `gates/ratchets.md` (one leg), `agents/invariant-auditor.md` (optional dispatch), `rules/worktree-discipline.md` § Merging and tearing down |
-| 9 | Push, from the project root | step 9 → `rules/agent-topology.md` § Where an agent works (merging and pushing are on the by-convention list) |
+| 8 | The merge is made locally in the project root into a private merge result; the gate judges that result; a red result is discarded, never pushed | step 8 → `gates/merge-gate.md` (whole), `gates/ratchets.md` (one leg), `agents/invariant-auditor.md` (optional dispatch), `rules/worktree-discipline.md` § Merging and tearing down |
+| 9 | Publish that result by pushing it, from the project root, once every leg on it is green | step 9 → `rules/agent-topology.md` § Where an agent works (the by-convention bullet carries the same three-part shape) |
 | 10 | Delete the copy and its branch immediately, same session | step 10 → `rules/worktree-discipline.md` § Merging and tearing down |
 | 11 | List what is left; report debt; never delete someone else's or one with uncommitted changes; release a locked copy through its tool | step 11 → same section |
 
-**Defect found at steps 8/9.** The sequence ordered "get green on the merge
-gate, run on the merge result" (8) *before* "merge from the project root, then
-push" (9) — a gate on a merge result that does not exist yet. `gates/merge-gate.md`
-carries the correct shape ("against the merged result… before it is pushed")
-and `rules/worktree-discipline.md` carries the bar ("Merge only after every
-required verification leg has passed"). **Fixed** (F5): step 8 now makes the
-merge locally and gates that tree, step 9 publishes it, and § Does this apply?'s
-project-root mapping was updated to match. Both demands survive intact — the
-merge is not finished while a leg is red, and nothing is published ungated.
+**Defect found at steps 8/9, and fixed in two passes.** The sequence ordered
+"get green on the merge gate, run on the merge result" (8) *before* "merge from
+the project root, then push" (9) — a gate on a merge result that does not exist
+yet. F5 reordered the skill so the merge is made locally and then gated.
+
+**F5 was incomplete, and moved the contradiction rather than closing it.** The
+skill now said make-then-gate, but the authoritative rule file still said
+"Merge only after every required verification leg has passed", and both
+by-convention bullets still said "merging … once every verification leg is
+green". Under the union's own precedence — the rule file wins over a skill —
+the reordered step 8 was unfollowable: it instructed a merge the rule file
+forbade until legs that can only run on that merge had passed. Fixing the skill
+alone left three files disagreeing instead of two.
+
+**Closed in the fix pass** (X2) by taking the ruled form to all four places at
+once: *merge locally into a private merge result → run the merge gate on that
+result → publish only when every leg on it is green; a red result is discarded,
+never pushed.* `rules/worktree-discipline.md` § Merging and tearing down carries
+the ruling's own wording, because it is authoritative;
+`rules/agent-topology.md` § Where an agent works and
+`skills/effort-lifecycle/SKILL.md` § Does this apply? carry the identical
+by-convention bullet; steps 8 and 9 carry the same shape, with step 9 named as
+publication. `gates/merge-gate.md`'s opening said "every required leg green
+before a merge starts" — the old framing — and was corrected with them and
+given the section citation it lacked.
+
+The circularity is what the ruling dissolves: the old bar read as *legs green
+before merging*, while the gate can only judge a merge that already exists. The
+resolution is that a local merge result is not yet a merge anyone has to live
+with, so it can be produced freely and discarded freely; publication is the act
+the bar guards. No demand was lost — nothing reaches the shared line ungated,
+and a red result still stops the effort.
 
 ### (c) Diverged edition: precondition → lists → bins → rebuild → graft → verify → switch
 
@@ -847,18 +887,133 @@ the layout-migration spec as an out-of-scope domain document, both noted on
 
 ---
 
+## Fix pass — 2026-09-02, after review
+
+Review reproduced every piece of evidence above exactly and accepted 13 of the
+14 fixes. Four findings were raised and are all addressed here. Two of them are
+the same species of mistake — **fixing a claim where it is stated and missing it
+where it is used** — which is worth naming, because the first pass's scripted
+checks could not have caught either: both were prose agreeing with prose.
+
+**X1 — F1 was incomplete (three surviving count claims).** F1 corrected the
+sentence that *defines* the gate's four checks but left three places that
+*rely* on all four being executable: `gates/commit-gate.md`'s "What the user
+sees" ("Every check prints its own count line"), its first acceptance check
+("all four checks still run and each prints its own count line"), and
+`README.md` line 50's map entry ("the four fast checks that run at commit
+time"). Two of the four print nothing, because they are properties the header
+states rather than steps the gate runs. All three corrected; the user-sees
+bullet now says which two print and why the others do not, and the acceptance
+check now says "both executed checks". `commit-gate.md:5` was re-wrapped, which
+F1 had left over-long. VALIDATION § 1's citation of the README map entry said
+line 51; it is line 50, corrected above.
+
+**X2 — F5 moved the merge/gate contradiction instead of closing it.** Recorded
+in full in § 2 loop (b). Four files brought to the ruled form; the rule file
+holds the ruling's wording because it is authoritative, and
+`gates/merge-gate.md`'s stale "before a merge starts" opening was corrected
+with them.
+
+**X3 — OQ.1 re-opened a ruled decision.** The first draft offered
+"file it from the copy it landed in" as one of two defensible readings. Row
+4.20 already rules that filing — both capture and the filing commit — happens
+in the project root so every active copy sees it, which excludes that reading
+outright. Validation may name a seam; it may not re-open a ruling. OQ.1 is
+reframed to the genuine residue, which is mechanical and unruled: capture
+writes into whichever checkout the session runs in, so an entry dictated inside
+a copy sits where the project-root filing sequence will not see it — by what
+mechanism does it reach the root's inbox? Three candidates are named (hand-copy
+as part of intake; the capture hook resolving to the project root rather than
+the session's checkout; intake reading every copy's inbox), with the note that
+only the second takes the obligation off a person. § 1 corrected to match.
+
+**X4 — the platform-neutrality claim versus real commands.** `README.md` said
+"Nothing here is a script, a configuration file or a command line for one
+particular harness", while `skills/refresh-diverged-branch/SKILL.md` carries
+four fenced blocks of version-control commands. The commands stay — version
+control is the mechanism in that procedure, not a harness it runs on — and the
+claim is narrowed to say so, with the same clause added to the skill's own
+opening so a reader meeting the commands is not surprised by them.
+`COMPACT-12-15.md`'s decision sheet said "the slicer-parity specifics", a
+domain noun the first pass's noun list did not contain; it now reads "the
+product-specific parity checks".
+
+**Two optional items, both taken, because both were inaccurate rather than
+merely improvable.** F4's rationale in `hooks/quiet-output.md` step 5 claimed
+the stream-merge token is "how a noisy command's chatter reaches the terminal
+despite the redirect" — true only when the token precedes the redirect; written
+after it, both streams go to the file. The step now says that plainly and
+explains the mechanism as a deliberate blanket: telling the two orderings apart
+means parsing the shell's ordering, so the check over-wraps rather than
+under-wraps, which costs nothing. F11's cross-reference in
+`rules/environment-and-platform.md` said the paired rule's remedy "is a printed
+count" — that is row 8.21's remedy, not 8.31's. Reworded to name what actually
+discharges each: explicit-path resolution here, the proof-line contract there.
+
+**The noun list was wrong, not just the file.** `slicer` slipping through means
+the first pass's banned list was incomplete, so a widened scan was run over
+`plugin/` and `COMPACT-12-15.md` for domain vocabulary the original list missed
+(slicing, extrusion, nozzle, filament, printer, bed, tool-path and mesh-format
+nouns, preset, firmware, board, device, crate). Four hits, all false positives
+on ordinary English: "a wall around the enclosing unit" and "a wall of
+conflicts" in two files, and "code seen on a device" in
+`rules/reference-sources.md`, which is generic. One real leak existed and it is
+fixed.
+
+### Checks re-run over the touched files
+
+```
+# cross-references, all of plugin/
+FILES: 26
+REFS CHECKED: 82
+BAD: 0
+# 18 of the 82 now carry a § section (was 11) — every one resolves, including
+# the citation added to gates/merge-gate.md's opening
+
+# project-noun scan, plugin/ + COMPACT-12-15.md, list widened with `slicer`
+0 hits
+
+# widened domain-vocabulary scan, plugin/ + COMPACT-12-15.md
+4 hits, all false positives on ordinary English (see above)
+
+# table structure, RECONCILIATION.md
+DATA ROWS: 579  OQ ROWS: 4  HEADERS: 16  SEPS: 16
+MALFORMED: 0
+
+# by-convention bullet, compared across its two homes
+rules/agent-topology.md and skills/effort-lifecycle/SKILL.md — identical wording
+```
+
+No `RECONCILIATION.md` row other than OQ.1 was touched, and no feedback cell was
+touched in either pass. The 579-row record is unmodified.
+
 ## Verdict
 
 The union is coherent, its loops close, its stories are faithful to the
 mechanisms they describe, and every numbered step names what it consumes.
-Fourteen defects were found and fixed inline — one substantive mechanism-fidelity
-error, three internal contradictions, two broken step references, one
-sequence-ordering error, three inherited table defects, three factual errors in
-the compaction, and one missing cross-reference. Four questions were beyond what
-validation may decide and are with the owner as `OQ.1`–`OQ.4`. Two exclusions
-are recorded as knowing losses rather than oversights: group 7 in full, and the
-six unverifiable supersession stamps.
+Fourteen defects were found and fixed in the first pass — one substantive
+mechanism-fidelity error, three internal contradictions, two broken step
+references, one sequence-ordering error, three inherited table defects, three
+factual errors in the compaction, and one missing cross-reference — and six
+more in the fix pass after review: three surviving count claims F1 had missed,
+a merge-bar contradiction F5 had moved rather than closed, an over-broad
+neutrality claim, a domain noun the first noun list did not contain, and two
+inaccurate rationales. Twenty in total.
+
+Four questions were beyond what validation may decide and are with the owner as
+`OQ.1`–`OQ.4`; OQ.1 was reframed after review, because its first draft
+re-opened a decision row 4.20 had already ruled. Two exclusions are recorded as
+knowing losses rather than oversights: group 7 in full, and the six unverifiable
+supersession stamps.
 
 The register index's counts are mechanically correct, no excluded content
 leaked, both source repositories are untouched, and the 579-row record is
 unmodified.
+
+The honest lesson from the fix pass is that both misses were prose agreeing
+with prose — a claim corrected where it was defined and left standing where it
+was used, and a contradiction relocated from two files to three. Neither was
+reachable by the scripted checks that caught everything else, and the
+contribution table, the cross-reference resolver and the structure check all
+passed throughout. A scripted check finds what it was pointed at; the rest
+still has to be read.

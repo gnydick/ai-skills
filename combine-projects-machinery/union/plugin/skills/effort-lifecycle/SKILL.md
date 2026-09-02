@@ -23,8 +23,9 @@ there by convention:
 
 - filing a dictated rule, both the capture and the filing commit
   (`skills/rule-intake/SKILL.md`);
-- merging a finished effort's branch into the shared line once every
-  verification leg is green, and pushing it;
+- merging a finished effort's branch into the shared line locally, running the
+  merge gate on that result, and pushing it once every verification leg on it
+  is green;
 - creating, listing and tearing down the working copies themselves.
 
 That maps onto this sequence as follows. **Step 3 (create), step 8 (merge and
@@ -81,14 +82,14 @@ belong there either.
 
 ## End
 
-8. **Make the merge locally in the project root, then get green on the merge
-   gate run against that merged tree — before anything is pushed.** The gate
-   judges the merge result and never the branch alone, so the merge has to
-   exist for it to judge; making it locally is what produces the tree without
-   publishing it. The battery and how it judges are in `gates/merge-gate.md`.
-   Every required leg passes on that tree before step 9 publishes it, and a
-   red leg means the merge is not finished rather than that it may be pushed
-   anyway (`rules/worktree-discipline.md` § Merging and tearing down).
+8. **Make the merge locally in the project root, into a private merge result,
+   then run the merge gate on that result.** The gate judges the merge result
+   and never the branch alone, so the merge has to exist to be judged; making
+   it locally is what produces it without publishing it. The battery and how it
+   judges are in `gates/merge-gate.md`; the bar it enforces is
+   `rules/worktree-discipline.md` § Merging and tearing down. A red result is
+   discarded, never pushed — which is cheap precisely because nobody else can
+   see it yet.
 
    Before merging, consider dispatching the enforcement auditor
    (`agents/invariant-auditor.md`) with the effort's diff. It cannot run
@@ -98,10 +99,11 @@ belong there either.
    incremental cache and rebuild before treating the error as a real breakage
    (`rules/worktree-discipline.md` § Working in it).
 
-9. **Push the merge from step 8, from the project root.** Publishing is the
-   deliberate act, and only a merged tree the gate passed is pushed. Branches
-   kept for exploration are never merged at all without a deliberate decision
-   to do so.
+9. **Publish step 8's merge result by pushing it, from the project root, once
+   every leg on it is green.** Publishing is the deliberate act, and it is the
+   only step that makes the merge something other people have to live with.
+   Branches kept for exploration are never merged at all without a deliberate
+   decision to do so.
 
 10. **From the project root, tear the copy down immediately, in the same
     session: delete the working copy and delete its branch.** This step is not
