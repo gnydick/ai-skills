@@ -84,9 +84,11 @@ gates, whose whole purpose is to block.
 ### `gates/commit-gate.md`
 
 - **Event:** the pre-commit entry point, on every commit.
-- **Ordering:** its four blocking checks first, in any order among themselves,
-  then the advisory warning, then the verdict. Advisory output never changes
-  the exit status.
+- **Ordering:** its two executable blocking checks first — the register check
+  and the citation-target check — in either order, then the advisory warning,
+  then the verdict. Advisory output never changes the exit status. Its other
+  two checks are properties the gate's header states and a person applies (the
+  bypass rule and the activation rule), so they have no run order.
 - **Timeout:** none, but a hard budget instead: it must stay cheap enough that
   nobody wants it switched off. Anything that is not cheap belongs to the merge
   gate.

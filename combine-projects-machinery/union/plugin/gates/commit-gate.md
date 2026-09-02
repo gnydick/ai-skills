@@ -31,7 +31,10 @@ clone that never activated the hooks is still caught.
    looks first, so that is where the description lives.
 2. Hold the blocking line. A mechanical check may block. A check that matches on
    the content of prose may only warn, never reject — guessing at what a
-   sentence means is not something to stake a commit on.
+   sentence means is not something to stake a commit on. And where a check's
+   own tool cannot run at all — a missing authority file, a missing marker —
+   the check fails loudly naming what it could not find, and never skips,
+   because a skipped check reads as a pass (`rules/tool-output.md`).
 3. **Check one, the register check, cheap mode. Blocks.** Citations resolve,
    supersession stamps are bidirectional, and the inbox is fully dispositioned
    — no entry left pending. What that check covers, what it deliberately does
@@ -91,7 +94,8 @@ clone that never activated the hooks is still caught.
     the run that builds the product, needing none of the build toolchain: a
     full product build for every documentation edit teaches people to batch
     documentation edits, which is exactly how a register rots. Its triggers
-    name exactly the files its gates read, plus a manual start. It runs on the
+    name exactly the files its gates read — on a push and again on a change
+    request over those same paths — plus a manual start. It runs on the
     platform where its gates were actually measured passing, because a gate
     measured somewhere else is noise wherever it ends up running. Every gate in
     it was measured passing on the commit that introduced it and has a

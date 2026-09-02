@@ -32,7 +32,10 @@ everything keeps landing.
    naming exactly what was looked for and in what order. Never a quiet skip: a
    leg that cannot run its own parser must not read as a pass, and a quiet
    failure later can leave a stale artifact that a subsequent leg reads as a
-   real verdict.
+   real verdict. The same holds inside a leg: where a leg's own tool cannot run
+   — a missing template, a missing authority file, a missing marker — the leg
+   fails loudly naming exactly what it could not find, and never skips, because
+   a skipped check reads as a pass (`rules/tool-output.md`).
 2. Build in the gate's own directory, never one shared with the working copies.
    Concurrent builds into a shared directory poison the cache and produce
    errors that contradict the source, and the gate is the worst place to be
@@ -109,21 +112,29 @@ everything keeps landing.
 9. Report the newly *passing* cases as loudly as the newly failing ones. A case
    that starts passing is either good news or a check that has stopped
    checking, and nothing in the result itself tells you which.
-10. Keep one owner. One component owns parsing the run's output, checking its
+10. Move the baseline only deliberately. An explicit flag records the *current*
+    failing set as the accepted baseline instead of judging against it, and it
+    is used only once somebody has decided that the change to the red set is
+    correct. It is never automatic, never a way past a red run, and never used
+    on the run that gates a merge: a baseline that moves in order to make
+    today's run pass has stopped being a baseline. The measurement ratchet's
+    own baseline is a different file with its own regeneration rule
+    (`gates/ratchets.md`); moving one never moves the other.
+11. Keep one owner. One component owns parsing the run's output, checking its
     evidence and holding the baseline; the gate only renders that verdict in
     its own pass/fail/skip vocabulary. Two independent readings of one output
     are two opinions of one fact, and they will eventually disagree.
-11. Treat a missing verdict as a hard failure, never a fall-through to whatever
+12. Treat a missing verdict as a hard failure, never a fall-through to whatever
     the last run left behind. If the owning component wrote no verdict, that is
     a hard failure; if it wrote a category the gate does not define, that is a
     hard failure too. Only the outcomes the gate defines are allowed to pass.
-12. Offer a quick mode that skips the expensive sweep, for iterating, and never
+13. Offer a quick mode that skips the expensive sweep, for iterating, and never
     use it for a merge. What it skipped prints as skipped, never as passed.
-13. Fix an intermittently failing leg at its cause. Never a retry, never a
+14. Fix an intermittently failing leg at its cause. Never a retry, never a
     rerun-the-failures step, never an ignore marker, and never forcing
     everything to run one at a time — each of those keeps the gate green while
     it stops meaning anything.
-14. Close with the verdict: on a clean run, the count of legs passed and
+15. Close with the verdict: on a clean run, the count of legs passed and
     skipped and a zero exit; otherwise the count of legs failed out of the legs
     run, each failed leg named, the log directory, and a non-zero exit.
 
@@ -136,7 +147,7 @@ everything keeps landing.
 ```
   <leg name>                                  pass
   <leg name>                                  FAIL (exit <n>, <log path>)
-  <leg name>                                  skipped (--quick)
+  <leg name>                                  skipped (<the quick flag>)
 ```
 
 - Each echoed count line indented beneath its leg, in the declared proof-line
@@ -175,8 +186,11 @@ GATE: 0 cases matched the <filter> filter — no evidence the invariant actually
 - Given a tree with a known standing failure set recorded in the baseline, when
   the run reproduces exactly that set, then the gate passes despite the suite's
   own non-zero exit status; when the run adds one failure, the gate fails
-  naming only the new one; and when one baseline failure now passes, that is
-  reported loudly rather than absorbed.
+  naming only the new one; when one baseline failure now passes, that is
+  reported loudly rather than absorbed; and given the baseline-update flag, the
+  run records the current failing set as the accepted baseline and judges
+  nothing, while without that flag no run can move the baseline however red it
+  is — and the flag is never used on the run that gates a merge.
 - Given a leg piped into a trimming command, then what buckets the leg is the
   leg's own exit status and not the filter's; and given the changed-file
   command itself failing, then the leg fails rather than reporting that no

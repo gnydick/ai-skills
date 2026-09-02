@@ -41,7 +41,7 @@ wrapper then runs in the command's own place.
    listing of releases, runs, repositories, labels, projects, snippets or
    workflows — never wrap it at all. Its lines are the payload the caller asked
    for. A read anywhere on the command line wins over anything noisy on the
-   same line, and the ceiling in step 22 never applies to it.
+   same line, and the ceiling in step 26 never applies to it.
 7. If the command matches the state-changing set, the mode is proof-of-success.
    This is tested *before* the noisy set, because cloning, fetching and pulling
    appear in both and proving they worked is what matters.
@@ -61,7 +61,10 @@ wrapper then runs in the command's own place.
     dependency installs and updates, test runs, package and container tooling,
     toolchain updates, the project's named gate scripts, every file matching
     the project's test-runner naming suffix under its scripts and hooks
-    directories, and the tracker tool's run-log and check-table chatter.
+    directories, and the tracker tool's run-log and check-table chatter — which
+    includes its sign-in-status query and its extension install and upgrade
+    commands, whose output is progress and a verdict rather than anything the
+    caller asked to read.
 12. The gate scripts share no prefix, suffix or behavioural marker a pattern
     could key on, so that arm is an explicit enumeration. The test runners do
     share a real naming regularity, so that arm is a suffix match and covers
@@ -74,7 +77,10 @@ wrapper then runs in the command's own place.
     mistake in this direction silently deletes what somebody asked for.
 14. Every pattern anchors at a command position — the start of the line, after
     a separator, after a conditional-and, after a loop or conditional keyword —
-    and tolerates environment-variable prefixes ahead of the command name.
+    and tolerates environment-variable prefixes ahead of the command name. It
+    also tolerates a repository-directory option sitting between the command
+    and its subcommand: naming which working copy to act in does not change
+    what the action is, so it must not change the match.
 
 *Rewriting, when a mode was chosen:*
 
@@ -112,10 +118,36 @@ wrapper then runs in the command's own place.
     filtered at all. Proof-of-success mode reduces regardless of length,
     because that chatter is always short and still never worth reading.
 22. Select, in proof-of-success mode on a zero exit status: keep only lines
-    matching a proof-of-success shape or the declared proof-line format. If
-    that keeps nothing and there was any output, keep the last line — the
-    selection is never empty. On a non-zero exit status, fall through to the
-    reducing selection instead, so nothing about the failure is lost.
+    matching a proof-of-success shape or the declared proof-line format. The
+    proof-of-success shapes are a fixed set, matched without regard to case,
+    and every one of them is a line that could only have been printed if the
+    action actually happened:
+    - a commit confirmation — a bracketed branch name and short object
+      identifier, followed by the subject;
+    - a reference update — an old and a new short identifier separated by two
+      dots, then a source name, an arrow and a destination name;
+    - a forced reference update — the same with a leading plus sign and three
+      dots between the identifiers;
+    - a new-reference marker (`* [new branch]`, `* [new tag]`) or a
+      deleted-reference marker (`- [deleted]`);
+    - a nothing-to-do or fast-path line: everything up to date, already up to
+      date, fast-forward;
+    - an updating line naming both the old and the new identifier;
+    - a files-changed count line;
+    - an outcome line for a merge, rebase, checkout or working-copy
+      preparation: merge made by, successfully rebased, switched to, head is
+      now at, preparing working copy;
+    - a clone-start line, or a tracking line saying a branch was set up to
+      track a remote one;
+    - a result link on the hosting service;
+    - a confirmation glyph at the start of a line, or a confirmation verb
+      there: merged, created, deleted, closed, reopened, logged in.
+
+    A line that merely introduces the transfer — the "to <destination>" header
+    above a reference update, say — is not a proof shape and does not survive.
+    If the selection keeps nothing and there was any output, keep the last line
+    — the selection is never empty. On a non-zero exit status, fall through to
+    the reducing selection instead, so nothing about the failure is lost.
 23. Select, in reducing mode: keep a block opened by an error, panic, traceback
     or failure-header line, from its opening line to the next blank line; keep
     any line matching the declared proof-line format or a final-summary shape;
@@ -173,18 +205,24 @@ wrapper then runs in the command's own place.
 
 - Given a build, a dependency install, a test run, one of the named gate
   scripts, or a file matching the test-runner suffix under the scripts or hooks
-  directory, when the pre-run check inspects it, then the mode is reduce; and
-  given the same gate script piped into a trimming command, then no mode is
-  chosen at all.
+  directory, when the pre-run check inspects it, then the mode is reduce; given
+  the tracker tool's sign-in-status query, or one of its extension install or
+  upgrade commands, then the mode is reduce as well; and given the same gate
+  script piped into a trimming command, then no mode is chosen at all.
 - Given a commit, a push, a pull with a rebase, a fetch, a working-copy
   addition, or a ticket creation or comment, then the mode is proof-of-success;
-  given a content read — a ticket view, a diff, an interface request, a search
-  — then no mode at all, including when the read appears at the end of a line
-  whose first command is noisy.
+  given a push written with a repository-directory option between the command
+  and its subcommand, then the mode is still proof-of-success; given a content
+  read — a ticket view, a diff, an interface request, a search — then no mode
+  at all, including when the read appears at the end of a line whose first
+  command is noisy.
 - Given a successful proof-of-success run whose output is a gate's own count
   line, a commit confirmation and a files-changed line, then all three survive;
   given a push whose output is nine lines of object chatter ending in the
-  ref-update line, then only that last line survives; given output with nothing
+  ref-update line, then only that last line survives; given a three-line push
+  result — the transfer header, a new-reference marker and a tracking line —
+  then exactly two survive, the header proving nothing; given a lone
+  already-up-to-date line, then it survives; given output with nothing
   recognisable in it, then the last line survives, so the result is never
   empty; and given a non-zero exit, then the error lines survive by the
   reducing selection.
