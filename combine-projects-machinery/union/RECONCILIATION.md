@@ -26,9 +26,9 @@ project terms) | proposed universal form (lay language) | your feedback.
 
 ## Reading guide
 
-578 rows in 15 groups: 1 Straight Talk 10, 2 Rule Governance 34, 3 Verification
+579 rows in 15 groups: 1 Straight Talk 10, 2 Rule Governance 34, 3 Verification
 & Evidence 50, 4 Agent Topology & Economy 25, 5 Worktree & Campaign Discipline
-40, 6 Work Tracking 35, 7 Test Double & UAT Discipline 8 (excluded from the
+40, 6 Work Tracking 36, 7 Test Double & UAT Discipline 8 (excluded from the
 union by owner ruling — see the group heading), 8 Tool Output Hygiene
 32, 9 Design Invariants 185, 10 Reference Sources 14, 11 Environment & Platform
 11, 12 Standing Agents 47, 13 Register System 32, 14 Commit Gates 18, 15 Merge
@@ -55,10 +55,16 @@ skill is now the group's first seam: 9.1 states that the skill is mandatory, and
 85 of the 185 rows point at it rather than restating it (`→ cant-break-by-design
 § …`) — 79 because the skill makes that demand in full, and six (9.13, 9.35,
 9.85, 9.105, 9.106, 9.111) that keep a `, plus:` clause for the one thing they
-add. Those pointers cluster hard in the first half — 78 of the 88 rows up to
+add. A row counts as a pointer only when its universal cell BEGINS with
+`→ cant-break-by-design`; rows that merely mention the skill are not pointers,
+which is why grepping its name returns more rows (88 across the whole table,
+86 of them group-9 universal cells) than the 85 counted here — 9.1 names it to
+make it mandatory, and a handful of rows elsewhere name it in passing. Those
+pointers cluster hard in the first half — 78 of the 88 rows up to
 9.88 — which is the half about how strongly an invariant is held: the
 enforcement ladder, the techniques, the catalogue of ways a claim outruns its
-mechanism. The 99 rows
+mechanism; the other seven pointers sit at 9.89 or later. The 99 rows
+(185 rows less 85 pointers less the 9.1 mandate)
 that extend the skill outright are what is left to read: nine stragglers in the
 first half (9.11, 9.33, 9.34, 9.42, 9.51, 9.52, 9.72, 9.79, 9.84), then all of
 9.89–9.185 bar seven rows — the standing invariants themselves and the method
@@ -315,7 +321,11 @@ extracted from notebook entries reach their durable home by 2.9–2.11.
 6.29–6.35 were added by the coverage sweep: the owner's own bug list, and the
 method rules for a pass over material being documented — the work of recording
 what is there, as distinct from tracking the work of changing it. When such a
-document must be updated is 13.27–13.30.*
+document must be updated is 13.27–13.30. 6.36 is an owner ruling added at
+review: the link that binds a ticket to its companion must be a different KIND
+of relationship from the ordering and dependency links between an effort's
+tickets and the work under it, so a query discriminates the two by relationship
+type rather than by remembering field values.*
 
 | id | ferrislicer | dwc-ng | proposed universal form | |
 |---|---|---|---|---|
@@ -324,7 +334,7 @@ document must be updated is 13.27–13.30.*
 | 6.3 | Every ticket has exactly ONE "Context:" sub-issue: the compressed pickup context for an AI session | — | Every ticket has exactly one companion entry holding the compressed pickup context for an assistant starting fresh. | |
 | 6.4 | Catching up: list issues for titles, fetch the ticket's one sub-issue, read its description — nothing else unless that proves insufficient | — | To catch up on a ticket: list the titles, fetch its one companion entry, read that. Nothing else, unless that turns out to be insufficient. | |
 | 6.5 | Keep the context sub-issue CURRENT as the ticket moves | — | Keep the companion entry current as the ticket moves. A pickup context that describes last week is worse than none. | |
-| 6.6 | The sub-issue relation is RESERVED for this pair alone; nothing else is ever a sub-issue of anything | — | The parent-and-companion relationship is reserved for that pair alone. Nothing else is ever filed as a child of anything. | |
+| 6.6 | The sub-issue relation is RESERVED for this pair alone; nothing else is ever a sub-issue of anything | — | The parent-and-companion relationship is reserved for that pair alone. Nothing else is ever filed as a child of anything — see 6.36 for why the mechanism must be distinct. | |
 | 6.7 | Campaign findings, epic chapters and follow-ups are each their OWN new ticket pair — full parent plus its own Context child — never a sub-issue of the campaign | — | A finding, a chapter of a larger effort, and a follow-up are each their own new ticket pair, never filed underneath the effort's ticket. | |
 | 6.8 | Added-links mirror at BOTH levels: new parents are "added" tickets on the overall parent, new Context children "added" on the overall Context child, so a resuming session reaches every finding's context from the one campaign sub-issue without pulling a full parent | — | Link a new pair to the effort at both levels — the full ticket to the effort's ticket, the companion entry to the effort's companion entry — so a session resuming the effort reaches every finding's context through companion entries alone, without ever opening a full ticket. | |
 | 6.9 | Issue reads are minimum-token: use the API to fetch only the fields needed; a full issue read only when more context is needed; never pull full issues wholesale | — | Read the tracker for the fields you actually need. Read a whole ticket only when the short context proves insufficient, and never pull whole tickets in bulk. | |
@@ -354,6 +364,7 @@ document must be updated is 13.27–13.30.*
 | 6.33 | NO defect may be used as the organizing principle for a reading pass: steps are covered in the pipeline's own order, never in the order a bug makes them look relevant | — | A defect is never the organizing principle for a reading pass. Cover the material in its own order: reading it in the order a bug makes things look relevant produces a map of that bug, not of the system. | |
 | 6.34 | A pass DECLARES a depth limit up front and records only what that pass verified; an unverified fact is left ABSENT, never guessed — in prose and in the models alike | — | A pass states its depth limit before it starts and records only what it actually verified. An unverified fact is left absent rather than guessed, in the prose and in any model built beside it, because a guess in a reference document is indistinguishable from a finding. | |
 | 6.35 | Forward and backward analysis directions ADVANCE TOGETHER as one artefact at one depth; a pass is not complete if only one direction progressed | — | Where an analysis runs in two directions, both advance together as one artefact at one depth. A pass with only one direction moved is not a completed pass. | |
+| 6.36 | "The sub-issue relation is reserved for this pair alone. Nothing else is ever a sub-issue of anything" (mechanism-distinctness reason added by owner at review) | — | ✓ ruled: The link that binds a ticket to its companion must be a different KIND of relationship from the links that express ordering or dependency (blocked-by, depends-on) between an effort's tickets and the work tickets under it — different enough that a query can tell the two apart by the relationship's own type, never by remembering which values of a shared field mean which. Correct by construction: the tracker cannot confuse a companion with a dependency. | Gabe (chat 2026-09-01 19:23): added at review. |
 
 ## 7. Test Double & UAT Discipline
 
@@ -427,14 +438,16 @@ satisfy. 8.31's source is the generated-document gate rowed at 6.21–6.23.*
 ## 9. Design Invariants
 
 **The `cant-break-by-design` skill is mandatory** (9.1): it is invoked for every
-design decision and every code path, in any language. 85 of the 181 rows point
-at it. In 79 of them the pointer is the whole cell, because the skill already
+design decision and every code path, in any language. 85 of the 185 rows point
+at it — a pointer being a universal cell that BEGINS with
+`→ cant-break-by-design`, not merely one that names the skill. In 79 of them
+the pointer is the whole cell, because the skill already
 makes that demand in full and the union will not restate it; in the other six
 (9.13, 9.35, 9.85, 9.105, 9.106, 9.111) a `, plus:` clause follows, holding the
 one thing the row adds to the section it points at. Either way the pointer
 names the section
 that governs, and the two project columns stay as the record of where the
-demand reached us from. The remaining 95 rows extend the skill outright: each
+demand reached us from. The remaining 99 rows extend the skill outright: each
 adds a demand, a mechanism or a scope it does not state. Extensions, never
 substitutes.
 
