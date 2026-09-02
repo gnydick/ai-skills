@@ -52,24 +52,26 @@ plugin/
 
 **This plugin is the shared universal-rules skill.** A rule that holds in any
 project is filed here, not in a project's own tree: edit the matching
-`rules/<group>.md` file, add the row that cites it to `register/INDEX.md` —
-this plugin's own register indexes this plugin's own `rules/` — and reload the
-skill. The plugin is installed by reference, so the file you edit is the only
-copy. Project-specific rules stay out
+`plugins/machinery/rules/<group>.md` file, add the row that cites it to
+`plugins/machinery/register/INDEX.md` — the plugin's own register indexes the
+plugin's own `rules/` — and reload the skill. The plugin is installed by
+reference, so the file you edit is the only copy. Project-specific rules stay out
 of this plugin entirely — they live in each project's own rules directory and
 go through that project's own capture-to-gate pipeline, which this plugin does
 not run.
 
-**Rules bind every session.** Each file under `rules/` is loaded at session
-start, unconditionally, and it is the authority for the rules it holds. Where
-a skill repeats a rule's instruction at the step that carries it out, the rule
-file wins; the reason behind a rule is argued in the rule file alone, and
-everything else points at the file and section where it lives.
+**Rules bind every session.** Each file under `plugins/machinery/rules/` is
+loaded at session start, unconditionally, and it is the authority for the
+rules it holds. Where a skill repeats a rule's instruction at the step that
+carries it out, the rule file wins; the reason behind a rule is argued in the
+rule file alone, and everything else points at the file and section where it
+lives.
 
-**The register indexes the rules.** `register/INDEX.md` records what was
-decided, where each decision lives, how settled it is, and what supersedes
-what. It cites; it never originates, so a rule that exists only in the index
-has no home. Its own check is mechanical and is described in the file.
+**The register indexes the rules.** `plugins/machinery/register/INDEX.md`
+records what was decided, where each decision lives, how settled it is, and
+what supersedes what. It cites; it never originates, so a rule that exists
+only in the index has no home. Its own check is mechanical and is described
+in the file.
 
 **Skills are sequences.** A skill says what to do in what order. What must
 hold, and why, belongs to a rule file: a step may state the instruction it is
@@ -87,15 +89,15 @@ does *not* run.
 **Agents are dispatchable briefs.** Each answers exactly one question, names
 the other agents whose questions are not its own, and states its own
 containment and the consequence of that containment. The conventions they
-share are rules, in `rules/agent-topology.md`, and the briefs do not restate
-them.
+share are rules, in `plugins/machinery/rules/agent-topology.md`, and the
+briefs do not restate them.
 
 **The design skill is mandatory and is referenced, not included.** The
 `cant-break-by-design` skill is invoked for every design decision and every
 code path. Its enforcement ladder, its techniques and its catalog of ways a
 claim outruns its mechanism are not reproduced anywhere here;
-`rules/design-invariants.md` and `agents/invariant-auditor.md` point at it and
-extend it.
+`plugins/machinery/rules/design-invariants.md` and
+`plugins/machinery/agents/invariant-auditor.md` point at it and extend it.
 
 ## Installing it
 

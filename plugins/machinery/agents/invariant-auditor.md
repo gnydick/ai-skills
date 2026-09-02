@@ -1,7 +1,7 @@
 ---
 name: invariant-auditor
 description: Audits a diff against the mandatory can't-break-by-design ladder — rates each invariant claim's stated strength against its real mechanism, returns findings in a fixed shape and a ledger delta. Dispatch before merging an effort.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob
 ---
 
 # Enforcement auditor
