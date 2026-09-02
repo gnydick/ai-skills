@@ -16,7 +16,7 @@
     {
       "name": "dreamy",
       "source": "./plugins/dreamy",
-      "description": "Maintenance loop for Claude Code's long-term memory: session-analysis distills the session transcripts into a 'dream' overview of what deserves remembering; improve-memory consumes it — merging duplicates, resolving contradictions, promoting findings, and proposing CLAUDE.md upgrades as a crib sheet pointing at rules files — auto-applying the obvious and flagging the rest as checkboxes for approval"
+      "description": "Maintenance loop for Claude Code's long-term memory, run as one command by dream: session-analysis distills the session transcripts into a 'dream' overview of what deserves remembering; improve-memory consumes it — merging duplicates, resolving contradictions, promoting findings, and proposing CLAUDE.md upgrades as a crib sheet pointing at rules files — auto-applying the obvious and flagging the rest as checkboxes for approval; send-results is how any of them, or any other automation, reports back — a short summary emailed under one fixed Gmail label with links that open the produced file in the IDE"
     }
   ]
 }

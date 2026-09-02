@@ -1,0 +1,59 @@
+{
+  "skill_name": "dream",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "/dream --home <FIXTURE_WITH_OVERVIEW>",
+      "expected_output": "Full mode against a fixture whose standing overview has F2 and F4 ticked. Runs the run-log status, sees the overview was reviewed (ticked), invokes improve-memory apply first, notes the analysis step is skipped under --home, sees the fixture's dream is already consumed so skips the memory pass, records the run in <home>/dream/run-log.json with F2@run1 applied, and stops before the email step saying so. Replies with the four-line status and no question.",
+      "files": ["../../improve-memory/evals/fixtures/make-fixture.mjs"],
+      "assertions": [
+        "Runs scripts/runlog.mjs status before anything else (transcript shows the status command before any Skill invocation)",
+        "Invokes the improve-memory skill with the apply argument before any analysis or memory pass",
+        "Does not invoke improve-memory without a subcommand (the fixture's dream is already consumed, so no memory pass)",
+        "Does not attempt session-analysis against the fixture (no --home support there) — the transcript says the analysis step is skipped under --home",
+        "<home>/dream/run-log.json exists with one run whose applied list contains F2@run1",
+        "<home>/dream/pending.json is gone after the run",
+        "The overview's F2 item is no longer under 'Needs your approval'",
+        "No email was sent and the reply says why (testing / --home)",
+        "Chat reply is a short status (under 8 lines), pastes no overview, asks no question"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "/dream --mode apply-fixes --home <FIXTURE_WITH_OVERVIEW>",
+      "expected_output": "Apply-fixes mode. Status, improve-memory apply, record, then the email step (stopped under --home). No analysis, no memory pass, no new overview run.",
+      "files": ["../../improve-memory/evals/fixtures/make-fixture.mjs"],
+      "assertions": [
+        "Invokes improve-memory apply and nothing else from improve-memory (no plain pass)",
+        "Does not invoke session-analysis",
+        "<home>/dream/run-log.json has one run with mode apply-fixes and F2@run1 in applied",
+        "The overview frontmatter 'run' is still 1 (no new improve-memory pass)",
+        "Chat reply is a short status (under 8 lines), pastes no overview, asks no question"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "/dream --home <FIXTURE_FRESH>",
+      "expected_output": "Full mode against a fixture with a dream file but no overview yet. Status says no-overview and the dream is unconsumed; nothing to apply; analysis skipped under --home; improve-memory runs its plain pass and writes the overview; the run is recorded with zero applied items; email step stopped under --home.",
+      "files": ["../../improve-memory/evals/fixtures/make-fixture.mjs"],
+      "assertions": [
+        "Does not invoke improve-memory apply (nothing ticked, no overview)",
+        "Invokes improve-memory (plain pass) because the dream is unconsumed",
+        "<home>/improve-memory/Memory Improvement Overview.md exists after the run",
+        "<home>/dream/run-log.json has one run with an empty applied list and dream.newThisRun or overview.changedThisRun true",
+        "Chat reply is a short status (under 8 lines), pastes no overview, asks no question"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "/dream --mode apply-fixes --home <FIXTURE_FRESH>",
+      "expected_output": "Nothing to apply: no overview. One-line reply, no run recorded, no email.",
+      "files": ["../../improve-memory/evals/fixtures/make-fixture.mjs"],
+      "assertions": [
+        "Does not invoke improve-memory or session-analysis",
+        "<home>/dream/run-log.json does not exist or has zero runs",
+        "Reply is one to four lines saying there is nothing to apply"
+      ]
+    }
+  ]
+}

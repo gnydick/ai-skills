@@ -1,0 +1,46 @@
+{
+  "skill_name": "send-results",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I just finished reviewing docs/specs/2026-08-02-developer-friendliness-design.md in I:\\IdeaProjects\\ai-skills. Send me the results the usual way. Summary: \"Spec review done. Two open questions on the durability ladder in section 4 still need answers.\" Report it as coming from spec-review.",
+      "expected_output": "One email to gnydick@nydick.net with subject '[results] spec-review: 2026-08-02-developer-friendliness-design.md', the summary verbatim, and links that open the file in IntelliJ; the message labeled 'Automation results'; a one-line confirmation with the message id.",
+      "files": [],
+      "expectations": [
+        "An email was sent with the Gmail send_message tool to gnydick@nydick.net",
+        "The subject is exactly '[results] spec-review: 2026-08-02-developer-friendliness-design.md'",
+        "The email body contains the summary text verbatim",
+        "The HTML body contains a jetbrains:// link whose path parameter is docs/specs/2026-08-02-developer-friendliness-design.md",
+        "The sent message was labeled 'Automation results' (Label_82) with label_message",
+        "The message was produced by running scripts/results.mjs compose rather than written by hand",
+        "The final message to the user is one line naming where it went and the message id, without restating the summary"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Write a one-page markdown summary of every guard that scripts/build-skills.mjs in I:\\IdeaProjects\\ai-skills enforces (one bullet per guard, what it checks and why) to <OUTPUT_DIR>/build-guards.md. Then report the result to me the same place all my automations report to.",
+      "expected_output": "The markdown file exists with one bullet per guard; one email with a short summary (three sentences or fewer), subject prefixed '[results]', linking to the created file's path; labeled 'Automation results'; a final message that mentions the send once.",
+      "files": [],
+      "expectations": [
+        "build-guards.md exists at the requested path with at least eight bullets, each naming a guard build-skills.mjs enforces",
+        "An email was sent to gnydick@nydick.net with a subject starting '[results]'",
+        "The email links to the exact path of the created build-guards.md (a jetbrains://, localhost, or file:// link containing build-guards.md)",
+        "The sent message was labeled 'Automation results' (Label_82)",
+        "The summary in the email is three sentences or fewer",
+        "The final message mentions the send once and does not repeat the summary or the guard list"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Send me the results for I:\\IdeaProjects\\ai-skills\\docs\\reports\\nightly-2026-09-01.md with the summary \"Nightly run green, no regressions.\" It's from the nightly automation.",
+      "expected_output": "The file does not exist. No email is sent. The final message says the file was not found, names the resolved path, and does not create a stand-in file.",
+      "files": [],
+      "expectations": [
+        "No email was sent (no send_message call was made)",
+        "The final message says the file was not found and names the resolved path I:\\IdeaProjects\\ai-skills\\docs\\reports\\nightly-2026-09-01.md",
+        "No file was created at that path or anywhere else as a stand-in",
+        "The final message does not claim or imply the report was delivered"
+      ]
+    }
+  ]
+}

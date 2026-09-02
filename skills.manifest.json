@@ -51,7 +51,9 @@
           "path": "plugins/dreamy",
           "skills": [
             "session-analysis",
-            "improve-memory"
+            "improve-memory",
+            "send-results",
+            "dream"
           ]
         }
       }
