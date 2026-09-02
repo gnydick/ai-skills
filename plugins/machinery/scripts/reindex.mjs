@@ -15,4 +15,3 @@ if (check) {
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, fresh, 'utf8');
-process.exit(0);
