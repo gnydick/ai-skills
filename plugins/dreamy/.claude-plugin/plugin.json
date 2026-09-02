@@ -1,7 +1,7 @@
 {
   "name": "dreamy",
   "description": "Maintenance loop for Claude Code's long-term memory, run as one command by dream: session-analysis distills the JSONL transcripts into a 'dream' overview of what deserves remembering, and improve-memory consumes it — merging duplicate memories, resolving contradictions, promoting high-confidence findings, and proposing CLAUDE.md upgrades in the crib-sheet-plus-rules-files structure — auto-applying the obvious and flagging the rest as checkboxes for approval; send-results is how any of them, or any other automation, reports back — a short summary emailed under one fixed Gmail label with links that open the produced file in the IDE",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Gabe E. Nydick",
     "email": "gnydick@nydick.net"

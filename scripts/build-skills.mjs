@@ -370,7 +370,35 @@ function build(skills) {
   }
 }
 
+// `/plugin update` compares nothing but the version string in plugin.json, so
+// staged content that changed after the version was last set is an update
+// nobody receives — the installer reports "already at the latest version".
+// Fail here rather than ship a silent no-op. A version with no commit yet is
+// a fresh bump and passes.
+function validateVersions() {
+  for (const p of PLUGINS) {
+    const pj = `${p.path}/.claude-plugin/plugin.json`;
+    let version;
+    try { version = JSON.parse(fs.readFileSync(path.join(REPO, pj), 'utf8')).version; } catch { continue; }
+    if (!version) { fail(`${pj} has no "version" — the installer cannot tell an update from a reinstall`); continue; }
+    let setAt, changed;
+    try {
+      setAt = execFileSync('git', ['log', '-1', '--format=%H', '-S', `"version": "${version}"`, '--', pj], { cwd: REPO, encoding: 'utf8' }).trim();
+      if (!setAt) { ok(`${p.name} ${version} is a new version`); continue; }
+      changed = execFileSync('git', ['diff', '--name-only', setAt, '--', p.path], { cwd: REPO, encoding: 'utf8' }).trim();
+    } catch {
+      return; // no git here — nothing to compare against
+    }
+    if (changed) {
+      fail(`${p.path} changed since version ${version} was set in ${setAt.slice(0, 7)} — bump "version" in ${pj}, or /plugin update will see nothing new:\n    ${changed.split('\n').slice(0, 6).join('\n    ')}${changed.split('\n').length > 6 ? '\n    …' : ''}`);
+    } else {
+      ok(`${p.name} ${version} matches the tree it was set on`);
+    }
+  }
+}
+
 function check(skills) {
+  validateVersions();
   for (const plugin of PLUGINS) {
     const expected = new Map();
     for (const s of skills.filter((x) => x.plugin === plugin)) {
