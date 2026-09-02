@@ -17,6 +17,11 @@
       "name": "dreamy",
       "source": "./plugins/dreamy",
       "description": "Maintenance loop for Claude Code's long-term memory, run as one command by dream: session-analysis distills the session transcripts into a 'dream' overview of what deserves remembering; improve-memory consumes it — merging duplicates, resolving contradictions, promoting findings, and proposing CLAUDE.md upgrades as a crib sheet pointing at rules files — auto-applying the obvious and flagging the rest as checkboxes for approval; send-results is how any of them, or any other automation, reports back — a short summary emailed under one fixed Gmail label with links that open the produced file in the IDE"
+    },
+    {
+      "name": "machinery",
+      "source": "./plugins/machinery",
+      "description": "The union of two projects' Claude process machinery, made to run: always-on universal rules, a PRULE:/URULE: rule-capture loop with automatic intake, a quiet-output filter, a worktree-create hook, and a per-project commit gate installed by /machinery:install."
     }
   ]
 }

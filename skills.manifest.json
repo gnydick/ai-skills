@@ -55,7 +55,8 @@
             "send-results",
             "dream"
           ]
-        }
+        },
+        "machinery": { "path": "plugins/machinery", "skills": [] }
       }
     },
     "claude-ai-zip": { "kind": "zip", "path": "dist", "implemented": false },
