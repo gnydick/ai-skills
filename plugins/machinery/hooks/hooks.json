@@ -1,7 +1,10 @@
 {
   "hooks": {
     "SessionStart":     [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/record-payload.mjs\"", "timeout": 5 }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/record-payload.mjs\"", "timeout": 5 }] }],
+    "UserPromptSubmit": [{ "hooks": [
+      { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/record-payload.mjs\"", "timeout": 5 },
+      { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs\"", "timeout": 30, "statusMessage": "Checking for PRULE:/URULE: mark" }
+    ] }],
     "PreToolUse":       [{ "matcher": "Bash|PowerShell", "hooks": [
       { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/record-payload.mjs\"", "timeout": 5 },
       { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/quiet.mjs\"", "timeout": 15, "statusMessage": "Quiet-output check" }
