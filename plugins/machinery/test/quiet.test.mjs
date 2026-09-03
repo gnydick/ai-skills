@@ -5,7 +5,7 @@ import path from 'node:path';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const fixture = (name, command) => {
-  const p = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads', `${name}.json`), 'utf8'));
+  const p = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/', `${name}.json`), 'utf8'));
   p.tool_input = { ...p.tool_input, command, description: 'd' };
   return JSON.stringify(p);
 };
