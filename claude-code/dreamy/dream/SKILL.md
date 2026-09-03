@@ -238,7 +238,7 @@ visible in the log rather than a mystery on the next run.
 a standing overview that already has ticked boxes:
 
 ```sh
-node "<repo>/claude-code/improve-memory/evals/fixtures/make-fixture.mjs" <dir> [--with-overview]
+node "<repo>/claude-code/dreamy/improve-memory/evals/fixtures/make-fixture.mjs" <dir> [--with-overview]
 /dream --home <dir>
 /dream --mode apply-fixes --home <dir>
 ```
