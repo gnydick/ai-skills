@@ -44,5 +44,5 @@ function banner() {
 
 let text;
 try { text = banner(); } catch (e) { text = `machinery: banner failed — ${e.message}`; }
-context(text, 'SessionStart');
+try { context(text, 'SessionStart'); } catch {}
 process.exitCode = 0;
