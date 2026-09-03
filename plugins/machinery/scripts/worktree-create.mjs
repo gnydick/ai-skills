@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readPayload } from './lib/stdin.mjs';
 import { git, gitExe } from './lib/git.mjs';
+import { baseRef } from './lib/base-ref.mjs';
 
 const fail = (msg) => { process.stderr.write(`WorktreeCreate hook: ${msg}\n`); process.exit(1); };
 function gitLoud(args, cwd) {
@@ -13,14 +14,6 @@ function gitLoud(args, cwd) {
   if (r.stdout) process.stderr.write(r.stdout);
   if (r.stderr) process.stderr.write(r.stderr);
   return r.status ?? 1;
-}
-
-function baseRef(repo) {
-  let mode = 'fresh';
-  try { mode = JSON.parse(fs.readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8')).worktree?.baseRef ?? 'fresh'; } catch {}
-  if (mode === 'head') return 'HEAD';
-  const r = git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], repo);
-  return r.code === 0 && r.stdout ? r.stdout : 'HEAD';
 }
 
 const home = process.env.MACHINERY_HOME || os.homedir();
