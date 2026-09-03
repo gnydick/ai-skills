@@ -480,7 +480,8 @@ function unlinkDir(p) {
   fs.unlinkSync(p);
 }
 
-// Where the existing entry points, or null when it is a plain directory.
+// Classifies what is already sitting at dest: absent, a link (with the path it
+// resolves to), a dangling link, or a plain directory.
 // `dangling` covers a link whose target is gone — which is exactly what every
 // personal install looks like the moment a skill's source moves, and what
 // fs.existsSync() reports as "nothing there" while mklink still refuses the
