@@ -7,6 +7,12 @@
 // source. Adding a bucket without declaring it in skills.manifest.json is a
 // hard error rather than a silently-skipped directory.
 //
+// Sources are laid out bucket/plugin/skill. The plugin subfolder is there so
+// membership is legible in the tree; routing itself stays DECLARED in
+// skills.manifest.json and is never derived from a folder name. That makes one
+// fact spelled in two places, so collect() binds them: a subfolder that
+// disagrees with the route claiming the skill is a hard error.
+//
 //   build    stage buckets flat into skills/   (committed; plugins clone, they don't build)
 //   check    fail if skills/ has drifted from the buckets
 //   install  link ~/.claude/skills/<name> back to its bucket source
@@ -217,36 +223,72 @@ function collect(manifest) {
     if (!fs.existsSync(path.join(REPO, bucket))) fail(`bucket "${bucket}" is declared but missing on disk`);
   }
 
+  // A bucket's subfolders are named for the claude-plugin routes, and nothing
+  // else is a legal name there. Resolved from PLUGINS, so the legal set is the
+  // declared one — the folder never gets to invent a plugin.
+  const routeNames = new Set(PLUGINS.map((p) => p.name));
+
   const skills = [];
   const seen = new Map();
   for (const bucket of declared.filter((b) => fs.existsSync(path.join(REPO, b)))) {
-    for (const entry of fs.readdirSync(path.join(REPO, bucket), { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const src = path.join(REPO, bucket, entry.name);
-      const skillMd = path.join(src, 'SKILL.md');
-
-      if (!fs.existsSync(skillMd)) { fail(`${bucket}/${entry.name}/ has no SKILL.md`); continue; }
-      if (!SKILL_NAME.test(entry.name)) { fail(`${bucket}/${entry.name}: directory name must be lowercase-with-hyphens`); continue; }
-
-      const fm = frontmatter(skillMd);
-      if (!fm) { fail(`${bucket}/${entry.name}/SKILL.md: missing YAML frontmatter`); continue; }
-      if (!fm.name) fail(`${bucket}/${entry.name}/SKILL.md: frontmatter has no "name"`);
-      if (!fm.description) fail(`${bucket}/${entry.name}/SKILL.md: frontmatter has no "description"`);
-      if (fm.name && fm.name !== entry.name) {
-        fail(`${bucket}/${entry.name}/SKILL.md: frontmatter name "${fm.name}" does not match its directory`);
-      }
-
-      // Flattening is only safe if names are unique across every bucket.
-      if (seen.has(entry.name)) {
-        fail(`skill "${entry.name}" exists in both ${seen.get(entry.name)}/ and ${bucket}/ — names share one flat namespace`);
+    for (const sub of fs.readdirSync(path.join(REPO, bucket), { withFileTypes: true })) {
+      const at = `${bucket}/${sub.name}`;
+      if (!sub.isDirectory()) {
+        fail(`${at} is not a directory — a bucket holds nothing but one subfolder per plugin (bucket/plugin/skill)`);
         continue;
       }
-      seen.set(entry.name, bucket);
-      const targets = manifest.buckets[bucket].targets;
-      const plugin = targets.includes('claude-plugin')
-        ? PLUGINS.find((p) => p.skills.has(entry.name))
-        : null;
-      skills.push({ name: entry.name, bucket, src, targets, plugin });
+
+      // The old flat layout. Read as a plugin subfolder it would look like a
+      // plugin with no skills in it, and the skill it actually is would simply
+      // stop shipping — a clean build that publishes one fewer skill. So it is
+      // named for what it is instead.
+      if (fs.existsSync(path.join(REPO, bucket, sub.name, 'SKILL.md'))) {
+        fail(`${at}/SKILL.md sits directly under the bucket — the layout is now bucket/plugin/skill, so move it to `
+           + `${bucket}/<plugin>/${sub.name}/, where <plugin> is the route in skills.manifest.json that claims it`);
+        continue;
+      }
+      if (!routeNames.has(sub.name)) {
+        fail(`${at}/ is not a claude-plugin route key — a bucket's subfolders are named for the plugins declared in `
+           + `targets["claude-plugin"].routes (${[...routeNames].join(', ') || 'none'})`);
+        continue;
+      }
+
+      for (const entry of fs.readdirSync(path.join(REPO, bucket, sub.name), { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const src = path.join(REPO, bucket, sub.name, entry.name);
+        const relSrc = `${at}/${entry.name}`;
+        const skillMd = path.join(src, 'SKILL.md');
+
+        if (!fs.existsSync(skillMd)) { fail(`${relSrc}/ has no SKILL.md`); continue; }
+        if (!SKILL_NAME.test(entry.name)) { fail(`${relSrc}: directory name must be lowercase-with-hyphens`); continue; }
+
+        const fm = frontmatter(skillMd);
+        if (!fm) { fail(`${relSrc}/SKILL.md: missing YAML frontmatter`); continue; }
+        if (!fm.name) fail(`${relSrc}/SKILL.md: frontmatter has no "name"`);
+        if (!fm.description) fail(`${relSrc}/SKILL.md: frontmatter has no "description"`);
+        if (fm.name && fm.name !== entry.name) {
+          fail(`${relSrc}/SKILL.md: frontmatter name "${fm.name}" does not match its directory`);
+        }
+
+        // Flattening is only safe if names are unique across every bucket.
+        if (seen.has(entry.name)) {
+          fail(`skill "${entry.name}" exists in both ${seen.get(entry.name)}/ and ${at}/ — names share one flat namespace`);
+          continue;
+        }
+        seen.set(entry.name, at);
+        const targets = manifest.buckets[bucket].targets;
+        // Still the DECLARED route, never the folder. The folder only gets to
+        // contradict it, immediately below.
+        const plugin = targets.includes('claude-plugin')
+          ? PLUGINS.find((p) => p.skills.has(entry.name))
+          : null;
+        if (plugin && plugin.name !== sub.name) {
+          fail(`skill "${entry.name}" sits in ${at}/ but skills.manifest.json routes it to "${plugin.name}" — `
+             + `the subfolder must be the plugin that claims the skill: either move it to ${bucket}/${plugin.name}/${entry.name}/ `
+             + `or change the route that claims it`);
+        }
+        skills.push({ name: entry.name, bucket, subfolder: sub.name, src, relSrc, targets, plugin });
+      }
     }
   }
 
@@ -366,7 +408,7 @@ function build(skills) {
     const staged = skills.filter((s) => s.plugin === plugin);
     for (const s of staged) copyDir(s.src, path.join(STAGE, s.name));
     ok(`staged ${staged.length} skill(s) into ${path.relative(REPO, STAGE).replace(/\\/g, '/')}/`);
-    for (const s of staged) console.log(`    ${s.bucket}/${s.name} → ${plugin.name}:${s.name}`);
+    for (const s of staged) console.log(`    ${s.relSrc} → ${plugin.name}:${s.name}`);
   }
 }
 
@@ -429,26 +471,65 @@ function link(target, source) {
   }
 }
 
+// Detaches a link without walking into what it points at. On Windows a
+// junction lstats as a symbolic link but only rmdir detaches it; on POSIX a
+// symlink-to-directory needs unlink and rmdir fails with ENOTDIR. Both are
+// tried rather than guessed from the platform.
+function unlinkDir(p) {
+  try { fs.rmdirSync(p); return; } catch { /* fall through */ }
+  fs.unlinkSync(p);
+}
+
+// Classifies what is already sitting at dest: absent, a link (with the path it
+// resolves to), a dangling link, or a plain directory.
+// `dangling` covers a link whose target is gone — which is exactly what every
+// personal install looks like the moment a skill's source moves, and what
+// fs.existsSync() reports as "nothing there" while mklink still refuses the
+// name.
+// Only lstat decides link-ness (Node reports a Windows directory junction as a
+// symbolic link). Comparing realpath against dest does NOT: any junction or
+// symlink ABOVE dest makes a plain directory's realpath differ from the path
+// used to reach it — and ~/.claude is exactly the kind of tree that carries
+// one. Measured 2026-09-02 on Node 26 (Windows): a plain directory under a
+// junctioned parent came back `link`, so unlinkDir ran on a real directory and
+// died ENOTEMPTY then EPERM, never reaching install()'s "inspect it, then
+// re-run with --force" refusal — the one path that protects a copy holding
+// unique content. Case and 8.3 short names do not trip fs.realpathSync on that
+// build (fs.realpathSync.native would), but a junctioned ancestor does.
+function linkTarget(dest) {
+  let stat;
+  try { stat = fs.lstatSync(dest); } catch { return { kind: 'absent' }; }
+  if (!stat.isSymbolicLink()) return { kind: 'dir' };
+  try { return { kind: 'link', target: fs.realpathSync(dest) }; } catch { return { kind: 'dangling' }; }
+}
+
 function install(skills, force) {
   const root = path.join(os.homedir(), '.claude', 'skills');
   for (const s of skills.filter((x) => x.targets.includes('claude-personal'))) {
     const dest = path.join(root, s.name);
-    const stat = fs.existsSync(dest) ? fs.lstatSync(dest) : null;
+    const existing = linkTarget(dest);
 
-    if (stat?.isSymbolicLink() || stat?.isDirectory()) {
-      const isLink = stat.isSymbolicLink() || (() => {
-        try { return fs.realpathSync(dest) !== dest && fs.realpathSync(dest) === fs.realpathSync(s.src); }
-        catch { return false; }
-      })();
-      if (isLink) { ok(`${s.name} already linked`); continue; }
-
+    if (existing.kind === 'dangling') {
+      unlinkDir(dest);
+      console.log(`    removed dangling link at ${dest}`);
+    } else if (existing.kind === 'link') {
+      // A link is only correct while it still resolves to THIS source. After a
+      // source directory moves, a link to the old path keeps looking like a
+      // healthy install from the outside, so the target is compared rather
+      // than trusted.
+      let src;
+      try { src = fs.realpathSync(s.src); } catch { src = s.src; }
+      if (existing.target === src) { ok(`${s.name} already linked`); continue; }
+      unlinkDir(dest);
+      console.log(`    relinked ${s.name} — pointed at ${existing.target}`);
+    } else if (existing.kind === 'dir') {
       // A plain copy is only safe to replace when it has nothing unique in it.
       const same = [...treeOf(s.src)].every(([rel, buf]) => {
         const f = path.join(dest, rel);
         return fs.existsSync(f) && fs.readFileSync(f).equals(buf);
       });
       if (!same && !force) {
-        fail(`${dest} differs from ${s.bucket}/${s.name} — inspect it, then re-run with --force`);
+        fail(`${dest} differs from ${s.relSrc} — inspect it, then re-run with --force`);
         continue;
       }
       fs.rmSync(dest, { recursive: true, force: true });

@@ -5,7 +5,14 @@ import path from 'node:path';
 import { PLUGIN, runScript } from './helpers/run.mjs';
 
 const REPO = path.resolve(PLUGIN, '..', '..');
-const BUCKET = path.join(REPO, 'claude-code');
+// Sources are laid out bucket/plugin/skill, so this plugin's skills sit in the
+// subfolder named for the plugin itself. Read from the END of the chain the build
+// actually enforces — plugin.json `name` == route key == subfolder — rather than
+// from PLUGIN's directory name, which nothing binds to the route key. A scan that
+// quietly stops matching looks exactly like a codebase that complies, and the
+// scans below would go vacuously green over an empty list.
+const PLUGIN_NAME = JSON.parse(fs.readFileSync(path.join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8')).name;
+const BUCKET = path.join(REPO, 'claude-code', PLUGIN_NAME);
 const skills = () => fs.readdirSync(BUCKET).filter((d) => fs.existsSync(path.join(BUCKET, d, 'SKILL.md')));
 const text = (d) => fs.readFileSync(path.join(BUCKET, d, 'SKILL.md'), 'utf8');
 

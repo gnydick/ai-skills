@@ -249,12 +249,12 @@ exits non-zero only where its story says it blocks.
 | I33 | A rule's placement is real. | `place` writes only under a heading; index proves; gate compares. | 6 | — |
 | I34 | Rules are written only through one inserter. | `place.mjs` sole writer in scripts. | 6 | Hand edits caught by I28, not prevented; filed. |
 | I35 | Audit procedure loads only when auditing. | Lives only in the agent file. | 8 | — |
-| I36 | Every command a skill names exists. | Test over `skills/**` tokens vs routed skills. | 4 | — |
+| I36 | Every command a skill names exists. | Test over the source bucket subfolder's tokens vs routed skills. | 4 | — |
 | I37 | Skills don't restate rules. | Test: no rule's first sentence verbatim in a skill. | 4 | Generator = 8; filed. |
 | I38 | The mandatory skill's absence is visible. | Banner reports presence. | 2 | Ceiling: skills can't be forced. |
 | I39 | Every suite can go red. | Mutation fixture per suite; meta-test counts. | 3 + 4 | — |
 | I40 | Hook tests use real payload shapes. | Recorded fixtures; missing fixture fails. | 3 | Re-record on platform change. |
-| I41 | Tests never touch a real repository. | One fixture factory under tmpdir; root passed as parameter. | 6 | — |
+| I41 | Tests never touch a real repository. | One fixture factory under tmpdir with the root passed as a parameter, plus GIT_* scrubbed at helper import (`test/helpers/env.mjs`) and a scan (`env-scrub.test.mjs`) that every test file spawning git imports a scrubbing helper. A positive control and its inverse prove the scrub fires. | 5 + 4 | Falsified 2026-09-02: a hook-invoked run from a linked worktree inherited `GIT_DIR` and wrote into the outer repository; amended. |
 | I42 | This repo's commit gate stays cheap. | Test budget asserted in pre-commit. | 4 | — |
 
 ## Out of scope (spec 2)

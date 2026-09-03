@@ -18,7 +18,7 @@ fixtures/without-conventions/       the same project, with nothing announcing
 
 1. For each eval in `prompts.json`, start two agents on the same prompt against
    the same fixture. The only difference between them is one instruction:
-   *read `pure-prose/developer-friendliness/SKILL.md` in full and follow it.*
+   *read `pure-prose/unbreakable/developer-friendliness/SKILL.md` in full and follow it.*
    Have each copy the fixture to its own workspace first, and write its final
    message to `outputs/final_message.md` and its finished tree to
    `outputs/workspace/`.

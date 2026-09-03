@@ -1,6 +1,6 @@
 {
   "$schema": "./scripts/skills.manifest.schema.json",
-  "$comment": "Buckets are COMPATIBILITY CLASSES, not namespaces. A bucket directory never appears in a skill's installed path — scripts/build-skills.mjs flattens buckets into the distribution targets listed here. Renaming a bucket directory without updating this file is a hard build error, which is the point: fan-out is declared, never inferred from a folder name.",
+  "$comment": "Buckets are COMPATIBILITY CLASSES, not namespaces. A bucket directory never appears in a skill's installed path — scripts/build-skills.mjs flattens buckets into the distribution targets listed here. Renaming a bucket directory without updating this file is a hard build error, which is the point: fan-out is declared, never inferred from a folder name. LAYOUT: a bucket holds one subfolder per claude-plugin route key, and the skills sit inside those — bucket/plugin/skill. That subfolder exists so plugin membership is legible in the tree; it is never used to DERIVE routing, which stays declared in targets[\"claude-plugin\"].routes below. Since it makes one fact spelled twice, the build binds the two: a skill whose subfolder is not the route that claims it, a subfolder that is not a route key, and a skill sitting directly under a bucket in the old flat layout are each a hard build error.",
 
   "buckets": {
     "pure-prose": {

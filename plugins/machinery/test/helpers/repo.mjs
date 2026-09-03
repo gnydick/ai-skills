@@ -1,8 +1,10 @@
+import './env.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
+// GIT_* is scrubbed at import by ./env.mjs — the one place, with the incident it came from.
 const sh = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 export function makeRepo({ withOrigin = false } = {}) {
