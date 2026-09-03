@@ -2,7 +2,7 @@
 // Story: skills/rule-intake/SKILL.md — the mechanical steps. Two pipelines, each one commit in one repo (spec I30).
 import fs from 'node:fs';
 import path from 'node:path';
-import { git } from './lib/git.mjs';
+import { git, realDir } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
 import { projectInbox, projectIndex, projectRules, universalInbox, universalIndex, rulesSource } from './lib/config.mjs';
 import { pending, setDisposition } from './lib/inbox.mjs';
@@ -33,8 +33,15 @@ function commit() {
     if (!isRootSession(cwd)) die('a project rule is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
     repo = projectRoot(cwd); inbox = projectInbox(repo); index = projectIndex(repo); rules = projectRules(repo);
   } else {
+    // Story: spec I30, each pipeline is one commit in one repo — the universal
+    // kind's repo is the top level of the checkout that HOLDS rulesSource()
+    // (which may be configured outside the plugin), never the main checkout
+    // a worktree's common dir would resolve to (projectRoot()).
     rules = rulesSource(); inbox = universalInbox(); index = universalIndex();
-    repo = projectRoot(rules);
+    const rulesDir = realDir(rules);
+    const top = git(['rev-parse', '--show-toplevel'], rulesDir);
+    if (top.code !== 0) die(`not inside a git repository: ${rules}`);
+    repo = realDir(top.stdout);
   }
   const entry = pending(inbox).find((e) => e.stamp === stamp);
   if (!entry) die(`no PENDING entry with stamp ${stamp} in ${inbox}`);
@@ -48,7 +55,7 @@ function commit() {
   fs.mkdirSync(path.dirname(index), { recursive: true });
   fs.writeFileSync(index, generateIndex(rules), 'utf8');
   setDisposition(inbox, stamp, { state: 'FILED', detail: `filed → ${home}` });
-  const files = [rules, index, inbox, ...extra].map((f) => path.relative(repo, f));
+  const files = [rules, index, inbox, ...extra].map((f) => path.relative(repo, f).split(path.sep).join('/'));
   const add = git(['add', '--', ...files], repo);
   if (add.code !== 0) die(`git add failed: ${add.stderr}`);
   const subject = `rule: ${entry.text.split('\n')[0].slice(0, 72)}`;

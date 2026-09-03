@@ -98,6 +98,33 @@ test('universal intake bumps the plugin version in the same commit (spec I31)', 
   } finally { r.cleanup(); }
 });
 
+test('intake commit --kind universal commits in the rules source\'s own checkout, not the worktree\'s main checkout (I30 regression)', () => {
+  // Reproduces the dogfood defect: the plugin lives in a worktree. projectRoot()
+  // resolves through the worktree's common dir to the MAIN checkout, so a naive
+  // repo choice would try to `git add`/`git commit` paths that don't exist there.
+  const r = makeRepo(); const h = home();
+  try {
+    const wt = addWorktree(r.root, 'wt');
+    const plug = path.join(wt, 'plug');
+    fs.mkdirSync(path.join(plug, 'rules'), { recursive: true }); fs.mkdirSync(path.join(plug, '.claude-plugin'), { recursive: true });
+    fs.writeFileSync(path.join(plug, 'rules', 't.md'), '# T\n\n## Claims\n\n- a\n');
+    fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
+    fs.writeFileSync(path.join(plug, 'inbox.md'), '');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'INDEX.md')] });
+    g(wt, 'add', '-A'); g(wt, 'commit', '-q', '-m', 'plugin');
+    fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
+    withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: file it where it lives', session: 's' }));
+    const mainHeadBefore = g(r.root, 'rev-parse', 'HEAD');
+    const env = { MACHINERY_HOME: h, CLAUDE_PLUGIN_ROOT: plug };
+    const stamp = runScript('scripts/intake.mjs', { args: ['list'], cwd: wt, env }).stdout.trim().split('\t')[0];
+    runScript('scripts/place.mjs', { args: ['--file', path.join(plug, 'rules', 't.md'), '--section', 'Claims', '--text', 'File it where it lives.'] });
+    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--root', wt, '--stamp', stamp, '--home', 'rules/t.md § Claims'], cwd: wt, env });
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.match(g(wt, 'log', '-1', '--format=%s'), /^rule:/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), mainHeadBefore);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: intake commit with an unknown stamp fails and commits nothing', () => {
   const h = home(); const r = projectWithPending(h);
   try {

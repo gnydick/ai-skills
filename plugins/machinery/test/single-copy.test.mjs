@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
 import { generateIndex } from '../scripts/lib/index.mjs';
+import { pending } from '../scripts/lib/inbox.mjs';
 
 const REPO = path.resolve(PLUGIN, '..', '..');
 const walk = (d) => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])) : [];
@@ -35,4 +36,4 @@ test('agents carry plugin agent frontmatter', () => {
   }
 });
 
-test('RED CHECK: the universal inbox exists and is empty', () => assert.equal(fs.readFileSync(path.join(PLUGIN, 'inbox.md'), 'utf8'), ''));
+test('RED CHECK: the universal inbox has no PENDING entries', () => assert.equal(pending(path.join(PLUGIN, 'inbox.md')).length, 0));
