@@ -21,7 +21,7 @@ function withHome(h, fn) {
 function projectWithPending(h) {
   const r = makeRepo();
   runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
-  g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '--no-verify', '-m', 'install');
+  g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'install');
   appendEntry(projectInbox(r.root), { marker: 'PRULE', text: 'PRULE: never guess a path', session: 's' });
   return r;
 }

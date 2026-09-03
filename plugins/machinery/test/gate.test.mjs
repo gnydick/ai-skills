@@ -28,6 +28,45 @@ test('clean commit passes and every executed check prints its denominator, zero 
   } finally { r.cleanup(); }
 });
 
+test('first commit after /machinery:install passes the gate (final review A1)', () => {
+  const r = makeRepo();
+  try {
+    const res = runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root });
+    assert.equal(res.code, 0, res.stderr);
+    const g0 = gate(r.root);
+    assert.equal(g0.code, 0, g0.stdout + g0.stderr);
+    assert.doesNotMatch(g0.stdout, /register_check: index is stale/);
+    assert.doesNotMatch(g0.stdout, /register_check: index not staged/);
+    g(r.root, 'commit', '-q', '-m', 'install');
+    assert.equal(g(r.root, 'status', '--porcelain').trim(), '');
+  } finally { r.cleanup(); }
+});
+
+test('a project with no rules and no index staged at all reports nothing to check (final review A1)', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, 'docs/a.md', 'hello'); g(r.root, 'add', '-A');
+    const res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /register_check: 0 of 0 index rows/);
+  } finally { r.cleanup(); }
+});
+
+test('an index generated but never staged is distinguished from a stale one (final review A1)', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, '.claude/rules/t.md', RULE);
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    // Rule file staged; the regenerated index was written to disk but never `git add`ed at all
+    // (not tracked from an earlier commit either) — distinct from a stale, already-tracked index.
+    g(r.root, 'add', '.claude/rules/t.md');
+    const res = gate(r.root);
+    assert.equal(res.code, 1);
+    assert.match(res.stdout, /register_check: index not staged \(generated but not added\) — git add/);
+    assert.doesNotMatch(res.stdout, /register_check: index is stale/);
+  } finally { r.cleanup(); }
+});
+
 test('a PENDING inbox entry blocks', () => {
   const r = makeRepo();
   try {
@@ -85,6 +124,55 @@ test('a new path:line citation to a blank line blocks; a real one passes (spec I
     const res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /citation_target: 1 of 2 new citations failed/);
     write(r.root, 'docs/n.md', 'see `src/x.js:3`'); g(r.root, 'add', '-A');
     assert.equal(gate(r.root).code, 0);
+  } finally { r.cleanup(); }
+});
+
+test('a blob with leading blank lines is cited by its real line numbers, untrimmed (final review A2)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root); write(r.root, 'src/x.js', '\n\nline3\nline4\n'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'src');
+    write(r.root, 'docs/n.md', 'see `src/x.js:3`'); g(r.root, 'add', '-A');
+    let res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 0 of 1/);
+    write(r.root, 'docs/n.md', 'see `src/x.js:1`'); g(r.root, 'add', '-A');
+    res = gate(r.root);
+    assert.equal(res.code, 1);
+    assert.match(res.stdout, /citation_target: 1 of 1/);
+  } finally { r.cleanup(); }
+});
+
+test('citation paths resolve against --root first, then the repo top level (final review A3)', () => {
+  const r = makeRepo();
+  try {
+    const sub = path.join(r.root, 'sub');
+    write(sub, 'rules/w.md', 'line1\nline2\nline3\n');
+    write(sub, '.claude/rules/t.md', RULE);
+    write(sub, '.claude/machinery/inbox.md', '');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'sub install');
+    write(sub, 'docs/n.md', 'see `rules/w.md:2`'); g(r.root, 'add', '-A');
+    const res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 0 of 1/);
+  } finally { r.cleanup(); }
+});
+
+test('a wrapped `file § Section` citation spanning two added lines is not truncated (final review A4)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root);
+    write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n\n## Merging and tearing down\n\n- another\n');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'add section');
+    write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § Merging and\ntearing down\n'); g(r.root, 'add', '-A');
+    let res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 0 of 1/);
+    write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § Merging and\ntorn down\n'); g(r.root, 'add', '-A');
+    res = gate(r.root);
+    assert.equal(res.code, 1);
+    assert.match(res.stdout, /citation_target: 1 of 1/);
   } finally { r.cleanup(); }
 });
 

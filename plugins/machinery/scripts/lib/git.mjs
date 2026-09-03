@@ -18,4 +18,11 @@ export function git(args, cwd) {
   return { code: r.status ?? 1, stdout: (r.stdout ?? '').trim(), stderr: (r.stderr ?? '').trim() };
 }
 
+// Same as git(), but stdout is NOT trimmed (final review A2): a blob's leading/trailing blank
+// lines are real content — trimming shifts every `path:line` citation against it.
+export function gitRaw(args, cwd) {
+  const r = spawnSync(gitExe(), args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  return { code: r.status ?? 1, stdout: r.stdout ?? '', stderr: (r.stderr ?? '').trim() };
+}
+
 export function realDir(p) { return fs.existsSync(p) ? fs.realpathSync.native(p) : path.resolve(p); }

@@ -71,6 +71,10 @@ function installProject() {
   }
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);
   say(`hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none (the local merge gate is the sole blocking backstop)'}`);
+  // Final review A1(c): stage exactly the layout this run created/updated, so the first commit
+  // after install has something to actually commit — the gate's register check otherwise sees
+  // a generated-but-unstaged index and rejects a remedy (reindex) that would produce nothing new.
+  git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/INDEX.md', '.githooks'], root);
   return 0;
 }
 
