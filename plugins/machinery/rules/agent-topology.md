@@ -58,6 +58,7 @@ definition obeys. Loaded at session start.
   not independent.
 - Report how many batches there were and what each covered, so a partial failure
   names exactly what did not run.
+- Dependent tasks go to one agent in sequence; a fresh agent per task is the exception, and the dispatch that uses it says so.
 
 ## Where an agent works
 

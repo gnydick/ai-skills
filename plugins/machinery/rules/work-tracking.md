@@ -90,6 +90,7 @@ start.
 - Three records, three jobs: the tracker holds what is broken, the plans and
   specifications hold what was intended, and the notebook holds what reality
   answered. Work is fully recorded only when both intent and answer exist.
+- In an effort of several tasks on one branch, the repeats each task would otherwise carry — re-marking the living maps, the invariant and register rows, the ledger prose, and the long report — are done once, in a single documentation commit after the last coding task and before the merge gate. What never waits: each task writes its test first and runs its own component's tests before committing, and its per-task report is the test-result lines and deviations only. "The same change" above means the same branch, not the same commit.
 
 ## One editable home
 
