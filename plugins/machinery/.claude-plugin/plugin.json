@@ -1,7 +1,7 @@
 {
   "name": "machinery",
   "description": "The union of two projects' Claude process machinery, made to run: always-on universal rules, a PRULE:/URULE: rule-capture loop with automatic intake, a quiet-output filter, a worktree-create hook, and a per-project commit gate installed by /machinery:install.",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "author": { "name": "Gabe E. Nydick", "email": "gnydick@nydick.net" },
   "homepage": "https://github.com/gnydick/ai-skills",
   "repository": "https://github.com/gnydick/ai-skills",

@@ -19,9 +19,13 @@ test('every hook script has a suite that replays a recorded payload (spec I40)',
   }
 });
 
-test('the recorder is the first hook of every event and inert without MACHINERY_RECORD', () => {
+test('the recorder is present in every event’s first group (final review G) and inert without MACHINERY_RECORD', () => {
+  // Final review G: WorktreeCreate puts worktree-create.mjs first (its stdout is the create-path
+  // contract, on an undocumented event) and the recorder second — still present, just not
+  // necessarily hook 0. Every other event still runs the recorder first; this stays a real
+  // assertion either way (fails if the recorder is dropped from an event's first group at all).
   const hooks = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
-  for (const [ev, groups] of Object.entries(hooks)) assert.match(groups[0].hooks[0].command, /record-payload/, ev);
+  for (const [ev, groups] of Object.entries(hooks)) assert.ok(groups[0].hooks.some((h) => /record-payload/.test(h.command)), ev);
 });
 
 test('RED CHECK: the meta-test sees the suites', () => assert.ok(TESTS.length >= 12));
