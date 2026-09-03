@@ -92,6 +92,39 @@ test('--machine refuses to replace a real directory sitting at the junction path
   }
 });
 
+test('a foreign .githooks/pre-commit that does not invoke the machinery gate is not overwritten (final review F)', () => {
+  const r = makeRepo();
+  try {
+    fs.mkdirSync(path.join(r.root, '.githooks'), { recursive: true });
+    fs.writeFileSync(path.join(r.root, '.githooks', 'pre-commit'), '#!/bin/sh\necho a different, unrelated hook\n');
+    const res = install(r.root);
+    assert.notEqual(res.code, 0);
+    assert.match(res.stderr, /\.githooks[\\/]pre-commit/);
+    assert.equal(fs.readFileSync(path.join(r.root, '.githooks', 'pre-commit'), 'utf8'), '#!/bin/sh\necho a different, unrelated hook\n');
+  } finally { r.cleanup(); }
+});
+
+test('an existing pre-commit that already invokes the machinery gate is rewritten (idempotent)', () => {
+  const r = makeRepo();
+  try {
+    install(r.root); // first install writes a gate-invoking pre-commit
+    const res = install(r.root); // second install must not refuse its own file
+    assert.equal(res.code, 0, res.stderr);
+    assert.match(fs.readFileSync(path.join(r.root, '.githooks/pre-commit'), 'utf8'), /machinery\/gate\.mjs/);
+  } finally { r.cleanup(); }
+});
+
+test('core.hooksPath already pointed elsewhere is not silently repointed (final review F)', () => {
+  const r = makeRepo();
+  try {
+    execFileSync('git', ['config', 'core.hooksPath', '.some-other-hooks'], { cwd: r.root });
+    const res = install(r.root);
+    assert.notEqual(res.code, 0);
+    assert.match(res.stderr, /\.some-other-hooks/);
+    assert.equal(execFileSync('git', ['config', 'core.hooksPath'], { cwd: r.root, encoding: 'utf8' }).trim(), '.some-other-hooks');
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: outside a git repository the project install refuses', () => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'norepo-'));
   const res = runScript('scripts/install.mjs', { args: ['--root', d], cwd: d });

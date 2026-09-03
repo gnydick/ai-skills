@@ -39,9 +39,24 @@ function installMachine() {
   return 0;
 }
 
+// A pre-commit that already invokes the installed gate is ours (or a prior install's) — safe to
+// rewrite. Anything else is a foreign hook; refuse rather than clobber it (final review F).
+const GATE_MARK = /machinery\/gate\.mjs/;
+
 function installProject() {
   const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd());
   if (git(['rev-parse', '--git-dir'], root).code !== 0) { process.stderr.write(`not a git repository: ${root}\n`); return 1; }
+  const hooksDirEarly = path.join(root, '.githooks');
+  const preCommitPath = path.join(hooksDirEarly, 'pre-commit');
+  if (fs.existsSync(preCommitPath) && !GATE_MARK.test(fs.readFileSync(preCommitPath, 'utf8'))) {
+    process.stderr.write(`refusing to overwrite ${path.relative(root, preCommitPath)}: it does not already invoke the machinery gate; move it aside and rerun\n`);
+    return 1;
+  }
+  const curHooksPath = git(['config', 'core.hooksPath'], root).stdout;
+  if (curHooksPath && curHooksPath !== '.githooks') {
+    process.stderr.write(`refusing to change core.hooksPath: currently '${curHooksPath}', expected unset or '.githooks'\n`);
+    return 1;
+  }
   const rules = path.join(root, '.claude', 'rules'), mach = path.join(root, '.claude', 'machinery');
   fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true });
   const inbox = path.join(mach, 'inbox.md');
