@@ -64,7 +64,8 @@
             "reindex",
             "rule-intake",
             "effort-lifecycle",
-            "refresh-diverged-branch"
+            "refresh-diverged-branch",
+            "invariant-audit"
           ]
         }
       }
