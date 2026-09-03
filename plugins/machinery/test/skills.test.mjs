@@ -5,7 +5,12 @@ import path from 'node:path';
 import { PLUGIN, runScript } from './helpers/run.mjs';
 
 const REPO = path.resolve(PLUGIN, '..', '..');
-const BUCKET = path.join(REPO, 'claude-code');
+// Sources are laid out bucket/plugin/skill, so this plugin's skills sit in the
+// subfolder named for the plugin itself. Taken from PLUGIN's own directory name
+// rather than spelled again: a scan that quietly stops matching looks exactly
+// like a codebase that complies, and the three scans below would go vacuously
+// green over an empty list.
+const BUCKET = path.join(REPO, 'claude-code', path.basename(PLUGIN));
 const skills = () => fs.readdirSync(BUCKET).filter((d) => fs.existsSync(path.join(BUCKET, d, 'SKILL.md')));
 const text = (d) => fs.readFileSync(path.join(BUCKET, d, 'SKILL.md'), 'utf8');
 

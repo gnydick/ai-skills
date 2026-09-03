@@ -3,6 +3,20 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
+// A fixture repo must never inherit the caller's git environment. Git runs a
+// pre-commit hook with GIT_DIR and GIT_INDEX_FILE exported, and from a LINKED
+// WORKTREE both are absolute (from the main checkout they are empty and
+// `.git/index`, which resolve harmlessly against whatever cwd a child uses).
+// Inherited, those absolute values make every `git` below operate on the outer
+// repository instead of the fixture: the suite's own commits then re-enter the
+// outer pre-commit hook — which fails with "Cannot find module
+// <fixture>/scripts/build-skills.mjs" — and `git add` writes fixture content
+// into the outer index. Measured 2026-09-02: committing from a worktree left
+// `# fixture` staged over this repo's README.md. Scrubbed once at import,
+// because every test file that spawns git reaches git through this module, and
+// execFileSync/spawnSync inherit process.env by default.
+for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete process.env[k];
+
 const sh = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 export function makeRepo({ withOrigin = false } = {}) {
