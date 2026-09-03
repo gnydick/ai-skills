@@ -97,7 +97,8 @@ belong there either.
 
    Before merging, consider dispatching the enforcement auditor
    (`agents/invariant-auditor.md`) with the effort's diff. It cannot run
-   commands, so hand it the diff text or the list of changed files.
+   commands, so hand it the diff text or the list of changed files —
+   `/machinery:invariant-audit` does both mechanically.
 
    If a build error contradicts what the source plainly says, clear the shared
    incremental cache and rebuild before treating the error as a real breakage

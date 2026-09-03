@@ -65,6 +65,24 @@ attached to the claude.ai account Claude Code is signed into;
 | [`improve-memory`](claude-code/dreamy/improve-memory/SKILL.md) | Consumes the dream overview. Edits the memory bank directly where the evidence is in the user's own words — merges duplicates, rewrites reversed rules in place with a dated superseded paragraph, promotes high-confidence findings, repairs the `MEMORY.md` indexes — and never edits instruction files in place: `CLAUDE.md` upgrades arrive as a full proposal in the crib-sheet-plus-subfiles shape (path-scoped `.claude/rules/*.md` for anything that applies to one part of a repo) with a fidelity ledger. Everything lands in a "Memory Improvement Overview" of applied changes and `- [ ]` items; `apply` executes the ticked ones. |
 | [`send-results`](claude-code/dreamy/send-results/SKILL.md) | Hand it a file and a short summary from any skill, loop, or scheduled routine. It emails the summary with links that open the file straight in the IDE (JetBrains deep link, the IDE's local server, and `file://`), files the message under one fixed Gmail label, and keeps the shape identical across callers because a bundled script builds the message rather than the model. `references/calling.md` holds the paragraph a skill author pastes to make their own skill report through it. |
 
+### `machinery` — Claude Code only
+
+Keeps a set of universal process rules always-on across every project,
+captures new rules as they're dictated mid-session, files them through a
+mechanical intake pipeline, and installs a per-project commit gate. See
+`plugins/machinery/README.md` for the plugin's own account of its hooks and
+rule-filing sequence.
+
+| Skill | For |
+|---|---|
+| [`install`](claude-code/machinery/install/SKILL.md) | Once per machine, makes the universal rules always-on; once per project, installs the commit gate, inbox and index. Idempotent; re-run after a plugin update to refresh the gate. |
+| [`reload`](claude-code/machinery/reload/SKILL.md) | Puts the current rule files into this session's context without restarting, after a universal rule is filed or a rule file changes outside intake. |
+| [`reindex`](claude-code/machinery/reindex/SKILL.md) | Regenerates the generated rule index after a hand-edit leaves it stale; the index itself is never hand-edited. |
+| [`rule-intake`](claude-code/machinery/rule-intake/SKILL.md) | Files a captured `PRULE:`/`URULE:` prompt into its home, regenerates the index, dispositions the inbox entry, and commits — never self-filing a rule nobody dictated. |
+| [`effort-lifecycle`](claude-code/machinery/effort-lifecycle/SKILL.md) | The sequence for any effort: create its own isolated working copy at the start, reset it onto the branch the work targets, commit from it, then merge, push and tear the copy down at the end — no size exception. |
+| [`refresh-diverged-branch`](claude-code/machinery/refresh-diverged-branch/SKILL.md) | Rebuilds a long-lived parallel edition branch on a fresh copy of the primary line and re-applies only its genuine delta, turning a wall-of-conflicts merge into a few small reviewable grafts. |
+| [`invariant-audit`](claude-code/machinery/invariant-audit/SKILL.md) | Exports the current branch's diff against its base and dispatches the read-only `invariant-auditor` agent on it, so an audit before merging is one command instead of a diff assembled by hand. |
+
 ## Layout
 
 ```
