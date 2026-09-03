@@ -9,7 +9,18 @@ import { pending } from '../scripts/lib/inbox.mjs';
 
 const base = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/UserPromptSubmit.json'), 'utf8'));
 const payload = (prompt, cwd) => JSON.stringify({ ...base, prompt, cwd });
-const home = () => { const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-')); fs.mkdirSync(path.join(h, '.claude')); return h; };
+// Final review D: without a machinery.json, universalInbox() falls back to the plugin's OWN
+// rules/ dir — a suite that never sets rulesSource reads and writes the REAL, live
+// plugins/machinery/inbox.md. Point every home() at its own throwaway rules source so nothing
+// here can see (or contaminate) the live plugin inbox.
+const home = () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  fs.mkdirSync(path.join(h, '.claude'));
+  const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
+  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(rulesDir, 'rules') }));
+  return h;
+};
 const ctx = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
 const run = (prompt, cwd, env = {}) => runScript('scripts/capture.mjs', { stdin: payload(prompt, cwd), cwd, env: { MACHINERY_HOME: home(), ...env } });
 

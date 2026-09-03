@@ -7,7 +7,17 @@ import { makeRepo } from './helpers/repo.mjs';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const base = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/SessionStart.json'), 'utf8'));
-const home = () => { const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-')); fs.mkdirSync(path.join(h, '.claude')); return h; };
+// Final review D: without a machinery.json, universalInbox() falls back to the plugin's OWN
+// rules/ dir — a suite that never sets rulesSource reads (and could be broken by) the REAL, live
+// plugins/machinery/inbox.md. Point every home() at its own throwaway rules source instead.
+const home = () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  fs.mkdirSync(path.join(h, '.claude'));
+  const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
+  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(rulesDir, 'rules') }));
+  return h;
+};
 const run = (cwd, env = {}) => runScript('scripts/banner.mjs', { stdin: JSON.stringify({ ...base, cwd }), cwd, env: { MACHINERY_HOME: home(), ...env } });
 const text = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
 
