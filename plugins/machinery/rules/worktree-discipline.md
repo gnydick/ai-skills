@@ -47,6 +47,7 @@ committing from it, merging it, and taking it down. Loaded at session start.
   piece of work, you already needed a copy of your own. Stop and make one before
   going further. This is a backstop, not a licence for the first commit, which
   did not belong there either.
+- A fixture that spawns a real subprocess strips every ambient environment variable that could redirect it outside the fixture's own directory before the first invocation, because a hook-invoked test inherits the hook's environment, not the shell's.
 
 ## Committing from it
 
