@@ -46,6 +46,14 @@ test('cmdfile form is read then deleted', { skip: !bash }, () => {
   assert.ok(!fs.existsSync(f));
 });
 
+test('a missing cmdfile is refused with a reason on stderr, not a stack trace (final review E)', () => {
+  const f = path.join(os.tmpdir(), `cmd-does-not-exist-${Date.now()}.txt`);
+  const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'bash', '--mode', 'filter', f] });
+  assert.notEqual(r.code, 0);
+  assert.match(r.stderr, /quiet-run: cannot read/);
+  assert.doesNotMatch(r.stderr, /at Object\.readFileSync/); // no raw stack trace leaking to stderr
+});
+
 test('RED CHECK: an unknown shell is refused (spec I21)', () => {
   const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'zsh', '--mode', 'filter', '-c', 'echo x'] });
   assert.notEqual(r.code, 0);

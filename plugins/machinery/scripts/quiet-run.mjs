@@ -47,7 +47,12 @@ function main() {
   if (!SHELLS[a.shell]) { process.stderr.write(`quiet-run: unknown shell '${a.shell}' (bash|powershell)\n`); return 2; }
   if (a.mode !== 'filter' && a.mode !== 'infra') { process.stderr.write(`quiet-run: unknown mode '${a.mode}'\n`); return 2; }
   let command = a.command;
-  if (command === null && a.cmdfile) command = fs.readFileSync(a.cmdfile, 'utf8');
+  if (command === null && a.cmdfile) {
+    // A re-executed rewritten command can point at a cmdfile that's already been consumed and
+    // deleted (spec I17: fail LOUD with a reason, never a raw stack trace — final review E).
+    try { command = fs.readFileSync(a.cmdfile, 'utf8'); }
+    catch (e) { process.stderr.write(`quiet-run: cannot read ${a.cmdfile}: ${e.message}\n`); return 2; }
+  }
   if (command === null) { process.stderr.write('quiet-run: need a cmdfile or -c\n'); return 2; }
 
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '').replace('T', '-');
