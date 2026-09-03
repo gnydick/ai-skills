@@ -1,12 +1,14 @@
 #!/bin/sh
-# Runs every guard in the repo before a commit lands:
-#   bucket declared, frontmatter name == directory, skill names unique across
-#   buckets, staged bytes == source, plugin dir has a manifest, marketplace
-#   entry name == plugin name.
-#
-# Enable once per clone (git never installs hooks automatically):
-#   node scripts/build-skills.mjs hooks
-#
-# Deliberately check-only. Rebuilding and auto-staging here would commit output
-# derived from the working tree rather than from what you actually staged.
-exec node scripts/build-skills.mjs check
+# Runs every guard in the repo before a commit lands (see scripts/build-skills.mjs check),
+# then the machinery plugin's own tests and its universal register gate.
+# Enable once per clone: node scripts/build-skills.mjs hooks
+set -e
+node scripts/build-skills.mjs check
+start=$(date +%s)
+node --test 'plugins/machinery/test/*.test.mjs'
+end=$(date +%s)
+if [ $((end - start)) -gt 10 ]; then
+  echo "pre-commit: machinery tests took $((end - start))s — over the 10s budget (spec I42); move the slow suite behind an env flag or speed it up" >&2
+  exit 1
+fi
+node plugins/machinery/scripts/gate/gate.mjs --root plugins/machinery --universal
