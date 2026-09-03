@@ -10,6 +10,24 @@ import { projectRoot } from './lib/root.mjs';
 import { markers, rulesSource, universalInbox, projectInbox, pluginRoot } from './lib/config.mjs';
 import { pending } from './lib/inbox.mjs';
 
+// A plugin-installed unbreakable does not sit under a name a plain `plugins/` readdir would
+// see — Claude Code records it in installed_plugins.json's `plugins` map, keyed
+// `unbreakable@<marketplace>` (final review B). The loose-skill path stays as a fallback for a
+// hand-installed skill with no plugin manifest at all.
+function cbbdInstalled(home) {
+  if (fs.existsSync(path.join(home, '.claude', 'skills', 'cant-break-by-design'))) return true;
+  const manifest = path.join(home, '.claude', 'plugins', 'installed_plugins.json');
+  if (fs.existsSync(manifest)) {
+    try {
+      const installed = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+      const plugins = installed?.plugins ?? installed ?? {};
+      if (Object.keys(plugins).some((k) => k.startsWith('unbreakable@'))) return true;
+    } catch { /* malformed manifest is not evidence either way — fall through */ }
+  }
+  const dir = path.join(home, '.claude', 'plugins');
+  return fs.existsSync(dir) && fs.readdirSync(dir).some((n) => n.includes('unbreakable'));
+}
+
 function banner() {
   const p = readPayload() ?? {};
   const cwd = p.cwd || process.cwd();
@@ -36,8 +54,7 @@ function banner() {
   try { univ = pending(universalInbox()).length; } catch (e) { lines.push(`  universal inbox: MALFORMED — ${e.message}`); }
   lines.push(`  pending: project ${proj}, universal ${univ}${proj + univ ? ' — intake runs at the next prompt in an eligible session' : ''}`);
   lines.push(`  worktree hook: ${fs.existsSync(path.join(home, '.claude', 'machinery-observed-worktree')) ? 'observed firing on this machine' : 'never observed on this machine'}`);
-  const cbbd = [path.join(home, '.claude', 'skills', 'cant-break-by-design'), path.join(home, '.claude', 'plugins')].some((d) => fs.existsSync(d) && (d.endsWith('cant-break-by-design') || fs.readdirSync(d).some((n) => n.includes('unbreakable'))));
-  lines.push(`  cant-break-by-design skill (mandatory): ${cbbd ? 'installed' : 'NOT FOUND — install the unbreakable plugin'}`);
+  lines.push(`  cant-break-by-design skill (mandatory): ${cbbdInstalled(home) ? 'installed' : 'NOT FOUND — install the unbreakable plugin'}`);
   lines.push(`  markers: ${m.project} (project) ${m.universal} (universal); a bare ${m.ambiguous} captures nothing`);
   return lines.join('\n');
 }

@@ -46,6 +46,34 @@ test('a rules source that does not resolve is reported loudly, exit 0', () => {
   } finally { r.cleanup(); }
 });
 
+test('a plugin-installed unbreakable (installed_plugins.json, no loose skill dir) is detected (final review B)', () => {
+  const r = makeRepo();
+  try {
+    const h = home();
+    fs.mkdirSync(path.join(h, '.claude', 'plugins'), { recursive: true });
+    fs.writeFileSync(path.join(h, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({
+      version: 2,
+      plugins: { 'unbreakable@ai-skills': [{ scope: 'user', version: '0.3.1' }] },
+    }));
+    const t = text(run(r.root, { MACHINERY_HOME: h }));
+    assert.match(t, /cant-break-by-design skill \(mandatory\): installed/);
+  } finally { r.cleanup(); }
+});
+
+test('no loose skill dir and no matching installed_plugins.json entry reports NOT FOUND', () => {
+  const r = makeRepo();
+  try {
+    const h = home();
+    fs.mkdirSync(path.join(h, '.claude', 'plugins'), { recursive: true });
+    fs.writeFileSync(path.join(h, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({
+      version: 2,
+      plugins: { 'some-other-plugin@marketplace': [{ scope: 'user', version: '1.0.0' }] },
+    }));
+    const t = text(run(r.root, { MACHINERY_HOME: h }));
+    assert.match(t, /cant-break-by-design skill \(mandatory\): NOT FOUND — install the unbreakable plugin/);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: the banner never claims a hook is active without measuring', () => {
   const r = makeRepo();
   try { assert.doesNotMatch(text(run(r.root)), /commits are blocked/i); } finally { r.cleanup(); }
