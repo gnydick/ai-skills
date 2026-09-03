@@ -486,16 +486,21 @@ function unlinkDir(p) {
 // personal install looks like the moment a skill's source moves, and what
 // fs.existsSync() reports as "nothing there" while mklink still refuses the
 // name.
+// Only lstat decides link-ness (Node reports a Windows directory junction as a
+// symbolic link). Comparing realpath against dest does NOT: any junction or
+// symlink ABOVE dest makes a plain directory's realpath differ from the path
+// used to reach it — and ~/.claude is exactly the kind of tree that carries
+// one. Measured 2026-09-02 on Node 26 (Windows): a plain directory under a
+// junctioned parent came back `link`, so unlinkDir ran on a real directory and
+// died ENOTEMPTY then EPERM, never reaching install()'s "inspect it, then
+// re-run with --force" refusal — the one path that protects a copy holding
+// unique content. Case and 8.3 short names do not trip fs.realpathSync on that
+// build (fs.realpathSync.native would), but a junctioned ancestor does.
 function linkTarget(dest) {
   let stat;
   try { stat = fs.lstatSync(dest); } catch { return { kind: 'absent' }; }
-  try {
-    const real = fs.realpathSync(dest);
-    if (stat.isSymbolicLink() || real !== dest) return { kind: 'link', target: real };
-    return { kind: 'dir' };
-  } catch {
-    return stat.isSymbolicLink() ? { kind: 'dangling' } : { kind: 'dir' };
-  }
+  if (!stat.isSymbolicLink()) return { kind: 'dir' };
+  try { return { kind: 'link', target: fs.realpathSync(dest) }; } catch { return { kind: 'dangling' }; }
 }
 
 function install(skills, force) {
