@@ -52,13 +52,14 @@ plugin/
 
 **This plugin is the shared universal-rules skill.** A rule that holds in any
 project is filed here, not in a project's own tree: edit the matching
-`plugins/machinery/rules/<group>.md` file, add the row that cites it to
-`plugins/machinery/register/INDEX.md` — the plugin's own register indexes the
-plugin's own `rules/` — and reload the skill. The plugin is installed by
-reference, so the file you edit is the only copy. Project-specific rules stay out
-of this plugin entirely — they live in each project's own rules directory and
-go through that project's own capture-to-gate pipeline, which this plugin does
-not run.
+`plugins/machinery/rules/<group>.md` file, then run `/machinery:reindex` (the
+index is generated — it is never hand-edited; `/machinery:reindex` regenerates
+`plugins/machinery/register/INDEX.md` from the rule files, which is what the
+plugin's own register indexes) — and reload the skill. The plugin is installed
+by reference, so the file you edit is the only copy. Project-specific rules
+stay out of this plugin entirely — they live in each project's own rules
+directory and go through that project's own capture-to-gate pipeline, which
+this plugin does not run.
 
 **Rules bind every session.** Each file under `plugins/machinery/rules/` is
 loaded at session start, unconditionally, and it is the authority for the

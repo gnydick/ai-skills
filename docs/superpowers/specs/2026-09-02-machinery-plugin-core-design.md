@@ -226,8 +226,8 @@ exits non-zero only where its story says it blocks.
 | I10 | Command-classification precedence has one definition. | Single `classify()`; private pattern tables; no second call site. | 6 | — |
 | I11 | Universal rules are present in every session on the machine. | Junction + native loading. | 8 | Banner measures the junction (2). |
 | I12 | Index and inbox are never loaded as rules. | Fixed paths outside any rules directory. | 8 | — |
-| I13 | Supersession is bidirectional. | One stamp; generator renders both; duplicate stamp fails the gate. | 8 / 4 | — |
-| I14 | A universal filing takes effect in the filing session. | Intake's last step runs reload. | 6 | Other sessions: next start. |
+| I13 | Supersession is bidirectional. | The generator validates the declaring file's own superseded-section name exists, and renders both directions from that. Duplicate stamps across files and the `by:`-target section's own existence are NOT checked. | 4 | Debt: duplicate-stamp and by:-target validation, filed (amended 2026-09-02, final review H1). |
+| I14 | A universal filing takes effect in the filing session. | The `rule-intake` skill's last step instructs the agent to run `/machinery:reload`; `intake.mjs` itself does not invoke it. | 2 | Ceiling: depends on the agent following the skill's last step (amended 2026-09-02, final review H1). |
 | I15 | One definition of the rules source. | Single config module. | 6 | — |
 | I16 | Status marks are exactly the union's three. | Parser accepts only those; generator refuses others. | 6 | — |
 | I17 | The filter never blocks or loses a command. | One wrapper; fail-open; exit status preserved; tested with a broken hook. | 6 | — |
@@ -238,8 +238,8 @@ exits non-zero only where its story says it blocks.
 | I22 | Nothing depends on an undocumented event. | Skills hold without `WorktreeCreate`; banner measures whether it fires. | 2 | Promote when documented. |
 | I23 | The gate never mutates the tree. | Read-side imports only; lint forbids `fs.write*` under `gate/`. | 4 | — |
 | I24 | The gate stays cheap. | Closed check array; no config extension point. | 7 | — |
-| I25 | Every executed check reports a denominator. | Single `report()`; self-test fails a check that skips it. | 6 + 3 | — |
-| I26 | Citations are validated once, at authoring. | Only staged-diff citations examined below `--full`. | 6 | — |
+| I25 | Every executed check reports a denominator. | `register_check` and `citation_target` always report N of M through a single `report()` (asserted by the clean-commit test). The advisory sweep guard is outside this claim: it is silent when it has nothing to flag — no denominator line. | 6 | Amended 2026-09-02, final review H1: dropped the claimed self-test that would fail a check omitting `report()` — none exists; coverage is the two calls above, not a generic guard. |
+| I26 | Citations are validated once, at authoring. | Only staged-diff citations are examined. | 6 | `--full` (a full-tree sweep) is spec-2 surface, not implemented here; dropped from the mechanism text (amended 2026-09-02, final review H1). |
 | I27 | What runs in the project is what the plugin shipped. | Version stamp; banner compares. | 2 | Ceiling by I6. |
 | I28 | The index cannot be hand-edited into acceptance. | Gate compares staged index to regeneration. | 6 | — |
 | I29 | A project rule's filing commit lands in the project root. | Intake refuses `PRULE` filing unless git dir = common dir. | 6 | — |
