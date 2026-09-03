@@ -1,0 +1,9 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "<TRANSCRIPT>",
+  "cwd": "<HOME>/proj",
+  "permission_mode": "default",
+  "hook_event_name": "SessionStart",
+  "source": "startup",
+  "model": "claude-fable-5-1"
+}

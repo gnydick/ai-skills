@@ -1,0 +1,10 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "<TRANSCRIPT>",
+  "cwd": "<HOME>/proj",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt_id": "00000000-0000-4000-8000-000000000000",
+  "effort": { "level": "high" },
+  "prompt": "hello"
+}

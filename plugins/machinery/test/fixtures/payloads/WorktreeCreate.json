@@ -1,0 +1,9 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "<TRANSCRIPT>",
+  "cwd": "<HOME>/proj",
+  "permission_mode": "default",
+  "hook_event_name": "WorktreeCreate",
+  "worktree_path": "<HOME>/proj/.claude/worktrees/fx",
+  "worktree_source": "worktree_flag"
+}
