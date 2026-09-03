@@ -37,3 +37,35 @@ test('RED CHECK: six skills exist', () => {
   assert.equal(routed.length, 6);
   for (const name of routed) assert.ok(fs.existsSync(path.join(BUCKET, name, 'SKILL.md')), `${name} has no SKILL.md`);
 });
+
+// spec I36 CLI surface (final review C2): a skill's own worked examples are the CLI's contract —
+// every --flag it shows next to a scripts/<name>.mjs invocation must exist in that script's
+// source (not merely once have existed). Scoped per line: a flag token on the same line as the
+// script mention is treated as belonging to it, matching how the skills actually write examples
+// (the flag is often in its own backtick span, prose-adjacent, not inside the command's own).
+function flagsNamedFor(line) {
+  const nameMatch = line.match(/scripts\/([\w-]+)\.mjs/);
+  if (!nameMatch) return null;
+  return { script: nameMatch[1], flags: [...line.matchAll(/--[a-zA-Z][\w-]*/g)].map((m) => m[0]) };
+}
+
+test('every scripts/<name>.mjs --flag a skill names exists in that script (spec I36 CLI surface)', () => {
+  for (const d of skills()) {
+    for (const line of text(d).split('\n')) {
+      const found = flagsNamedFor(line);
+      if (!found) continue;
+      const scriptPath = path.join(PLUGIN, 'scripts', `${found.script}.mjs`);
+      if (!fs.existsSync(scriptPath)) continue; // not a machinery script — another plugin's own scripts/ dir
+      const src = fs.readFileSync(scriptPath, 'utf8');
+      for (const flag of found.flags) assert.ok(src.includes(flag), `${d}/SKILL.md names ${found.script}.mjs ${flag}, which does not appear in scripts/${found.script}.mjs`);
+    }
+  }
+});
+
+test('RED CHECK: the CLI-flag scan actually catches a mismatch', () => {
+  const line = 'run `node "${CLAUDE_PLUGIN_ROOT}/scripts/install.mjs" --bogus-flag-nobody-implements`';
+  const found = flagsNamedFor(line);
+  assert.ok(found.flags.includes('--bogus-flag-nobody-implements'));
+  const src = fs.readFileSync(path.join(PLUGIN, 'scripts', `${found.script}.mjs`), 'utf8');
+  assert.ok(!src.includes('--bogus-flag-nobody-implements'));
+});

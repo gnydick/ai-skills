@@ -74,7 +74,20 @@ test('no loose skill dir and no matching installed_plugins.json entry reports NO
   } finally { r.cleanup(); }
 });
 
-test('RED CHECK: the banner never claims a hook is active without measuring', () => {
+test('RED CHECK: the gate line names a version only when the VERSION stamp exists (final review C3)', () => {
+  // A genuine mutation detector, replacing an assertion that only ever proved the absence of a
+  // phrase capture.mjs emits (never one the banner itself could emit either way): the banner's
+  // "gate:" line must flip between "not installed" and "installed <ver> (plugin <ver>)" based on
+  // whether it actually measured the VERSION stamp file, not print a version number regardless.
   const r = makeRepo();
-  try { assert.doesNotMatch(text(run(r.root)), /commits are blocked/i); } finally { r.cleanup(); }
+  try {
+    const uninstalled = text(run(r.root));
+    assert.match(uninstalled, /gate: not installed/);
+    assert.doesNotMatch(uninstalled, /gate: installed \d/);
+    const h = home();
+    runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    const installed = text(run(r.root, { MACHINERY_HOME: h }));
+    assert.match(installed, /gate: installed \d+\.\d+\.\d+ \(plugin \d+\.\d+\.\d+\)/);
+    assert.doesNotMatch(installed, /gate: not installed/);
+  } finally { r.cleanup(); }
 });
