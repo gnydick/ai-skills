@@ -270,9 +270,10 @@ each declaration **ships a fixture proving that line survives filtering**. That 
 the per-tool positive control this design otherwise lacks: a table entry that cannot
 demonstrate its outcome surviving is not a table entry.
 
-A bespoke tool declares nothing, falls back to the generic contract, and gets the
-unconditional last line. That limit is stated rather than glossed: for a bespoke tool, the
-guarantee is the final line and whatever the heuristics catch — no more.
+A bespoke tool has nothing to declare, so it starts on the generic contract and the
+unconditional last line. It does not stay there: it **earns** an outcome pattern through
+the training loop below. Until it graduates, its guarantee is the final line and whatever
+the heuristics catch — no more, and that limit is real while it lasts.
 
 ### Match techniques, and which are allowed where
 
@@ -290,6 +291,92 @@ patterns. It is not fine for anything a machine derives, so the two cases are se
 This is the same split as everywhere else in the design: the universal half is written by
 people and reviewed; the project half is derived by machine and therefore restricted to
 forms that cannot misbehave.
+
+## How an outcome pattern is learned
+
+An off-the-shelf tool's outcome pattern is declared by a person. A bespoke tool's is
+learned, and this is the loop that learns it.
+
+### The model in the loop is the session
+
+Not a service the hook calls. A hook that blocks on inference is a hook nobody keeps, and
+an inference budget attached to every command is a cost nobody accepts. The hook records
+the observation and nudges; the assistant performs the identification during a turn it was
+already having, and writes the result into the JSON record.
+
+That also means training data is free. The wrapper already writes a full log per run, so
+identification can happen over stored logs in batch, not only on the run that triggered it.
+
+### Identification is the model's job; generalisation is not
+
+The session reads a captured log and says *this line is the answer*. It does **not** invent
+the pattern.
+
+Turning `test result: ok. 128 passed; 0 failed` into a matcher means finding what is stable
+across runs, and that is arithmetic: the longest common prefix of the identified line
+across repeated observations. After three runs there are three instances and `test result:`
+falls out without anyone guessing.
+
+The split matters because it bounds the failure. Judgement stays with the model;
+generalisation stays deterministic. A matcher cannot over-reach because the model was
+confident, and a single observation can never graduate — there is nothing to take a common
+prefix *of*.
+
+It is also what keeps machine-derived patterns to prefixes and literals, as required
+above: a longest-common-prefix is a prefix by construction. The rule is not a promise the
+generator makes, it is a property of how the generator works.
+
+### Graduation is shadow agreement
+
+While a tool is in training, both the local matcher and the session pick the outcome line,
+and the picks are compared. After **K consecutive agreements** the matcher graduates and
+the nudge stops firing for that tool.
+
+That comparison is the only real training signal available, and it is why the model stays
+in the loop until it does not. Nothing else can tell you the matcher is right, because
+there is no other oracle.
+
+### Graduation freezes a fixture
+
+This is what makes the result checkable rather than merely trusted. At the moment a matcher
+graduates, the observation that trained it is frozen as a fixture with its expected kept
+lines. The matcher now has a regression test.
+
+Without it, training produces a heuristic and discards the evidence, and "the model was
+wrong about this tool" becomes something you live with rather than something you can
+discover. **A matcher that cannot be graduated with a fixture is not graduated.**
+
+### Drift re-opens training
+
+A graduated matcher that quietly stops matching is precisely the failure class this
+codebase keeps finding: a check that has stopped being able to fail looks exactly like one
+that passes. So graduation is not permanent, and re-entry is mechanical rather than
+scheduled. Training re-opens when:
+
+- the matcher matched **nothing** in a run,
+- the exit code was **non-zero** and no error block was found, or
+- the output's shape moved materially — line count distribution, or the ratio between
+  stdout and stderr.
+
+Each is a fact the wrapper already records. None requires anyone to notice anything.
+
+### The floor stays underneath
+
+The learned matcher only ever **promotes** a line into the kept set. It cannot remove one.
+The final line survives unconditionally, error blocks survive, proof lines survive, and
+none of that is subject to the matcher.
+
+So the worst a wrong matcher can do is fail to promote a line that deserved it. It can
+never hide the last thing a tool said. That bound is what makes it acceptable to let a
+model train this at all.
+
+### The honest limit
+
+This produces a heuristic trained by a model on one project's output. It is not a proof,
+and the fixture is what keeps it honest — not the soundness of the training. A tool whose
+answer genuinely varies in shape run to run will never graduate, and that is the correct
+outcome rather than a gap: it stays on the generic contract, which is what an
+unlearnable tool deserves.
 
 ## Where things live
 
@@ -408,7 +495,19 @@ Declared standard: **structural**. This changes behaviour deliberately.
 9. **No machine-derived pattern is a regex** — a check over the project record refuses any
    derived pattern that is not a literal or a prefix. Asserted directly, since it is what
    keeps a generated pattern from misbehaving.
-10. **Exit code fidelity** — a wrapped command's exit code reaches the caller unchanged, for
+10. **Generalisation is deterministic** — the same set of observations yields the same
+    prefix, and a single observation never graduates a matcher. Asserted directly; it is
+    what keeps a machine-derived pattern a prefix by construction rather than by promise.
+11. **Graduation requires a fixture** — a matcher cannot reach graduated state without a
+    frozen observation and its expected kept lines. Positive control: remove the fixture
+    and graduation must be refused.
+12. **Drift re-opens training** — a graduated matcher that matches nothing in a run returns
+    to training, as does a non-zero exit with no error block found. Asserted for each
+    trigger separately, since a single combined test would pass on one of three.
+13. **The matcher can only promote** — a fixture whose learned matcher is deliberately
+    wrong still shows the final line, the error block and the proof lines. This is the
+    bound that makes model-trained matching acceptable, so it is tested rather than argued.
+14. **Exit code fidelity** — a wrapped command's exit code reaches the caller unchanged, for
    zero and non-zero. Existing behaviour; guarded because the spawn change could break it.
 
 ## Decisions taken by the owner, 2026-09-04
