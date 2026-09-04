@@ -223,6 +223,74 @@ scripts/battery.sh    stdout 2     stderr 1400
 The second is a tool whose stdout *is* the answer. Filtering it like cargo would be exactly
 wrong, and only separate counts make that visible.
 
+## What must survive: the preservation contract
+
+The design so far specifies what is hidden. This states what is kept, because a system
+where a machine decides what to hide is only as good as its guarantee that the answer
+survives.
+
+### The generic contract, which exists today
+
+`select()` keeps **nothing by default** and adds on positive match — an allowlist, not a
+denylist. Five things survive:
+
+- **Result lines**, via `SUMMARY`: `^test result:`, `Finished`, `\d+ passed`,
+  `BUILD SUCCESSFUL` and similar.
+- **Proof lines**, via `PROOF_LINE`: heartbeats and `snake_case_tool: text` denominators.
+- **Error blocks**, via `BLOCK_START`: from the opening line through to the next blank one.
+- **The tail** — the last `TAIL_LINES = 8` lines unless they are chatter, and **the final
+  line unconditionally**. That last clause is the strongest guarantee in the system:
+  whatever a tool prints last always survives, whatever else happens.
+- **A fallback**: in infra mode, if nothing matched at all, the last line is kept anyway.
+
+`CHATTER` is the only negative rule, and it is a *veto* rather than a dropper — it cancels
+a keyword match and excludes a line from the tail. It can never remove a summary, a proof
+line, an error block, or the final line.
+
+### What the generic contract cannot promise
+
+It is a heuristic. A tool whose answer is not shaped like a summary, does not appear in the
+last eight lines, and contains none of the keyword vocabulary can have its answer hidden,
+and nothing would say so. That is acceptable for a tool nobody has taught the system
+about. It is not acceptable for one it claims to know.
+
+### Declared outcome patterns, per off-the-shelf tool
+
+Every entry in the universal table declares, alongside its candidate flags, **the pattern
+that matches the line that is the tool's answer**:
+
+```
+cargo test         outcome: ^test result:
+merge-gate.sh      outcome: ^MERGE GATE
+pytest             outcome: ^=+ .* (passed|failed|error)
+```
+
+Those lines are kept by name rather than by hoping the generic summary regex fires, and
+each declaration **ships a fixture proving that line survives filtering**. That fixture is
+the per-tool positive control this design otherwise lacks: a table entry that cannot
+demonstrate its outcome surviving is not a table entry.
+
+A bespoke tool declares nothing, falls back to the generic contract, and gets the
+unconditional last line. That limit is stated rather than glossed: for a bespoke tool, the
+guarantee is the final line and whatever the heuristics catch — no more.
+
+### Match techniques, and which are allowed where
+
+Everything in `filter.mjs` today is a regex. That is fine for six hand-written, reviewed
+patterns. It is not fine for anything a machine derives, so the two cases are separated:
+
+- **Machine-derived patterns are prefix or literal only.** Never regex. A generated regex
+  can over-match silently or backtrack pathologically on a long line, and both failures are
+  invisible at the point they matter. A prefix match can do neither, is reviewable at a
+  glance, and covers nearly all real chatter — `   Compiling `, `Downloading `,
+  `test … ok`. `CHATTER` is already effectively a prefix set written as a regex.
+- **Regex is permitted only in the human-reviewed universal table**, where a person has
+  read it and a fixture exercises it.
+
+This is the same split as everywhere else in the design: the universal half is written by
+people and reviewed; the project half is derived by machine and therefore restricted to
+forms that cannot misbehave.
+
 ## Where things live
 
 ```
@@ -330,17 +398,28 @@ Declared standard: **structural**. This changes behaviour deliberately.
    same state. Asserted directly, since it is the property the no-flag design rests on.
 6. **The wrap decision** — the 6-of-10 fall-through above becomes 0-of-10 after observation,
    using ferrislicer's real command list as the fixture.
-7. **Exit code fidelity** — a wrapped command's exit code reaches the caller unchanged, for
+7. **Declared outcome survives** — for every entry in the universal table, its fixture is
+   filtered and the outcome line must appear in the kept set. Positive control: remove the
+   outcome declaration and the assertion must fail, so a table entry cannot pass by the
+   generic heuristic happening to catch it.
+8. **The final line is never dropped** — a fixture whose last line matches CHATTER is
+   filtered, and the last line is still present. This is the strongest existing guarantee
+   and the per-stream change must not weaken it.
+9. **No machine-derived pattern is a regex** — a check over the project record refuses any
+   derived pattern that is not a literal or a prefix. Asserted directly, since it is what
+   keeps a generated pattern from misbehaving.
+10. **Exit code fidelity** — a wrapped command's exit code reaches the caller unchanged, for
    zero and non-zero. Existing behaviour; guarded because the spawn change could break it.
 
-## Open questions for the owner
+## Decisions taken by the owner, 2026-09-04
 
-- **May a project add candidates for an off-the-shelf tool**, or is that table
-  universal-only? Universal-only is simpler and keeps the table reviewable in one place;
-  project-local additions would let a project move faster at the cost of two sources.
-- **Should a shared corpus of negative verdicts exist** — "these flags never help anyone"?
-  Ruled against above because volume is project-conditioned, but a tool whose quiet flags
-  are useless *everywhere* is a real category, and the owner may want it recorded once.
-- **Where the observation record lives on disk** — JSON read by the hook, or markdown like
-  the inbox with a generated view like the index. The first is simpler; the second matches
-  the existing pattern and stays legible when someone asks why a tool is being wrapped.
+- **A project may add candidates for an off-the-shelf tool.** The point of the design is
+  that projects can be quieted; making them wait on a universal table edit would defeat it.
+  Promotion to plugin scope stays available for candidates that generalise.
+- **No shared corpus of negative verdicts.** A verdict is project-conditioned and does not
+  travel, even in aggregate.
+- **The observation record is JSON**, read directly by the assimilator.
+
+## Open questions
+
+None outstanding. The three above were the last, and are decided.
