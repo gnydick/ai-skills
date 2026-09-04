@@ -135,6 +135,33 @@ definition obeys. Loaded at session start.
   adversarial review pass and a person both stand between it and the shared
   line.
 
+## Aiming a fan-out
+
+- Fan-out removes the cost constraint on spending agents; it does not remove
+  the obligation to aim them. A fleet of agents sent after something that
+  cannot change what happens next is not thoroughness — it is attention
+  spent where there was nothing to find.
+- A triage gate sits between whatever harvests candidates — a scan, an
+  extraction pass, a search — and whatever fans agents out to work them.
+  Nothing reaches an agent without passing through that gate first, and what
+  it keeps is only the candidates whose outcome would actually change a
+  decision.
+- The number kept is never the test. "Keep the top N" or "keep half" is a
+  headcount proxy, not triage: it substitutes a count for the judgment of
+  whether a given candidate's answer would matter to anything.
+- The gate reports what it dropped, by category, on every run. A bare
+  reduced count reads as coverage; naming why each group was dropped is what
+  keeps a real triage decision distinguishable from one that quietly lost
+  coverage.
+- This is the same shape of gate as the one below, under what an agent may
+  conclude, run at the opposite end of the same pipeline: that one discards
+  a generated answer before a person spends attention reading it, this one
+  discards a harvested candidate before an agent is spent attacking it. Same
+  resource, same mechanism, the other side of the expensive step.
+- A different axis from how many at once and batching: those decide
+  concurrency and grouping once the set of candidates to dispatch is already
+  settled. This decides whether a candidate belongs in that set at all.
+
 ## What an agent may conclude
 
 - A scan's output is a suspicion, never a fact. A flagged candidate is acted on
