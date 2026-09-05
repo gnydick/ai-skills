@@ -9,8 +9,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PASS_THROUGH_LINES } from './filter.mjs';
+import { ensureIgnored, OBSERVATIONS_IGNORE } from './ignore.mjs';
 
-const recordFile = (root) => path.join(root, '.claude', 'machinery', 'observations.json');
+const recordFile = (root) => path.join(root, ...OBSERVATIONS_IGNORE.split('/'));
 
 // A missing, truncated or hand-edited record is data, not a broken invariant: it loads as empty
 // and the project simply starts observing again.
@@ -18,10 +19,16 @@ export function loadObservations(root) {
   try { return JSON.parse(fs.readFileSync(recordFile(root), 'utf8')); } catch { return {}; }
 }
 
+// Writes the record. This is the site that creates the file in a project the first time a wrapped
+// command runs there — before any install has had the chance — so it is the site that ensures the
+// ignore entry (final review I6; ruling 2026-09-05: per-machine measurement, never tracked). Returns
+// whether the .gitignore line was written this time, so the caller can say so exactly once.
 export function saveObservations(root, obs) {
   const p = recordFile(root);
+  const created = !fs.existsSync(p);
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(obs, null, 2) + '\n');
+  return created && ensureIgnored(root, OBSERVATIONS_IGNORE);
 }
 
 // A bespoke tool's key is its LEADING non-flag tokens — the command with every argument stripped,

@@ -240,6 +240,21 @@ test('RED CHECK: a candidate hiding inside another argument is not a trial, and 
   assert.equal(decide('echo x-quality', { catalog: { e: { match: { type: 'prefix', value: 'echo ' }, candidates: ['-n'] } }, observations: obsOf(trial) }).mode, 'observe', 'unseen until a bare run lands');
 });
 
+test('the first wrapped run in a repository that was never installed leaves observations.json gitignored (final review I6)', { skip: !bash }, () => {
+  // saveObservations() is the site that creates the file, so it is the site that ensures the ignore
+  // entry — install.mjs only ever ran in projects someone installed, and the file appears in every
+  // project the moment the plugin updates. Ruling 2026-09-05: per-machine measurement, never tracked.
+  const root = repo('quiet-run-ignore-');
+  const r1 = runScript('scripts/quiet-run.mjs', { cwd: root, args: ['--shell', 'bash', '--mode', 'observe', '-c', 'echo one'] });
+  assert.equal(r1.code, 0);
+  const ignored = execFileSync('git', ['check-ignore', '.claude/machinery/observations.json'], { cwd: root, encoding: 'utf8' });
+  assert.match(ignored, /observations\.json/);
+  assert.match(r1.stderr, /observations\.json .*\.gitignore/, 'the first run says it added the ignore entry');
+  const r2 = runScript('scripts/quiet-run.mjs', { cwd: root, args: ['--shell', 'bash', '--mode', 'observe', '-c', 'echo two'] });
+  assert.equal(r2.stderr, '', 'RED CHECK: said once, on creation, not on every run');
+  assert.equal(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), '.claude/machinery/observations.json\n', 'one line, once');
+});
+
 test('RED CHECK: outside a git checkout the command still prints and still returns its exit code', { skip: !bash }, () => {
   // projectRoot() throws when cwd is not inside a repository, and that is data, not a broken
   // invariant. Resolving it before the output is written turns "no observation record available"

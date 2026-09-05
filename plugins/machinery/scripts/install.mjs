@@ -8,6 +8,7 @@ import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
 import { generateIndex } from './lib/index.mjs';
 import { pluginRoot, rulesSource } from './lib/config.mjs';
+import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
@@ -68,17 +69,11 @@ function installProject() {
   if (!fs.existsSync(toolCatalog)) { fs.writeFileSync(toolCatalog, '{}\n'); say(`created ${path.relative(root, toolCatalog)}`); }
   const observations = path.join(mach, 'observations.json');
   if (!fs.existsSync(observations)) { fs.writeFileSync(observations, '{}\n'); say(`created ${path.relative(root, observations)}`); }
-  const ignoreLine = '.claude/machinery/observations.json';
-  const gitignore = path.join(root, '.gitignore');
-  const existingIgnore = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, 'utf8') : '';
-  // Split on either line ending and trim, so a CRLF .gitignore does not gain a second copy per run.
-  // The project's own .gitignore is the authority, not `git check-ignore`: a global exclude on this
-  // machine would satisfy check-ignore and leave every other clone tracking the file.
-  const ignoreWritten = !existingIgnore.split(/\r?\n/).map((l) => l.trim()).includes(ignoreLine);
-  if (ignoreWritten) {
-    fs.writeFileSync(gitignore, existingIgnore + (existingIgnore && !/\r?\n$/.test(existingIgnore) ? '\n' : '') + ignoreLine + '\n');
-    say(`added ${ignoreLine} to .gitignore`);
-  }
+  // The ignore entry itself is lib/ignore.mjs's job — the same function the record's creator calls
+  // (final review I6), so the CRLF and idempotency rules have one spelling.
+  const ignoreLine = OBSERVATIONS_IGNORE;
+  const ignoreWritten = ensureIgnored(root, ignoreLine);
+  if (ignoreWritten) say(`added ${ignoreLine} to .gitignore`);
   // An ignore entry does nothing for a file already in the index. Name it rather than let the
   // ruling look applied when it is not (rules/design-invariants.md § Telling the user what you dropped).
   if (git(['ls-files', '--error-unmatch', '--', ignoreLine], root).code === 0)

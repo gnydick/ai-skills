@@ -129,6 +129,21 @@ test('the record round-trips through disk at .claude/machinery/observations.json
   } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }); }
 });
 
+// Final review I6: the creator of the file owns its ignore entry. saveObservations() reports whether
+// it wrote the .gitignore line, so the caller can say so once; a second save with the file already
+// there touches .gitignore no more than install.mjs's own idempotent pass does (the same function).
+test('saveObservations adds the .gitignore entry on first creation, reports it, and never a second time', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'observations-'));
+  try {
+    fs.writeFileSync(path.join(root, '.gitignore'), 'node_modules/\r\ndist/'); // CRLF, no trailing newline: Task 9's own case
+    assert.equal(saveObservations(root, { a: { noisy: false, ledger: {} } }), true);
+    const once = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
+    assert.equal(once, 'node_modules/\r\ndist/\n.claude/machinery/observations.json\n');
+    assert.equal(saveObservations(root, { a: { noisy: true, ledger: {} } }), false);
+    assert.equal(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), once);
+  } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
 test('a missing or unreadable record loads as empty, never as a crash (external input is data)', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'observations-'));
   try {

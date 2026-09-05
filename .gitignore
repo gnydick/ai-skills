@@ -85,3 +85,5 @@ http-client.private.env.json
 
 # Github Copilot persisted session migrations, see: https://github.com/microsoft/copilot-intellij-feedback/issues/712#issuecomment-3322062215
 .idea/**/copilot.data.migration.*.xml
+# machinery: per-machine tool-output measurement, never tracked (ruling 2026-09-05)
+.claude/machinery/observations.json

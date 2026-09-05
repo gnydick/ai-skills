@@ -161,10 +161,13 @@ async function main() {
       // declared answer survive taking it? Defaults true, so a bare run — or a tool with no
       // declared outcome pattern to lose — is judged on line count alone, per Task 5's ruling.
       const outcomeSurvived = candidate && outcomePattern ? lines.some((l) => outcomePattern.test(l)) : true;
-      saveObservations(root, recordRun(observations, key, {
+      const ignored = saveObservations(root, recordRun(observations, key, {
         identity: toolId ? 'catalog' : 'bespoke',
         lineCount: lines.length, stdoutLines, stderrLines, candidate, outcomeSurvived,
       }));
+      // Said once, when it happens: the project's .gitignore just changed under the user
+      // (rules/design-invariants.md § Telling the user what you dropped — additions too).
+      if (ignored) process.stderr.write('quiet-run: created .claude/machinery/observations.json and added it to .gitignore (per-machine measurement, never tracked)\n');
     }
   } catch { /* recording is best-effort; never fail the wrapped command over it */ }
   if (a.cmdfile) { try { fs.rmSync(a.cmdfile); } catch {} }
