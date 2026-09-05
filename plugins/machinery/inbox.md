@@ -40,3 +40,9 @@ disposition: filed → rules/agent-topology.md § Handing a ruling to a dispatch
 URULE: work on campaigns, don't get distracted by new issues outside of the campaign. multiple-object support is a large campaign. once within a campaign, work one feature to completion a feature may take multiple tickets
 
 disposition: filed → rules/work-tracking.md § Staying inside the effort
+
+## FILED 2026-09-05T21:12:33Z URULE 130ad271-0bca-4f17-9037-309f86afb0e8
+
+URULE: i only want to merge code that is not broken and will not cause problems like if it's incomplete, but unreachable
+
+disposition: filed → rules/worktree-discipline.md § What may be merged

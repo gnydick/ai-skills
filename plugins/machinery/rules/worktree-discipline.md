@@ -91,3 +91,9 @@ committing from it, merging it, and taking it down. Loaded at session start.
   never removed by hand while it is still in use.
 
 <!-- rows: 5.1–5.23, 5.39–5.40 -->
+
+## What may be merged
+
+- Only code that is not broken and will not cause problems is merged into the shared line. A green gate is necessary and not sufficient: the gate measures tests and invariants, and this bar is about what a user can reach and what happens when they do. (Gabe, 2026-09-05, URULE.)
+- Incomplete code may be merged when it is unreachable: nothing in production can call it, so nothing can go wrong. Incomplete code a user CAN reach — a control that does nothing, a default configuration that warns on every layer, a path that answers wrongly — is not mergeable until it is finished or made unreachable.
+- This is the merge bar, distinct from finishing the feature (work-tracking.md § Staying inside the effort). An effort may land in pieces, each piece clearing this bar; holding a whole effort back because one reachable part is unfinished is the wrong reading, and so is landing the reachable unfinished part.
