@@ -586,6 +586,34 @@ Declared standard: **structural**. This changes behaviour deliberately.
   supersedes the "which segment owns a compound" question and the every-segment byte-mover
   rule recorded under C1 above; C1's exemption by kind and I1's precedence both hold
   unchanged, applied per segment.
+  *Amended by the controller after review, 2026-09-05 (#13, fix round 1).* The ruling stands
+  and is narrowed to where it is safe, because a separator outside quotes is not always a
+  command boundary: the review measured `if cargo build; then echo ok; fi` cut into three
+  runners and refused by bash, and a heredoc whose body lines each became a runner, so the
+  file received runner invocations. (A) Per-segment applies only to a compound of simple
+  commands — `classify.mjs`'s `isSimpleCommand()`/`isSimpleCompound()`, the one predicate:
+  no heredoc operator (`<<`, `<<-`; the herestring `<<<` is one token and allowed), balanced
+  `(` `{` `[[` and an even number of backticks counted outside quotes, no reserved word at the
+  lead (`if then elif else fi for while until do done case esac in function select time
+  coproc !` and the openers/closers `{ } [[ ]] (( ))`), no trailing `\`. Any segment failing
+  it sends the whole compound down the whole-command path exactly as before #13 — one kind
+  from `classify(command)`, one cmdfile, one runner — which is not a degradation of the
+  ruling but where learning happens on the compound as a unit; pinned in the hook's tests
+  against the pre-#13 hook taken from history. (B) A state-mutating segment is never wrapped:
+  `export source . set unset alias unalias eval exec trap shopt ulimit umask pushd popd
+  readonly declare typeset local`, and a bare assignment `NAME=value` (one or more, no command
+  after them; a `$( )`, backtick or `${ }` in the value is folded to one token first). They
+  are part of `read` — a second named list, `STATE`, beside `READ` in `classify.mjs`, OR-ed
+  into the same every-segment test — because the hook's treatment (untouched, unobserved, no
+  record) is the same and a second kind for one treatment would be a second name for one
+  bucket. Measured: `export PROBE_VAR=set && node -e …` had printed `var=undefined` with both
+  segments wrapped; it prints `var=set` now, and a `source`d export reaches the wrapped
+  segment after it. (C) `&` backgrounds the whole AND-OR list that ends at it, not the last
+  segment: a segment is backgrounded if walking forward from it over `&&`/`||` reaches a
+  lone `&` before `;`, a newline or the end, and nothing in a backgrounded list is wrapped —
+  `cargo build && cargo test & cargo bench` wraps only the bench, and
+  `cargo build && cargo test &` is untouched entirely. Measured before the amendment: the
+  build's runner ran alongside the bench's, the exact record race the rule exists to prevent.
 
 ## Open questions
 

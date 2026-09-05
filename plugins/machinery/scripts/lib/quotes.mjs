@@ -46,10 +46,18 @@ const FILL = '\u0001';
 // rebuilds the command around the ones it wrapped (issue #13), so `text + sep` over this list has
 // to give the original back byte for byte. splitOutside() below is this list with the separators
 // dropped: one loop, one definition of where a piece ends, so the two readers cannot disagree.
-export function segmentsOutside(command, separator) {
+// The command with every code unit that is not OUTSIDE replaced by FILL: what a reader sees when it
+// asks about the shell's own syntax and nothing inside a span may answer. The splitter runs its
+// separator over it; classify.mjs's simple-command predicate counts brackets and looks for a
+// heredoc operator on it (#13 fix round 1). One builder, so no reader re-derives the mask.
+export function maskOutside(command) {
   const states = quoteStates(command);
   let mask = '';
   for (let i = 0; i < command.length; i++) mask += states[i] === OUTSIDE ? command[i] : FILL;
+  return mask;
+}
+export function segmentsOutside(command, separator) {
+  const mask = maskOutside(command);
   const flags = separator.flags.includes('g') ? separator.flags : separator.flags + 'g';
   const pieces = [];
   let last = 0;

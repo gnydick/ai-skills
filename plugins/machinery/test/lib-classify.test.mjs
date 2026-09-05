@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classify, classifySegments } from '../scripts/lib/classify.mjs';
+import { classify, classifySegments, isSimpleCommand, isSimpleCompound } from '../scripts/lib/classify.mjs';
 
 const cases = [
   // ported from quiet_hook_test.py: test_noisy_commands_wrap / test_quiet_commands_pass
@@ -244,4 +244,92 @@ test('#13: the catalog thunk is resolved at most once for the whole compound, an
 test('RED CHECK: classifySegments is not classify() over the whole command — the compound the issue measured comes apart', () => {
   assert.equal(classify('pytest tests/ && cargo build', { catalog: CATALOG }), 'plain');
   assert.deepEqual(classifySegments('pytest tests/ && cargo build', { catalog: CATALOG }).map((s) => s.kind), ['plain', 'noisy']);
+});
+
+// Fix round 1 for #13 (controller's amendment after review, 2026-09-05). A separator outside quotes
+// is not always a command boundary: the reviewer measured `if cargo build; then echo ok; fi` cut
+// into three runners (`if cargo build`, `then echo ok`, `fi`) and bash refusing the result, and a
+// heredoc whose body lines each became a runner — the file received runner invocations. Per-segment
+// wrapping is therefore for compounds of SIMPLE commands only: no heredoc operator, no unbalanced
+// `(` `{` `[[` or backtick, no reserved word at the lead, no trailing `\`. One predicate answers it,
+// per segment and over the whole list; the hook falls back to the whole-command path otherwise.
+const notSimple = [
+  ['if cargo build; then echo ok; fi', 'if/then/fi'],
+  ['for f in a b; do cargo build; done', 'for/do/done'],
+  ['while true; do cargo build; done', 'while'],
+  ['until false; do cargo build; done', 'until'],
+  ['case x in a) cargo build;; esac', 'case/esac'],
+  ['(node -e "process.exit(3)" || echo fell-through); echo "exit=$?"', 'a subshell split across segments'],
+  ['{ cargo build && cargo test; }', 'a brace group split across segments'],
+  ['X=$(cargo build && cargo test); echo $X', 'a command substitution split across segments'],
+  ['X=`cargo build && cargo test`; echo $X', 'a backtick substitution split across segments'],
+  ['[[ -f a && -f b ]] && cargo build', 'a [[ ]] conditional split across segments'],
+  ['[[ -f a ]] && cargo build', 'a [[ ]] conditional at a lead is a compound command, not a simple one'],
+  ['cargo build \\\n--release && cargo test', 'a line continuation'],
+  ["cat > notes.md <<'EOF'\n# Title\nsome text\nEOF", 'a heredoc'],
+  ["python3 - <<'EOF'\nprint(1)\nEOF", 'a heredoc feeding a tool'],
+  ['cat <<-EOF\n\tx\nEOF', 'a tab-stripping heredoc'],
+  ['function f { cargo build; }; f', 'a function definition'],
+  ['! cargo build && echo failed', 'a negated pipeline'],
+  ['time cargo build && cargo test', 'the time keyword'],
+  ['coproc cargo build; cargo test', 'coproc'],
+  ['select x in a b; do cargo build; done', 'select'],
+];
+for (const [cmd, why] of notSimple) test(`#13 fix 1: not a simple compound — ${why}: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), false);
+});
+const simple = [
+  'cargo build && cargo test', 'cat a; cargo build', 'cargo build || echo failed', 'cargo build\ncargo test', 'cargo build & cargo test',
+  'echo "(" && cargo build', "echo '{ if then' ; ls", 'echo "$(x" && ls', 'echo $((1+2)) && ls', 'echo ${HOME} && ls',
+  'cat <<< "here string" && ls', '(cargo build) && cargo test', 'X=$(git rev-parse HEAD) && cargo build', '[ -f a ] && cargo build',
+  'cargo build "a\\" && ls', 'echo "<<" && ls', 'cargo build', '',
+];
+for (const cmd of simple) test(`#13 fix 1: a simple compound: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), true);
+});
+test('#13 fix 1: isSimpleCommand answers per segment, and isSimpleCompound is every segment — one predicate, one place', () => {
+  assert.equal(isSimpleCommand('if cargo build'), false);
+  assert.equal(isSimpleCommand('then echo ok'), false);
+  assert.equal(isSimpleCommand('cargo build'), true);
+  assert.equal(isSimpleCommand("cat > x <<'EOF'"), false);
+  assert.equal(isSimpleCommand('cat <<< x'), true, 'a herestring is one token: allowed');
+  assert.equal(isSimpleCommand('cargo build \\'), false, 'a trailing continuation');
+  assert.equal(isSimpleCommand('echo "if" x'), true, 'a reserved word inside quotes is data');
+  assert.equal(isSimpleCommand('ifconfig && ls'), true, 'a word that merely starts like a reserved word');
+  assert.equal(isSimpleCommand('done-tool --run'), true);
+  assert.equal(isSimpleCompound([]), true, 'no segments: nothing violates the rule, and the hook has nothing to wrap either way');
+});
+test('RED CHECK: the predicate is not a constant — the same shape flips on the one construct', () => {
+  assert.notEqual(isSimpleCompound(classifySegments('cargo build && cargo test')), isSimpleCompound(classifySegments('if cargo build; then cargo test; fi')));
+  assert.notEqual(isSimpleCommand('(cargo build)'), isSimpleCommand('(cargo build'));
+});
+
+// Fix round 1, B: a state-mutating builtin changes the shell it runs in, so a runner of its own
+// would run it in a shell nobody else sees — the reviewer measured `export PROBE_VAR=set && node -e
+// …` printing `var=undefined` with both segments wrapped. These are part of `read`: the hook's
+// treatment (untouched, unobserved, no record) is the same, and a second kind for one treatment
+// would be a second name for one bucket. The list is its own named thing, STATE, beside READ.
+const stateCases = [
+  ['export X=1', 'read'], ['export X="a b" Y=2', 'read'], ['source .venv/bin/activate', 'read'], ['source ./vars.sh', 'read'],
+  ['. ./env.sh', 'read'], ['set -e', 'read'], ['set -o pipefail', 'read'], ['unset X', 'read'], ['alias ll="ls -la"', 'read'],
+  ['unalias ll', 'read'], ['eval "$(ssh-agent)"', 'read'], ['exec true', 'read'], ['trap cleanup EXIT', 'read'], ['shopt -s globstar', 'read'],
+  // Precedence, not the list: a redirect answers at the step BEFORE read, and both are untouched.
+  ['exec 3>&1', 'redirected'],
+  ['ulimit -n 4096', 'read'], ['umask 022', 'read'], ['pushd src', 'read'], ['popd', 'read'], ['readonly X=1', 'read'],
+  ['declare -a arr', 'read'], ['typeset -i n', 'read'], ['local x=1', 'read'],
+  ['X=1', 'read'], ['X=1 Y=2', 'read'], ['X="a && b"', 'read'], ["X='a; b' Y=c", 'read'], ['CARGO_TARGET_DIR=/tmp/t', 'read'],
+  ['cd x && export Y=1', 'read'], ['export A=1; X=2', 'read'],
+  // Not state-mutators: a name that merely starts the same way, and an assignment that PREFIXES a command.
+  ['exporter --run', 'plain'], ['setup.sh', 'plain'], ['sourcery --check', 'plain'], ['X=1 cargo build', 'noisy'], ['CARGO_TARGET_DIR=/tmp/t cargo build', 'noisy'],
+  ['export X=1 && cargo build', 'noisy'], ['set -e; cargo build', 'noisy'],
+];
+for (const [cmd, want] of stateCases) test(`#13 fix 1 (B): classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
+test('#13 fix 1 (B): per segment, the state-mutator is read and its neighbour keeps its own kind', () => {
+  assert.deepEqual(classifySegments('export PROBE_VAR=set && node x.js').map((s) => s.kind), ['read', 'plain']);
+  assert.deepEqual(classifySegments('source .venv/bin/activate && pytest -q', { catalog: CATALOG }).map((s) => s.kind), ['read', 'plain']);
+  assert.deepEqual(classifySegments('X=1; cargo build').map((s) => s.kind), ['read', 'noisy']);
+});
+test('RED CHECK (B): the state list is load-bearing — an assignment prefix on a work-doer is still the work-doer', () => {
+  assert.equal(classify('X=1'), 'read');
+  assert.notEqual(classify('X=1 cargo build'), 'read');
 });

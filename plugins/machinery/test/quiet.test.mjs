@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const fixture = (name, command) => {
@@ -277,9 +278,13 @@ test('#13: the PowerShell shell keeps whole-command behaviour — 5.1 has no && 
 // compound alone. One non-login shell runs both, echoing the `&&` list's status between them — a
 // second shell start would be paid for nothing (pre-commit budget).
 const BASH = ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files/Git/usr/bin/bash.exe'].find((b) => fs.existsSync(b)) ?? (process.platform !== 'win32' ? 'bash' : null);
-test('#13: the compound keeps its control flow — && short-circuits on the wrapped segment\'s real exit code, || takes it', { skip: !BASH }, () => {
-  const root = project({ node: { identity: 'bespoke', noisy: true, lines: 1400, ledger: {} } });
-  const rewrite = (c) => out(runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) }).stdout).updatedInput.command;
+// A skipped run of a real-bash test is unproven, not passed: the name says so where the skip shows.
+const unproven = (name) => (BASH ? name : `UNPROVEN (no bash on this machine, skipped): ${name}`);
+const rewriteIn = (root, c) => out(runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) }).stdout).updatedInput.command;
+const NOISY_NODE = { node: { identity: 'bespoke', noisy: true, lines: 1400, ledger: {} } };
+test(unproven('#13: the compound keeps its control flow — && short-circuits on the wrapped segment\'s real exit code, || takes it'), { skip: !BASH }, () => {
+  const root = project(NOISY_NODE);
+  const rewrite = (c) => rewriteIn(root, c);
   const and = rewrite('node -e "process.exit(7)" && echo never');
   const or = rewrite('node -e "process.exit(7)" || echo fallback');
   assert.equal(skeleton(and), '<filter> && echo never');
@@ -296,6 +301,88 @@ test('RED CHECK: two wrapped segments get two different cmdfiles, each holding o
   assert.notEqual(files[0], files[1]);
   assert.deepEqual(files.map((f) => fs.readFileSync(f, 'utf8')), ['cargo build', 'cargo test']);
   assert.equal(u.description, 'd [quiet:filter,filter]');
+});
+
+// ---- Fix round 1 for #13 (controller's amendment after review, 2026-09-05) ----
+
+// A. Per-segment applies only to a compound of simple commands; anything else takes the whole-command
+// path exactly as `main` does it. The reviewer measured these through the hook: three runners for
+// `if cargo build; then echo ok; fi` and a syntax error from bash; a heredoc whose body lines each
+// became a runner, so the file received runner invocations. Pinned against main's own hook: the
+// pre-#13 quiet.mjs is taken from history, its lib imports pointed at the live lib, and run on the
+// same payloads; the rewritten shapes must be equal modulo cmdfile names.
+const MAIN_HOOK = (() => {
+  const src = execFileSync('git', ['show', 'dd229c0:plugins/machinery/scripts/quiet.mjs'], { cwd: PLUGIN, encoding: 'utf8' });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'quiet-main-hook-'));
+  const f = path.join(dir, 'quiet-main.mjs');
+  fs.writeFileSync(f, src.replace(/'\.\/lib\//g, `'${pathToFileURL(path.join(PLUGIN, 'scripts', 'lib')).href}/`));
+  return f;
+})();
+const shapeOf = (stdout) => {
+  if (stdout === '') return '';
+  const u = out(stdout).updatedInput;
+  const command = u.command.replace(/"([^"]*cmd-[^"]*)"/g, (_, f) => `<CMDFILE:${JSON.stringify(fs.readFileSync(f, 'utf8'))}>`).replace(/"[^"]*quiet[^"]*\.mjs"/g, '<RUNNER>');
+  return `${command} :: ${u.description}`;
+};
+const hookShape = (script, root, c) => {
+  const r = spawnSync(process.execPath, [script], { cwd: root, input: fixture('PreToolUse-Bash', c), encoding: 'utf8', env: { ...process.env, CLAUDE_PLUGIN_ROOT: PLUGIN } });
+  return shapeOf(r.stdout);
+};
+const LIVE_HOOK = path.join(PLUGIN, 'scripts', 'quiet.mjs');
+const NOT_SIMPLE = [
+  'if cargo build; then echo ok; fi',
+  'for f in a b; do cargo build; done',
+  '(node -e "process.exit(3)" || echo fell-through); echo "exit=$?"',
+  '{ cargo build && cargo test; }',
+  'X=$(cargo build && cargo test); echo $X',
+  '[[ -f a && -f b ]] && cargo build',
+  'cargo build \\\n--release && cargo test',
+  "cat > notes.md <<'EOF'\n# Title\nsome text\nEOF",
+  "python3 - <<'EOF'\nprint(1)\nEOF",
+];
+test('#13 fix 1 (A): a compound that is not made of simple commands takes the whole-command path — the exact shape main produces', () => {
+  const root = project(null);
+  for (const c of NOT_SIMPLE) {
+    const want = hookShape(MAIN_HOOK, root, c);
+    assert.equal(hookShape(LIVE_HOOK, root, c), want, c);
+    assert.doesNotMatch(want, /<CMDFILE:[^>]*>.*<CMDFILE:/, `${c}: main wraps at most once, so the pin is against one runner`);
+  }
+});
+test('RED CHECK (A): the pin is live — main and the per-segment hook disagree on a simple compound', () => {
+  const root = project(null);
+  const c = 'cat a && cargo build';
+  assert.notEqual(hookShape(MAIN_HOOK, root, c), hookShape(LIVE_HOOK, root, c));
+  assert.equal(hookShape(LIVE_HOOK, root, c), 'cat a && node <RUNNER> --shell bash --mode filter <CMDFILE:"cargo build"> :: d [quiet:filter]');
+});
+
+// B. A state-mutating segment is left verbatim, so its effect lands in the shell that runs the
+// segment after it. Measured by the reviewer with both wrapped: `var=undefined`.
+test(unproven('#13 fix 1 (B): export and source stay verbatim and their effect reaches the wrapped segment after them'), { skip: !BASH }, () => {
+  const root = project(NOISY_NODE);
+  fs.writeFileSync(path.join(root, 'vars.sh'), 'export PROBE2=fromfile\n');
+  const a = rewriteIn(root, 'export PROBE_VAR=set && node -e "console.log(\'var=\' + process.env.PROBE_VAR)"');
+  const b = rewriteIn(root, 'source ./vars.sh && node -e "console.log(\'file=\' + process.env.PROBE2)"');
+  assert.equal(skeleton(a), 'export PROBE_VAR=set && <filter>');
+  assert.equal(skeleton(b), 'source ./vars.sh && <filter>');
+  const r = execFileSync(BASH, ['-c', `${a}; ${b}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(r, 'var=set\nfile=fromfile\n');
+});
+
+// C. `&` backgrounds the whole AND-OR list that ends at it, not the last segment. Measured by the
+// reviewer: `cargo build && cargo test & cargo bench` wrapped the build, which then ran alongside
+// the bench's runner — the exact record race the rule exists to prevent.
+test('#13 fix 1 (C): nothing in a backgrounded AND-OR list is wrapped; the list after the & still is', () => {
+  for (const [c, want, texts] of [
+    ['cargo build && cargo test & cargo bench', 'cargo build && cargo test & <filter>', ['cargo bench']],
+    ['cargo build || cargo test & cargo bench', 'cargo build || cargo test & <filter>', ['cargo bench']],
+    ['cargo build; cargo test &', '<filter>; cargo test &', ['cargo build']],
+  ]) {
+    const u = out(runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', c) }).stdout).updatedInput;
+    assert.equal(skeleton(u.command), want, c);
+    assert.deepEqual(runners(u.command).map((x) => x.text), texts, c);
+  }
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo build && cargo test &') });
+  assert.equal(r.stdout, '', 'a whole list backgrounded: untouched entirely');
 });
 
 test('RED CHECK: the NEVER exemption survives plain no longer meaning untouched', () => {
