@@ -201,7 +201,8 @@ filing happens.
 - Platform facts verified by hand with the plugin installed via `--plugin-dir`
   (plan's last task), then dated in the table above.
 - This repo's pre-commit gains `node --test plugins/machinery/test` (budget
-  10 s, asserted) and `gate.mjs --universal`.
+  15 s, asserted; 10 s until the owner raised it on 2026-09-05 when the
+  tool-assimilation suite measured 10.4–10.6 s) and `gate.mjs --universal`.
 
 ## Failure handling
 
@@ -255,7 +256,7 @@ exits non-zero only where its story says it blocks.
 | I39 | Every suite can go red. | Mutation fixture per suite; meta-test counts. | 3 + 4 | — |
 | I40 | Hook tests use real payload shapes. | Recorded fixtures; missing fixture fails. | 3 | Re-record on platform change. |
 | I41 | Tests never touch a real repository. | One fixture factory under tmpdir with the root passed as a parameter, plus GIT_* scrubbed at helper import (`test/helpers/env.mjs`) and a scan (`env-scrub.test.mjs`) that every test file spawning git imports a scrubbing helper. A positive control and its inverse prove the scrub fires. | 5 + 4 | Falsified 2026-09-02: a hook-invoked run from a linked worktree inherited `GIT_DIR` and wrote into the outer repository; amended. |
-| I42 | This repo's commit gate stays cheap. | Test budget asserted in pre-commit. | 4 | — |
+| I42 | This repo's commit gate stays cheap. | Test budget (15 s) asserted in pre-commit. | 4 | Raised 10 s → 15 s, owner 2026-09-05 ("i'm ok with the increase in budget"): the branch measured 10.4–10.6 s and `date +%s` resolution made the gate fail by phase. |
 
 ## Out of scope (spec 2)
 

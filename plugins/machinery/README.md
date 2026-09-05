@@ -10,7 +10,7 @@ unprefixed branch name.
 ## Install
 
 - **Per machine, once:** `node "${CLAUDE_PLUGIN_ROOT}/scripts/install.mjs" --machine`, or run `/machinery:install --machine`. Creates `~/.claude/rules/machinery` as a junction/symlink to the rules source, so every session on the machine loads the universal rules.
-- **Per project:** `/machinery:install` (add `--hosted` only if the project has hosted CI that should also block on the check). Installs the commit gate, the `.claude/machinery/` inbox and index, and sets `core.hooksPath`.
+- **Per project:** `/machinery:install` (add `--hosted` only if the project has hosted CI that should also block on the check). Installs the commit gate, the `.claude/machinery/` inbox and index, the project's own `tool-catalog.json` (tracked: the team's entries for tools the universal catalog does not know) and `observations.json` (gitignored: this machine's measurements of how noisy each tool is here), and sets `core.hooksPath`.
 
 Both are idempotent; re-run after a plugin update to refresh the gate.
 
@@ -24,7 +24,7 @@ are defined once, in `markers.json`.
 
 - **SessionStart** — prints a banner of facts it measured this session (junction state, hooksPath, gate version, pending counts, whether the worktree hook has ever fired, whether the `unbreakable` plugin is installed); never a claim it didn't check.
 - **UserPromptSubmit** — captures a `PRULE:`/`URULE:`-marked prompt to the right inbox and nudges to run intake now if anything is pending.
-- **PreToolUse** — rewrites a noisy or infra-signal Bash/PowerShell command to run through `quiet-run`, so its transcript stays short; read/piped/redirected/plain commands are left untouched.
+- **PreToolUse** — rewrites a noisy or infra-signal Bash/PowerShell command to run through `quiet-run`, so its transcript stays short; read (`cat`, `grep`, `git log` and the other byte-movers), piped and redirected commands are left untouched. A plain command — one nothing recognises — is run once verbatim and measured, then wrapped on later runs only if its own record says it was noisy here; a tool the catalog knows is first told its documented quiet flag instead of being filtered.
 - **PostToolUse** — after an Edit/Write to a rule file, nudges if the generated index is now stale.
 - **WorktreeCreate** — creates the worktree with the branch name unprefixed (a leading `worktree-` is stripped), and records that the event fired, on this machine, for the banner to report.
 
@@ -47,6 +47,15 @@ commit** in the rules source's own checkout; `/machinery:reload` then puts the n
 rule into the current session's context. A project rule (`PRULE:`) follows the
 same shape without the version bump, committed in the project's own root
 checkout.
+
+## Teaching it a tool
+
+The universal tool catalog (`data/tool-catalog.json`) names each off-the-shelf tool, the
+line that is its answer, and its documented quiet flags; a project adds its own entries to
+`.claude/machinery/tool-catalog.json`. When a project entry turns out to be true everywhere,
+promote it with `node "${CLAUDE_PLUGIN_ROOT}/scripts/promote-tool.mjs" --id <id> --root <project root>`
+— it refuses unless the project's fixture proves the outcome line survives filtering, then
+moves the entry into the universal catalog and bumps the plugin version.
 
 ## Dependency
 

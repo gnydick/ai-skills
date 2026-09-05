@@ -4,9 +4,47 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classify } from './lib/classify.mjs';
+import { classify, isNever } from './lib/classify.mjs';
 import { readPayload } from './lib/stdin.mjs';
 import { updatedInput } from './lib/emit.mjs';
+import { projectRoot } from './lib/root.mjs';
+import { loadCatalog } from './lib/catalog.mjs';
+import { loadObservations } from './lib/observations.mjs';
+import { decide } from './lib/assimilate.mjs';
+
+// The project root and its catalog, resolved at most ONCE per hook run and only when something asks
+// — classify()'s catalog step, or the assimilator — because resolving the root is a git spawn and
+// the catalog is two file reads, and a command the chain answers before the catalog step (never,
+// piped, redirected, read) never needs either (re-review R4). Outside a repository there is no
+// project half to overlay and no record to keep, so the catalog is empty and the assimilator is not
+// consulted — the regex chain alone answers, as it always did there. That is the one throw swallowed
+// here on purpose; anything else reaches the catch at the bottom.
+function projectLoader() {
+  let loaded = null;
+  return () => {
+    if (!loaded) {
+      let root = null;
+      try { root = projectRoot(process.cwd()); } catch { /* not inside a repository */ }
+      loaded = { root, catalog: root ? loadCatalog(root) : {} };
+    }
+    return loaded;
+  };
+}
+
+// classify() says 'plain' about three things: a command it simply does not recognise, whose volume
+// is UNKNOWN rather than quiet (specs/2026-09-04-tool-assimilation-design.md, "The default is also
+// backwards"); a command the catalog knows, which the catalog — not the regexes — is the authority
+// on (ruling I1, 2026-09-05); and one the NEVER list exempts outright. Only the first two are the
+// assimilator's business, and only inside a repository. Returns the wrap mode, or null for "leave
+// this command alone".
+function assimilated(command, load) {
+  if (isNever(command)) return null;
+  const { root, catalog } = load();
+  if (!root) return null;
+  const d = decide(command, { catalog, observations: loadObservations(root) });
+  if (d.mode === 'plain') return null;              // seen here, and it was quiet
+  return d.mode === 'noisy' ? 'filter' : d.mode;    // 'filter' | 'observe' | 'suggest'
+}
 
 function main() {
   const p = readPayload();
@@ -15,9 +53,11 @@ function main() {
   if (tool !== 'Bash' && tool !== 'PowerShell') return;
   const input = p.tool_input ?? {};
   const command = input.command ?? '';
-  const kind = classify(command);
-  if (kind !== 'infra' && kind !== 'noisy') return;
-  const mode = kind === 'infra' ? 'infra' : 'filter';
+  const load = projectLoader();
+  const kind = classify(command, { catalog: () => load().catalog });
+  let mode = kind === 'infra' ? 'infra' : kind === 'noisy' ? 'filter' : null;
+  if (!mode && kind === 'plain') mode = assimilated(command, load);
+  if (!mode) return;
   const shell = tool === 'PowerShell' ? 'powershell' : 'bash';
   const job = process.env.CLAUDE_JOB_DIR;
   const dir = job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
@@ -33,5 +73,8 @@ function main() {
   updatedInput({ ...input, command: wrapped, description: `${input.description ?? ''} [quiet:${mode}]`.trim() });
 }
 
-try { main(); } catch { /* fail open: the command runs unfiltered */ }
+// Fail OPEN — the command runs unfiltered — but never silent (final review I2): a swallowed error
+// here used to look exactly like a command that needed no wrapping, and one malformed catalog
+// entry switched assimilation off for a whole project without a word. One line, naming the cause.
+try { main(); } catch (e) { process.stderr.write(`quiet: hook failed (${e?.message ?? String(e)}); the command runs unfiltered\n`); }
 process.exitCode = 0;
