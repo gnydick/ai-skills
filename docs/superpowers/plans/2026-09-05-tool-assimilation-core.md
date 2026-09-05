@@ -1240,7 +1240,9 @@ git commit -m "machinery: promote-tool.mjs moves a project catalog entry into th
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces: `.claude/machinery/tool-catalog.json` and `.claude/machinery/observations.json`, both `{}`, created alongside the existing `inbox.md`/`INDEX.md` in `installProject()`.
+- Produces: `.claude/machinery/tool-catalog.json` (tracked) and `.claude/machinery/observations.json` (gitignored), both `{}`, created alongside the existing `inbox.md`/`INDEX.md` in `installProject()`.
+
+**Ruling (mid-execution, recorded 2026-09-05 during Task 7's review):** the two new files are not the same kind of data and must not be treated identically. `tool-catalog.json` is a team decision — which tools this project knows about and what quiets them — exactly like a project rule: shared, reviewed, sensibly tracked, same as `inbox.md`/`INDEX.md`. `observations.json` is per-machine measurement: a different developer's terminal width, installed tool version, or which subset of a monorepo they have checked out all change what "noisy" measures — tracking it turns every developer's local noise readings into spurious merge conflicts and stale data presented as fact. **`observations.json` is gitignored, not staged.** The originally drafted plan treated them identically; that was wrong and is corrected here before this task is dispatched.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1252,12 +1254,24 @@ test('install creates an empty project tool catalog and observation record', () 
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '.claude', 'machinery', 'tool-catalog.json'), 'utf8')), {});
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, '.claude', 'machinery', 'observations.json'), 'utf8')), {});
 });
+
+test('RED CHECK: tool-catalog.json is staged, observations.json is gitignored, not staged', () => {
+  const root = freshGitProject();
+  runScript('scripts/install.mjs', { args: ['--root', root] });
+  const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' });
+  assert.match(staged, /\.claude\/machinery\/tool-catalog\.json/, 'the shared catalog overlay must be staged');
+  assert.doesNotMatch(staged, /\.claude\/machinery\/observations\.json/, 'per-machine measurement must never be staged');
+  const ignored = execFileSync('git', ['check-ignore', '.claude/machinery/observations.json'], { cwd: root, encoding: 'utf8' });
+  assert.match(ignored, /observations\.json/, 'observations.json must actually be gitignored, not merely unstaged this once');
+});
 ```
+
+Add `import { execFileSync } from 'node:child_process';` to this test file if not already present.
 
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `node --test plugins/machinery/test/install.test.mjs`
-Expected: FAIL — files not created.
+Expected: FAIL — files not created, and the gitignore entry doesn't exist yet.
 
 - [ ] **Step 3: Update `installProject()` in `install.mjs`**
 
@@ -1268,19 +1282,28 @@ Immediately after the existing `inbox` creation block (`if (!fs.existsSync(inbox
   if (!fs.existsSync(toolCatalog)) { fs.writeFileSync(toolCatalog, '{}\n'); say(`created ${path.relative(root, toolCatalog)}`); }
   const observations = path.join(mach, 'observations.json');
   if (!fs.existsSync(observations)) { fs.writeFileSync(observations, '{}\n'); say(`created ${path.relative(root, observations)}`); }
+  const gitignore = path.join(root, '.gitignore');
+  const ignoreLine = '.claude/machinery/observations.json';
+  const existingIgnore = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, 'utf8') : '';
+  if (!existingIgnore.split('\n').includes(ignoreLine)) {
+    fs.writeFileSync(gitignore, existingIgnore + (existingIgnore && !existingIgnore.endsWith('\n') ? '\n' : '') + ignoreLine + '\n');
+    say('added .claude/machinery/observations.json to .gitignore');
+  }
 ```
 
-And extend the final `git add` call to stage them:
+Note the ordering: the `.gitignore` entry must be written and the file must exist on disk *before* the final `git add`, or `observations.json` would already be untracked-but-not-ignored at add time — harmless either way since it is never named in the add list below, but the ignore entry landing first is what makes `git check-ignore` (used by the test above) resolve correctly in the same run.
+
+And extend the final `git add` call to stage the catalog and the `.gitignore` — **`observations.json` is deliberately absent from this list**:
 
 ```js
   git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/INDEX.md',
-       '.claude/machinery/tool-catalog.json', '.claude/machinery/observations.json', '.githooks'], root);
+       '.claude/machinery/tool-catalog.json', '.gitignore', '.githooks'], root);
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --test plugins/machinery/test/install.test.mjs`
-Expected: all pass, including the new one.
+Expected: all pass, including both new ones.
 
 - [ ] **Step 5: Commit**
 
