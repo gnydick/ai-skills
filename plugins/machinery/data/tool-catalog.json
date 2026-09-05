@@ -1,0 +1,20 @@
+{
+  "git-commit": {
+    "match": { "type": "regex", "value": "^git\\s+commit\\b" },
+    "outcome": "^\\[[^\\]]+ [0-9a-f]{7,}\\]",
+    "candidates": ["--quiet"],
+    "verified": "git 2.45.1.windows.1, `git commit -h`: \"-q, --[no-]quiet      suppress summary after successful commit\". Measured 2026-09-04: --quiet suppresses the whole summary, this outcome line included."
+  },
+  "npm-install": {
+    "match": { "type": "regex", "value": "^npm\\s+(install|ci)\\b" },
+    "outcome": "^(up to date|(added|removed|changed) \\d+ packages?)\\b",
+    "candidates": ["--silent"],
+    "verified": "npm 11.15.0, bundled docs/content/using-npm/logging.md, Aliases: \"`--silent`: `--loglevel silent`\". Measured 2026-09-04: --silent prints nothing at all, this outcome line included."
+  },
+  "pytest": {
+    "match": { "type": "prefix", "value": "pytest" },
+    "outcome": "^=*\\s*(no tests ran|\\d+ (passed|failed|error|skipped|xfailed|xpassed|deselected))",
+    "candidates": ["-q"],
+    "verified": "pytest 9.1.1, `pytest --help`: \"-q, --quiet           Decrease verbosity\". Measured 2026-09-04: under -q the summary loses its ==== banner and reads \"1 failed, 2 passed in 0.05s\", which this pattern still matches."
+  }
+}

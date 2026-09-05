@@ -1,0 +1,9 @@
+{
+  "source": "npm 11.15.0. Recorded 2026-09-04 from `npm install` (all defaults, audit and fund on) in a scratch project with one `file:` dependency, through normalise().",
+  "lines": [
+    "",
+    "added 1 package, and audited 3 packages in 399ms",
+    "",
+    "found 0 vulnerabilities"
+  ]
+}

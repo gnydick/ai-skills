@@ -1,0 +1,19 @@
+{
+  "source": "git 2.45.1.windows.1. Recorded 2026-09-04 from `git commit -m \"add twelve files\"` in a scratch repository with twelve staged new files, through normalise(). The answer line is FIRST here, well above the unconditional tail window.",
+  "lines": [
+    "[main 77ad41b] add twelve files",
+    " 12 files changed, 12 insertions(+)",
+    " create mode 100644 file1.txt",
+    " create mode 100644 file10.txt",
+    " create mode 100644 file11.txt",
+    " create mode 100644 file12.txt",
+    " create mode 100644 file2.txt",
+    " create mode 100644 file3.txt",
+    " create mode 100644 file4.txt",
+    " create mode 100644 file5.txt",
+    " create mode 100644 file6.txt",
+    " create mode 100644 file7.txt",
+    " create mode 100644 file8.txt",
+    " create mode 100644 file9.txt"
+  ]
+}
