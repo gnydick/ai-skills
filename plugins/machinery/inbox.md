@@ -20,3 +20,11 @@ URULE: In § Which model, "the main conversation's own model" is not a fixed ref
 (Written by hand: ruled in conversation on 2026-09-04 — Gabe, correcting the § Which model wording — without the URULE: marker, so the capture hook did not fire.)
 
 disposition: filed → rules/agent-topology.md § Which model
+
+## 2026-09-05T00:31:18Z URULE session_01BgBtukUw8mp7b9cavY8rnR
+
+URULE: The just-filed § Which model rule pins design, adjudication and verdicts to a fixed top tier, but says nothing about coding — a real gap, not a wording nuance, since it left this very session's coding work unpinned. Fold coding into that same top-tier bullet, alongside design, adjudication and verdicts.
+
+(Written by hand: ruled in conversation on 2026-09-04 — Gabe, closing a gap he noticed in the rule filed minutes earlier — without the URULE: marker, so the capture hook did not fire.)
+
+disposition: filed → rules/agent-topology.md § Which model
