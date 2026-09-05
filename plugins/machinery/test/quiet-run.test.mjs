@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runScript as spawnScript } from './helpers/run.mjs';
+import { decide } from '../scripts/lib/assimilate.mjs';
 
 // A "command" that prints N lines of chatter plus one error and exits with a code — via node so it is shell-agnostic.
 const gen = (n, code) => `node -e "for(let i=0;i<${n};i++)console.log('   Compiling c'+i);console.log('error: boom');process.exit(${code})"`;
@@ -216,6 +217,27 @@ test('RED CHECK: a real git-commit --quiet trial is recorded insufficient — it
   const obs = obsOf(root);
   assert.equal(obs['git-commit'].ledger['--quiet'], 'insufficient', 'a flag that deletes the outcome line must never be marked sufficient');
   assert.equal(obs['git-commit'].lines, bare.lines, "a trial run must not overwrite the bare tool's own measurement");
+});
+
+test('RED CHECK: a candidate hiding inside another argument is not a trial, and a trial before any bare run fabricates nothing (final review I3)', { skip: !bash }, () => {
+  // The review's exact reproduction: candidates ['-q'], command carrying `x-quality` — substring
+  // matching called it a trial of -q and wrote {noisy:false, ledger:{'-q':'sufficient'}} for a flag
+  // never applied, parking the tool in plain forever. Now it is what it is: a bare run.
+  const root = repo('quiet-run-substring-');
+  seed(root, 'tool-catalog.json', { q: { match: { type: 'prefix', value: 'node ' }, outcome: '^x-quality$', candidates: ['-q'] } });
+  runScript('scripts/quiet-run.mjs', { cwd: root, args: ['--shell', 'bash', '--mode', 'observe', '-c', `node -e "console.log('x-quality')"`] });
+  const bare = obsOf(root).q;
+  assert.deepEqual(bare.ledger, {}, 'no verdict for a flag that was never on the command');
+  assert.equal(bare.noisy, false, 'a bare run measures the bare tool');
+  assert.equal(bare.lines, 1);
+  // A genuine trial with no bare run before it: the verdict is recorded, the measurement is not invented.
+  const trial = repo('quiet-run-trialfirst-');
+  seed(trial, 'tool-catalog.json', { e: { match: { type: 'prefix', value: 'echo ' }, outcome: '^x-quality', candidates: ['-n'] } });
+  runScript('scripts/quiet-run.mjs', { cwd: trial, args: ['--shell', 'bash', '--mode', 'observe', '-c', 'echo -n x-quality'] });
+  const rec = obsOf(trial).e;
+  assert.equal(rec.ledger['-n'], 'sufficient');
+  assert.ok(!('noisy' in rec), `noisy must be absent, got ${JSON.stringify(rec.noisy)}`);
+  assert.equal(decide('echo x-quality', { catalog: { e: { match: { type: 'prefix', value: 'echo ' }, candidates: ['-n'] } }, observations: obsOf(trial) }).mode, 'observe', 'unseen until a bare run lands');
 });
 
 test('RED CHECK: outside a git checkout the command still prints and still returns its exit code', { skip: !bash }, () => {

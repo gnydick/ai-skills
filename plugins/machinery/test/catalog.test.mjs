@@ -46,6 +46,23 @@ test('matchedCandidate finds a flag already present in the command', () => {
   assert.equal(matchedCandidate('pytest tests/', []), null, 'an empty candidate list is a clean null, not a crash');
 });
 
+// Final review I3, measured: substring matching found `-q` inside `tests/api-quota/` and `--quiet`
+// inside a commit message, and the runner then WROTE a ledger verdict for a flag that was never on
+// the command. A candidate is a whole argv token, never a substring of one — and a quoted argument
+// is one token, whatever it contains.
+test('matchedCandidate matches whole tokens only (final review I3)', () => {
+  assert.equal(matchedCandidate('pytest tests/api-quota/', ['-q']), null);
+  assert.equal(matchedCandidate('git commit -m "do not --quiet me"', ['--quiet']), null);
+  assert.equal(matchedCandidate("git commit -m 'do not --quiet me'", ['--quiet']), null);
+  assert.equal(matchedCandidate('pytest -q', ['-q']), '-q');
+  assert.equal(matchedCandidate('pytest -qq', ['-q']), null, 'a longer flag is a different flag');
+  assert.equal(matchedCandidate('npm install --silent-ish', ['--silent']), null);
+  assert.equal(matchedCandidate('npm install --silent', ['--silent']), '--silent');
+  // The spec's ledger example keys on a parameter SET (`-q --no-fail-fast`): every token present.
+  assert.equal(matchedCandidate('cargo test --no-fail-fast -q', ['-q --no-fail-fast']), '-q --no-fail-fast');
+  assert.equal(matchedCandidate('cargo test -q', ['-q --no-fail-fast']), null, 'half a set is not the set');
+});
+
 test('project catalog entries override a universal id of the same name', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-'));
   fs.mkdirSync(path.join(tmp, '.claude', 'machinery'), { recursive: true });

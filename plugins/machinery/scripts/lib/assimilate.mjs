@@ -25,8 +25,14 @@ import { bespokeKey } from './observations.mjs';
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 export const candidatesOf = (entry) => (isObject(entry) && Array.isArray(entry.candidates) ? entry.candidates : []);
 const ledgerOf = (rec) => (isObject(rec) && isObject(rec.ledger) ? rec.ledger : {});
-// A record that is not an object is no record.
-const recordOf = (observations, key) => (isObject(observations[key]) ? observations[key] : undefined);
+// A record that is not an object is no record, and neither is one with no bare measurement: a
+// trial run recorded before any bare run carries a ledger and no `noisy` (observations.mjs leaves
+// the field absent rather than inventing one — final review I3). The tool's own noise level is
+// unknown, which is the unseen state, so it is observed — not "plain" because `!undefined` is true.
+const recordOf = (observations, key) => {
+  const rec = observations[key];
+  return isObject(rec) && rec.noisy !== undefined ? rec : undefined;
+};
 
 export function decide(command, { catalog, observations }) {
   const id = matchTool(command, catalog);

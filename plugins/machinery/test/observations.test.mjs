@@ -98,6 +98,20 @@ test('RED CHECK: a sufficient trial never overwrites the bare command noisy stat
   assert.equal(obs['git-commit'].stderrLines, 898, 'bare stderr count must survive a trial call');
 });
 
+// Final review I3: a trial run with no bare run before it used to write `noisy: false` — a stand-in
+// for "never measured" (rules/design-invariants.md § Absence and defaults) that parked the tool in
+// plain forever, since plain never re-observes. Absence is the signal: no bare measurement, no field.
+test('RED CHECK: a trial before any bare run never fabricates a noisy verdict — the field is absent', () => {
+  const obs = recordRun({}, 'pytest', { identity: 'catalog', lineCount: 3, stdoutLines: 3, stderrLines: 0, candidate: '-q', outcomeSurvived: true });
+  assert.equal(obs.pytest.ledger['-q'], 'sufficient', 'the trial itself is still recorded');
+  assert.ok(!('noisy' in obs.pytest), `noisy must be absent, got ${JSON.stringify(obs.pytest.noisy)}`);
+  assert.ok(!('lines' in obs.pytest) && !('stdoutLines' in obs.pytest) && !('stderrLines' in obs.pytest), 'no bare counts either');
+  // And once a bare run lands, the measurement is the bare run's, not the trial's.
+  const after = recordRun(obs, 'pytest', { identity: 'catalog', lineCount: 900, stdoutLines: 900, stderrLines: 0 });
+  assert.equal(after.pytest.noisy, true);
+  assert.equal(after.pytest.ledger['-q'], 'sufficient', 'the earlier trial verdict survives the bare run');
+});
+
 test('stdout/stderr counts are recorded separately for a bare run (spec: which stream carries the answer)', () => {
   let obs = {};
   obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'bespoke', lineCount: 1402, stdoutLines: 2, stderrLines: 1400 });

@@ -75,8 +75,23 @@ export function matchTool(command, catalog) {
   return null;
 }
 
+// The command's argv, as the shell would see it, near enough: whitespace-split, with a single- or
+// double-quoted span kept as one token and its quotes stripped. Good enough to tell an argument
+// from a flag, which is all the caller below needs; it is not a shell parser and does not try to be.
+function tokens(command) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  for (const m of command.matchAll(re)) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
+
 // The first candidate flag already present in the command, or null — the caller uses this to tell
-// "never tried" from "tried, and the output is still noisy".
+// "never tried" from "tried, and the output is still noisy". A candidate matches only as a whole
+// argv token, never as a substring of one (final review I3: `-q` was found inside
+// `tests/api-quota/` and `--quiet` inside a commit message, and a ledger verdict was written for a
+// flag that was never applied). A candidate that is itself a parameter SET — the spec's
+// `-q --no-fail-fast` — matches when every one of its tokens is present.
 export function matchedCandidate(command, candidates) {
-  return candidates.find((c) => command.includes(c)) ?? null;
+  const argv = new Set(tokens(command));
+  return candidates.find((c) => c.split(/\s+/).every((flag) => argv.has(flag))) ?? null;
 }

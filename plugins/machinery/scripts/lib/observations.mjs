@@ -44,8 +44,11 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
   const prev = obs[key] ?? { ledger: {} };
   const measured = candidate
     // A trial run measures whether THIS flag helps. It says nothing about the bare tool's own
-    // noise level, which carries forward exactly as it was.
-    ? { noisy: prev.noisy ?? false, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines }
+    // noise level, which carries forward exactly as it was — INCLUDING when there is none yet. A
+    // trial before any bare run leaves `noisy` absent (defined() drops it): absence is the signal
+    // that the bare tool was never measured, and decide() reads it as unseen. `?? false` here was
+    // a stand-in value that parked the tool in plain forever (final review I3).
+    ? { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines }
     // A bare run IS the tool's natural noise level.
     : { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines };
   const entry = { ...defined({ identity, ...measured }), ledger: { ...prev.ledger } };

@@ -92,6 +92,18 @@ test('a ledger that is not an object reads as no recorded attempts; candidates t
   assert.equal(decide('git commit -m x', { catalog, observations: numberRecord }).mode, 'observe', 'a record that is not an object is no record');
 });
 
+// Final review I3, the other half: a record with a ledger but no bare measurement is a tool whose
+// own noise level is unknown. It is unseen, so it is observed — not "plain" because `!undefined`.
+test('a record with no bare measurement is unseen: observe, on both the catalog and the bespoke path (final review I3)', () => {
+  const trialOnly = { 'git-commit': { identity: 'catalog', ledger: { '--quiet': 'sufficient' } } };
+  assert.equal(decide('git commit -m x', { catalog, observations: trialOnly }).mode, 'observe');
+  const bespokeNoMeasure = { 'bash scripts/battery.sh': { identity: 'bespoke', ledger: {} } };
+  assert.equal(decide('bash scripts/battery.sh', { catalog: {}, observations: bespokeNoMeasure }).mode, 'observe');
+  // The observer is alive: the same records WITH a measurement leave observe.
+  assert.equal(decide('git commit -m x', { catalog, observations: { 'git-commit': { ...trialOnly['git-commit'], noisy: true } } }).mode, 'suggest');
+  assert.equal(decide('bash scripts/battery.sh', { catalog: {}, observations: { 'bash scripts/battery.sh': { identity: 'bespoke', noisy: false, ledger: {} } } }).mode, 'plain');
+});
+
 test('RED CHECK: a tool with N candidates reaches wrap in at most N suggest states, never suggests twice', () => {
   const many = { t: { match: { type: 'prefix', value: 'toolx' }, outcome: 'x', candidates: ['-a', '-b', '-c'] } };
   let observations = { t: { identity: 'catalog', noisy: true, ledger: {} } };
