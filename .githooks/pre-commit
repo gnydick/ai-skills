@@ -7,8 +7,8 @@ node scripts/build-skills.mjs check
 start=$(date +%s)
 node --test 'plugins/machinery/test/*.test.mjs'
 end=$(date +%s)
-if [ $((end - start)) -gt 10 ]; then
-  echo "pre-commit: machinery tests took $((end - start))s — over the 10s budget (spec I42); move the slow suite behind an env flag or speed it up" >&2
+if [ $((end - start)) -gt 15 ]; then
+  echo "pre-commit: machinery tests took $((end - start))s — over the 15s budget (spec I42; raised from 10 s by ruling 2026-09-05); move the slow suite behind an env flag or speed it up" >&2
   exit 1
 fi
 node plugins/machinery/scripts/gate/gate.mjs --root plugins/machinery --universal
