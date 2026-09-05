@@ -35,11 +35,13 @@ export const MODES = Object.freeze(['read', 'piped', 'redirected', 'infra', 'noi
 // NEVER collapses into 'plain' below, because both mean "do not wrap" to classify()'s own
 // caller. They stop meaning the same thing the moment 'plain' also means "ask the assimilator":
 // an exempted command would then be observed, and an already-wrapped one wrapped again. The
-// exemption is exported rather than restated so there is one spelling of it (quiet.mjs).
+// exemption is exported rather than restated so there is one spelling of it (quiet.mjs), and
+// classify() below asks it rather than re-testing NEVER: two spellings over one regex diverge the
+// day the predicate grows a term the regex cannot carry, and nothing would report it.
 export const isNever = (command) => !command || NEVER.test(command);
 
 export function classify(command) {
-  if (!command || NEVER.test(command)) return 'plain';
+  if (isNever(command)) return 'plain';
   if (PIPED.test(command)) return 'piped';
   // quiet_hook.py:105 — a stderr-merge token cancels the redirect exemption entirely.
   if (command.includes('>') && FILE_REDIRECT.test(command) && !command.includes('2>&1')) return 'redirected';

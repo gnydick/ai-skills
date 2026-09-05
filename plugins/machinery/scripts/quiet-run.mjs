@@ -85,7 +85,10 @@ async function main() {
     fs.writeFileSync(logPath, `$ ${command}\n${body}${body ? '\n' : ''}`);
   } catch (e) { logDisplay = `(unavailable: ${e.message})`; }
   // The assimilator's inputs, resolved once and read by everything below. Nothing here may cost
-  // the wrapped command its output or its exit status, and two separate things can go wrong:
+  // the wrapped command its output or its exit status — that claim covers THREE sites, this one,
+  // the outcome-pattern read below it, and the decide() call in the suggest branch further down;
+  // a bare one among guarded siblings is how the claim goes quietly false. Two things can go wrong
+  // here:
   // projectRoot() throws outside a git checkout, and a catalog entry is external input — the
   // project half is machine-written and both halves are hand-editable — so a malformed `match` or
   // `outcome` pattern throws, and a `candidates` that is not a list throws too. Both degrade to
@@ -131,7 +134,18 @@ async function main() {
     // the user wrote (design, "The nudge register"). The no-flag branch is reachable whenever this
     // runner is invoked in suggest mode over a tool decide() has nothing to offer for, and saying
     // so is better than printing `try: ` with nothing after it.
-    const suggestion = decide(command, { catalog, observations }).suggestFlags;
+    //
+    // The THIRD thing that reads external input, and it fails open like the other two. The
+    // observation record is hand-editable and observations.mjs promises a hand-edited one is data
+    // rather than a broken invariant — a promise that only holds if every reader agrees. A `ledger`
+    // that is a string, not an object, reaches assimilate.mjs's `!(c in ledger)` and throws; left
+    // bare, that took the wrapped command's output and turned its exit 7 into a 1.
+    let suggestion;
+    try { suggestion = decide(command, { catalog, observations }).suggestFlags; }
+    catch (e) {
+      process.stderr.write(`quiet-run: unusable observation record (${e.message}); no candidate can be suggested\n`);
+      suggestion = undefined;
+    }
     out += suggestion
       ? `[quiet:suggest] ${key} is noisy here — try adding: ${suggestion}\n`
       : `[quiet:suggest] ${key} is noisy here, and no untried quiet flag is declared for it\n`;
