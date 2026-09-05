@@ -21,7 +21,9 @@ export function normalise(raw) {
   return out;
 }
 
-export function select(lines) {
+// `outcomePattern` is optional: when given, a line matching it is kept unconditionally,
+// on the same footing as SUMMARY/PROOF_LINE. Omitted, select() behaves exactly as before.
+export function select(lines, outcomePattern) {
   const n = lines.length, keep = new Set();
   let i = 0;
   while (i < n) {
@@ -32,7 +34,7 @@ export function select(lines) {
       i = Math.max(j, i + 1);
       continue;
     }
-    if (SUMMARY.test(line) || PROOF_LINE.test(line)) keep.add(i);
+    if (SUMMARY.test(line) || PROOF_LINE.test(line) || (outcomePattern && outcomePattern.test(line))) keep.add(i);
     else if (KEYWORD.test(line) && !CHATTER.test(line)) for (let k = i; k < Math.min(n, i + 1 + CONTEXT_AFTER); k++) keep.add(k);
     i++;
   }

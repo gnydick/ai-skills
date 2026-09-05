@@ -85,3 +85,52 @@ test('constants match the story', () => { assert.equal(PASS_THROUGH_LINES, 40); 
 test('RED CHECK: select does not keep everything', () => {
   assert.ok(select(Array.from({ length: 100 }, (_, i) => `   Compiling c${i}`)).size < 100);
 });
+
+// select(lines, outcomePattern) — the optional declared-outcome pattern.
+// Every line of this corpus is placed to exercise one branch; TAIL_LINES is 8, so
+// the tail window is 10..17 and indices 0..9 are kept only by a rule that names them.
+const outcomeCorpus = () => [
+  '   Compiling a v0.1.0',               //  0 chatter, outside the tail
+  'plain narrative line',                //  1 matched by nothing built in, outside the tail
+  'error[E0599]: no method named `foo`', //  2 BLOCK_START, block runs to the blank
+  '  --> src/x.rs:1:1',                  //  3
+  '',                                    //  4 blank ends the block
+  '   Compiling b v0.1.0',               //  5 chatter, outside the tail
+  'HEARTBEAT build 42s 3/9',             //  6 PROOF_LINE
+  'zz_gate --check: 7 of 7 ok',          //  7 PROOF_LINE
+  'something cannot be resolved',        //  8 KEYWORD, carries CONTEXT_AFTER
+  'context one',                         //  9
+  'context two',                         // 10
+  '   Compiling c v0.1.0',               // 11 chatter in the tail: dropped
+  'a totally unremarkable line',          // 12 non-chatter in the tail: kept
+  '   Downloading d',                    // 13 chatter in the tail: dropped
+  'test result: ok. 3 passed; 0 failed', // 14 SUMMARY
+  '   Compiling e v0.1.0',               // 15 chatter in the tail: dropped
+  'plain tail line',                     // 16 non-chatter in the tail: kept
+  '   Compiling f v0.1.0',               // 17 last line: always kept
+];
+// Derived by hand from the five regexes and the tail rule, not read back off a run.
+const OUTCOME_CORPUS_BASELINE = [2, 3, 6, 7, 8, 9, 10, 12, 14, 16, 17];
+const sorted = (keep) => [...keep].sort((a, b) => a - b);
+// The baseline plus one declared outcome line, in index order.
+const baselinePlus = (i) => [...OUTCOME_CORPUS_BASELINE, i].sort((a, b) => a - b);
+
+test('a declared outcome pattern survives where nothing built in would keep it', () => {
+  const k = select(outcomeCorpus(), /^plain narrative/);
+  assert.ok(k.has(1), 'the outcome line must be kept');
+  assert.deepEqual(sorted(k), baselinePlus(1), 'and it must add that line only');
+});
+
+test('a declared outcome pattern outranks CHATTER, like SUMMARY and PROOF_LINE do', () => {
+  const k = select(outcomeCorpus(), /^\s*Compiling b\b/);
+  assert.ok(k.has(5), 'a chatter line the caller declared an outcome is kept');
+  assert.deepEqual(sorted(k), baselinePlus(5), 'and it must add that line only');
+});
+
+test('omitting the outcome pattern leaves select() behaviour unchanged (regression)', () => {
+  assert.deepEqual(sorted(select(outcomeCorpus())), OUTCOME_CORPUS_BASELINE);
+});
+
+test('passing the outcome pattern as undefined is the same as omitting it (regression)', () => {
+  assert.deepEqual(sorted(select(outcomeCorpus(), undefined)), OUTCOME_CORPUS_BASELINE);
+});
