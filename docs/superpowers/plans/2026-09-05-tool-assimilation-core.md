@@ -599,7 +599,9 @@ git commit -m "machinery: universal tool catalog (git commit, npm install, pytes
 - Produces:
   - `export function loadObservations(root)` / `export function saveObservations(root, obs)` at `<root>/.claude/machinery/observations.json`.
   - `export function bespokeKey(command)` → the leading non-flag tokens, e.g. `bash scripts/battery.sh --quick` → `"bash scripts/battery.sh"`.
-  - `export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLines, candidate })` → returns the updated `obs` (does not write to disk; the caller saves).
+  - `export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLines, candidate, outcomeSurvived = true })` → returns the updated `obs` (does not write to disk; the caller saves).
+
+**Ruling (mid-execution, recorded 2026-09-05 during Task 4's review — this section did not exist when Task 4 was dispatched):** a candidate is `sufficient` only if it *both* drops the line count *and* leaves the tool's declared outcome line intact. Measured during Task 4: `git commit --quiet` and `npm install --silent` print **nothing at all** — under line-count-only sufficiency, either would be marked `sufficient` and suggested forever, leaving the user with zero confirmation the command ran. `outcomeSurvived` defaults to `true` so a bespoke tool (no outcome pattern exists to lose) is judged on line count alone, exactly as before this ruling — this is additive, not a breaking change to the bespoke path.
 
 **The field that must never be conflated:** `noisy`/`lines`/`stdoutLines`/`stderrLines` describe the tool's *bare* invocation — how it behaves with nothing added. A run made *with* a candidate flag applied is a trial measuring that flag, not a re-measurement of the bare tool, and must update only `ledger[candidate]`, never the bare fields. Getting this backwards means proving a flag works erases the fact that the *bare* command was ever noisy — the next bare invocation would read `noisy: false` and stop suggesting the very flag that made it quiet. Bare-run fields carry forward unchanged across trial calls; trial-run calls carry the bare fields forward unchanged.
 
@@ -640,6 +642,30 @@ test('RED CHECK: two differently-flagged invocations of the same tool never frag
   obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'bespoke', lineCount: 2000 });
   assert.equal(Object.keys(obs).length, 1); // one key, last write wins on the shared fields
   assert.equal(obs['bash scripts/battery.sh'].noisy, true);
+});
+
+test('RED CHECK: a candidate that deletes the tool\'s own outcome line is never marked sufficient', () => {
+  // Measured on real tools during Task 4: `git commit --quiet` and `npm install --silent`
+  // print NOTHING — under line-count alone this would be marked sufficient and suggested
+  // forever, leaving the user with zero confirmation the command ran.
+  let obs = {};
+  obs = recordRun(obs, 'git-commit', { identity: 'catalog', lineCount: 900 }); // bare: noisy
+  obs = recordRun(obs, 'git-commit', { identity: 'catalog', lineCount: 0, candidate: '--quiet', outcomeSurvived: false });
+  assert.equal(obs['git-commit'].ledger['--quiet'], 'insufficient', 'low line count alone must not be enough — the outcome line is gone');
+});
+
+test('a candidate that drops the line count AND keeps the outcome line is sufficient', () => {
+  let obs = {};
+  obs = recordRun(obs, 'pytest', { identity: 'catalog', lineCount: 900 });
+  obs = recordRun(obs, 'pytest', { identity: 'catalog', lineCount: 3, candidate: '-q', outcomeSurvived: true });
+  assert.equal(obs['pytest'].ledger['-q'], 'sufficient');
+});
+
+test('a bespoke tool (no outcome pattern exists) is judged on line count alone', () => {
+  let obs = {};
+  obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'bespoke', lineCount: 2000 });
+  obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'bespoke', lineCount: 3 }); // no candidate concept for bespoke; this path is unaffected
+  assert.equal(obs['bash scripts/battery.sh'].noisy, false);
 });
 
 test('RED CHECK: a sufficient trial never overwrites the bare command noisy state', () => {
@@ -695,7 +721,7 @@ export function bespokeKey(command) {
   return command.trim().split(/\s+/).filter((tok) => !tok.startsWith('-')).join(' ');
 }
 
-export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLines, candidate }) {
+export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLines, candidate, outcomeSurvived = true }) {
   const prev = obs[key] ?? { ledger: {} };
   const entry = { identity, ledger: { ...prev.ledger } };
   if (candidate) {
@@ -705,7 +731,10 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
     entry.lines = prev.lines;
     entry.stdoutLines = prev.stdoutLines;
     entry.stderrLines = prev.stderrLines;
-    entry.ledger[candidate] = (lineCount > PASS_THROUGH_LINES) ? 'insufficient' : 'sufficient';
+    // Sufficient means BOTH quiet enough AND the tool still said something. A flag that
+    // drops the line count by deleting the tool's own answer is not a fix, it's a worse
+    // failure mode — see the ruling above this function's Interfaces entry.
+    entry.ledger[candidate] = (lineCount <= PASS_THROUGH_LINES && outcomeSurvived) ? 'sufficient' : 'insufficient';
   } else {
     // A bare run IS the tool's natural noise level.
     entry.noisy = lineCount > PASS_THROUGH_LINES;
@@ -720,7 +749,7 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --test plugins/machinery/test/observations.test.mjs`
-Expected: 6 pass.
+Expected: 9 pass.
 
 - [ ] **Step 5: Commit**
 
@@ -982,7 +1011,34 @@ test('suggest mode prints the recommendation after verbatim output', { skip: !ba
   const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'bash', '--mode', 'suggest', '-c', 'echo real-output'] });
   assert.match(r.stdout, /^real-output\n\[quiet:suggest\]/);
 });
+
+test('RED CHECK: a real git-commit --quiet trial is recorded insufficient — it drops the outcome line entirely', { skip: !bash }, () => {
+  // Real repo, real git, real --quiet — not a simulated line count. This is the exact
+  // measured case from Task 4's report: `git commit --quiet` prints NOTHING, so a
+  // line-count-only sufficiency check would wrongly call it sufficient forever.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'quiet-run-outcome-'));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=T', 'commit', '--allow-empty', '-q', '-m', 'seed'], { cwd: root });
+  fs.writeFileSync(path.join(root, 'a.txt'), 'x');
+  execFileSync('git', ['add', 'a.txt'], { cwd: root });
+  // First, mark the tool noisy with a bare (non-quiet) commit, so decide()'s own
+  // downstream logic would treat a later --quiet trial as a real trial, not a first sighting.
+  runScript('scripts/quiet-run.mjs', {
+    cwd: root, env: { CLAUDE_PROJECT_ROOT: root },
+    args: ['--shell', 'bash', '--mode', 'observe', '-c', `git -c user.email=t@t -c user.name=T commit -m bare`],
+  });
+  fs.writeFileSync(path.join(root, 'b.txt'), 'y');
+  execFileSync('git', ['add', 'b.txt'], { cwd: root });
+  runScript('scripts/quiet-run.mjs', {
+    cwd: root, env: { CLAUDE_PROJECT_ROOT: root },
+    args: ['--shell', 'bash', '--mode', 'observe', '-c', `git -c user.email=t@t -c user.name=T commit --quiet -m quiet`],
+  });
+  const obs = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'machinery', 'observations.json'), 'utf8'));
+  assert.equal(obs['git-commit'].ledger['--quiet'], 'insufficient', 'a flag that deletes the outcome line must never be marked sufficient');
+});
 ```
+
+Add `import { execFileSync } from 'node:child_process';` to this test file's imports if not already present.
 
 - [ ] **Step 6: Run to verify they fail**
 
@@ -1018,10 +1074,14 @@ Expected: FAIL — no recording exists yet, no suggestion line is printed.
   try {
     const stdoutLines = records.filter((r) => r.stream === 'stdout').length;
     const stderrLines = records.filter((r) => r.stream === 'stderr').length;
+    // Only meaningful for a trial run (candidate set): did the tool's own declared answer
+    // survive taking the flag? Defaults true — a bare run or a bespoke tool (no outcome
+    // pattern exists) is judged on line count alone, per Task 5's ruling.
+    const outcomeSurvived = candidate && outcomePattern ? lines.some((l) => outcomePattern.test(l)) : true;
     let observations = loadObservations(root);
     observations = recordRun(observations, key, {
       identity: toolId ? 'catalog' : 'bespoke',
-      lineCount: lines.length, stdoutLines, stderrLines, candidate,
+      lineCount: lines.length, stdoutLines, stderrLines, candidate, outcomeSurvived,
     });
     saveObservations(root, observations);
   } catch { /* recording is best-effort; never fail the wrapped command over it */ }
@@ -1034,6 +1094,8 @@ import { loadCatalog, matchTool, matchedCandidate } from './lib/catalog.mjs';
 import { loadObservations, saveObservations, recordRun, bespokeKey } from './lib/observations.mjs';
 ```
 
+**Carried forward from Task 3's review** (a `/g`/`/y` `RegExp` passed to `select()` silently drops alternating matches via `lastIndex` statefulness): the `outcomePattern` constructed above, `new RegExp(catalog[toolId].outcome)`, must never carry a global or sticky flag. Task 4's catalog stores `outcome` as a plain pattern string with no flag information, so `new RegExp(catalog[toolId].outcome)` is always non-global by construction — this is what makes the interface a string rather than a pre-built `RegExp` (Task 4's own text notes this). No guard code is needed here as a result; if a future catalog format ever allows specifying flags, that change must re-open this note.
+
 `suggestFlags` from `decide()` is not consulted here — `quiet-run.mjs` independently recomputes `candidate` via `matchedCandidate`, which is the same deterministic function `decide()` already called, so the two are guaranteed to agree without passing state across the process boundary.
 
 - [ ] **Step 8: Fix and run the Step 5 test's wrong assumption, then verify all pass**
@@ -1041,7 +1103,7 @@ import { loadObservations, saveObservations, recordRun, bespokeKey } from './lib
 Rewrite the first Step 5 test's assertion to check the bespoke key `node` (the fixture command's own leading token), then:
 
 Run: `node --test plugins/machinery/test/quiet-run.test.mjs`
-Expected: all pass (10 from Task 2 + 2 new = 12).
+Expected: all pass (11 from Tasks 2-3 + 3 new = 14).
 
 - [ ] **Step 9: Run the whole suite**
 
