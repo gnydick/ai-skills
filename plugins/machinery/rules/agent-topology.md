@@ -185,3 +185,9 @@ definition obeys. Loaded at session start.
   protects.
 
 <!-- rows: 4.1–4.25, 12.1–12.11, 12.22, 12.28, 12.34, 12.46–12.47 -->
+
+## Handing a ruling to a dispatched agent
+
+- A decision the owner has already made reaches a dispatched agent verbatim — the ruling's own words, or the document carrying them — never your paraphrase of it. A restatement carries none of the ruling's authority, so an agent that meets friction weighs your summary against the code in front of it, and the code wins.
+- A dispatch never licenses deviation from a ruling. Telling an agent that departures are fine, or calling the decision a sketch, a plan or a proposal, converts it into one. State instead which outcomes are not available, and name the arguments already considered and rejected, so the agent cannot rediscover them and present them as new.
+- An agent reporting that it departed from a ruling goes back to the owner; whoever dispatched it never accepts the departure as engineering judgement on the owner's behalf. Each acceptance becomes precedent inside the effort, so the next departure arrives looking better justified than the last, and the ruling is gone before anyone notices it was contradicted.

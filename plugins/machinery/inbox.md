@@ -28,3 +28,9 @@ URULE: The just-filed § Which model rule pins design, adjudication and verdicts
 (Written by hand: ruled in conversation on 2026-09-04 — Gabe, closing a gap he noticed in the rule filed minutes earlier — without the URULE: marker, so the capture hook did not fire.)
 
 disposition: filed → rules/agent-topology.md § Which model
+
+## FILED 2026-09-05T04:16:22Z URULE 130ad271-0bca-4f17-9037-309f86afb0e8
+
+urule: Add your rules you just suggested
+
+disposition: filed → rules/agent-topology.md § Handing a ruling to a dispatched agent
