@@ -55,7 +55,10 @@ const readCases = [
   // than 'noisy' because NOISY's LEAD never saw through the `env` word — measured before C1, and
   // out of this wave's scope; what C1 owes is only that it is NOT 'read'.
   ['env FOO=1 cargo build', 'plain'], ['catalog-tool --run', 'plain'], ['git worktree add x', 'infra'],
-  ['git diff > out.txt', 'redirected'], ['cat x | grep y', 'piped'], ['echo "a && b"', 'plain'],
+  ['git diff > out.txt', 'redirected'], ['cat x | grep y', 'piped'],
+  // Was pinned 'plain' here until issue #11: the splitter was not quote-aware, so this split inside
+  // the quotes into `echo "a` and `b"`, neither a byte-mover. The quoted `&&` is data; see below.
+  ['echo "a && b"', 'read'],
 ];
 for (const [cmd, want] of readCases) test(`C1: classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
 
@@ -86,6 +89,30 @@ const ampersandCases = [
   ['cat a 2>&1', 'read'], ['cargo build 2>&1 > build.log', 'noisy'],
 ];
 for (const [cmd, want] of ampersandCases) test(`R2: classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
+
+// Issue #11 (owner, 2026-09-05: "teach the splitter quotes"), measured: the splitter ignored quotes,
+// so `echo "a && b"` split inside them, the byte-mover exemption (C1) failed, and the command was
+// 'plain' — one unfiltered observe run and an observation record for an echo. A separator inside a
+// single- or double-quoted span is data, and the span rule is the one catalog.mjs's tokens() reads
+// (scripts/lib/quotes.mjs), so the two can no longer disagree.
+const quotedCases = [
+  ['echo "a && b"', 'read'], ["echo 'x; y'", 'read'], ["echo 'a & b'", 'read'], ['printf "%s\\n" "one || two"', 'read'],
+  ['echo "line1\nline2"', 'read'], ['cat "a b" & ls', 'read'], [`echo "it's" && ls`, 'read'], [`echo 'say "hi"; bye' ; ls`, 'read'],
+  // A quoted separator hides nothing: the work-doer outside the quotes is still seen.
+  ['echo "a; b" && cargo build', 'noisy'], ['cargo build && echo "done && dusted"', 'noisy'], ['cargo build "x && y"', 'noisy'],
+  ['cat a && cargo build', 'noisy'],
+];
+for (const [cmd, want] of quotedCases) test(`#11: classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
+test('#11: an unterminated quote runs to the end of the command as data — never a throw', () => {
+  for (const c of ['echo "a && b', "cat 'x; cargo build", 'cargo build "', 'echo "', '"', "'"]) assert.doesNotThrow(() => classify(c), c);
+  assert.equal(classify('echo "a && b'), 'read');
+  assert.equal(classify("cat 'x; cargo build"), 'read', 'the work-doer is inside the open span, so it is data');
+  assert.equal(classify('cargo build "'), 'noisy');
+});
+test('RED CHECK: the quote is load-bearing — the same `&&` outside a span still splits', () => {
+  assert.equal(classify('echo "a && b"'), 'read');
+  assert.notEqual(classify('echo "a" && cargo build'), 'read');
+});
 
 // Ruling I1 (owner, 2026-09-05): "When a command has a verified catalog entry, that entry is the
 // authority and classify() reports `plain` for it (which is the bucket that hands off to the

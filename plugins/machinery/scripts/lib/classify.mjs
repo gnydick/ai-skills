@@ -7,6 +7,7 @@
 // the regex chain after it is the fallback for tools nobody has characterised. Read runs before
 // the catalog on purpose: a byte-mover is exempt even if someone catalogs it.
 import { matchTool } from './catalog.mjs';
+import { splitOutside } from './quotes.mjs';
 
 const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)*`;
 // The token ends here: `cat` is a byte-mover, `catalog-tool` is not, and `\b` alone would admit
@@ -31,9 +32,13 @@ const READ = new RegExp(LEAD + String.raw`(?:` +
 // A single `&` is a boundary too, as LEAD already says it is (re-review R2: `cargo build & cat x`
 // was one segment, and its LEAD-anchored `cat` made the backgrounded build a read) — but not the
 // `&` of `&&`, and not the one inside a redirect (`2>&1`, `>&2`), which would leave a `1` segment.
+// A separator inside a quoted span is data, not a boundary (issue #11: `echo "a && b"` split into
+// `echo "a` and `b"`, neither a byte-mover, and an echo was observed unfiltered). What a span IS is
+// not decided here: splitOutside() reads the one definition in quotes.mjs, the same one
+// catalog.mjs's tokens() reads, so an unterminated quote runs to the end for both of them.
 const SEGMENT = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
 const isRead = (command) => {
-  const segments = command.split(SEGMENT).filter((s) => s.trim() !== '');
+  const segments = splitOutside(command, SEGMENT).filter((s) => s.trim() !== '');
   return segments.length > 0 && segments.every((s) => READ.test(s));
 };
 

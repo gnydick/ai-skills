@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
 import { loadCatalog, loadCatalogReport, matchTool, matchedCandidate } from '../scripts/lib/catalog.mjs';
+import { classify } from '../scripts/lib/classify.mjs';
 import { select } from '../scripts/lib/filter.mjs';
 import { bury, survivalProblems } from '../scripts/lib/survival.mjs';
 
@@ -92,6 +93,18 @@ test('RED CHECK: the quote-scanner scan matches the loop catalog.mjs used to car
   assert.match(`if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }`, QUOTE_LITERAL);
   assert.match(`const q = "'";`, QUOTE_LITERAL);
   assert.doesNotMatch(`const s = 'no quotes here';`, QUOTE_LITERAL);
+});
+// The behavioural half of the same claim: the tokeniser and the segment splitter see the same span,
+// so one pair of quotes flips both answers, and an unterminated span runs to the end for both.
+test('the tokeniser and the splitter read the same quoted span — one quote flips both (issue #11)', () => {
+  const quoted = 'cat a -m"x && cargo build" && ls', bare = 'cat a -mx && cargo build && ls';
+  assert.equal(classify(quoted), 'read', 'the && inside the span is data to the splitter');
+  assert.equal(matchedCandidate(quoted, ['cargo']), null, 'and cargo inside the span is not a token to the tokeniser');
+  assert.equal(classify(bare), 'noisy');
+  assert.equal(matchedCandidate(bare, ['cargo']), 'cargo');
+  const open = 'cat a -m"x && cargo build && ls';
+  assert.equal(classify(open), 'read', 'unterminated: the splitter sees one segment');
+  assert.equal(matchedCandidate(open, ['ls']), null, 'unterminated: the tokeniser sees one token');
 });
 
 test('project catalog entries override a universal id of the same name', () => {
