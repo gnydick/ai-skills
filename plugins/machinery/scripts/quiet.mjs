@@ -57,5 +57,8 @@ function main() {
   updatedInput({ ...input, command: wrapped, description: `${input.description ?? ''} [quiet:${mode}]`.trim() });
 }
 
-try { main(); } catch { /* fail open: the command runs unfiltered */ }
+// Fail OPEN — the command runs unfiltered — but never silent (final review I2): a swallowed error
+// here used to look exactly like a command that needed no wrapping, and one malformed catalog
+// entry switched assimilation off for a whole project without a word. One line, naming the cause.
+try { main(); } catch (e) { process.stderr.write(`quiet: hook failed (${e?.message ?? String(e)}); the command runs unfiltered\n`); }
 process.exitCode = 0;

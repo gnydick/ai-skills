@@ -19,15 +19,20 @@ import { bespokeKey } from './observations.mjs';
 // through the training loop lands in the project catalog with an `outcome` and no candidates,
 // because it has no documented quiet flags to declare; and observations.mjs promises that "a
 // missing, truncated or hand-edited record is data, not a broken invariant", which only holds if
-// the reader of that record agrees.
-const candidatesOf = (entry) => entry.candidates ?? [];
-const ledgerOf = (rec) => rec.ledger ?? {};
+// the reader of that record agrees. "Agrees" means the SHAPE too, not just presence (final review
+// I2): a ledger that is a string reached `c in ledger` and threw, and the hook swallowed that.
+// Anything that is not the collection it should be is the empty collection.
+const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+export const candidatesOf = (entry) => (isObject(entry) && Array.isArray(entry.candidates) ? entry.candidates : []);
+const ledgerOf = (rec) => (isObject(rec) && isObject(rec.ledger) ? rec.ledger : {});
+// A record that is not an object is no record.
+const recordOf = (observations, key) => (isObject(observations[key]) ? observations[key] : undefined);
 
 export function decide(command, { catalog, observations }) {
   const id = matchTool(command, catalog);
   if (id) {
     const entry = catalog[id];
-    const rec = observations[id];
+    const rec = recordOf(observations, id);
     if (!rec) return { mode: 'observe', id, identity: 'catalog' };
     if (!rec.noisy) return { mode: 'plain', id, identity: 'catalog' };
     const candidates = candidatesOf(entry);
@@ -52,7 +57,7 @@ export function decide(command, { catalog, observations }) {
   // Bespoke: no entry, so nothing to look up and nothing to suggest. Straight to wrap on the first
   // noisy observation - the ledger is skipped entirely rather than consulted and found empty.
   const key = bespokeKey(command);
-  const rec = observations[key];
+  const rec = recordOf(observations, key);
   if (!rec) return { mode: 'observe', id: key, identity: 'bespoke' };
   if (!rec.noisy) return { mode: 'plain', id: key, identity: 'bespoke' };
   return { mode: 'noisy', id: key, identity: 'bespoke' };

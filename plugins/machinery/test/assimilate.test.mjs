@@ -77,6 +77,21 @@ test('a hand-edited observation record with no ledger is data: every candidate r
   assert.equal(d.suggestFlags, '--quiet');
 });
 
+// Final review I2: the record and the catalog are both hand-editable, and `ledgerOf`/`candidatesOf`
+// guarded only nullish — a string ledger reached `c in ledger` and threw, out of the hook, which
+// swallowed it. Anything that is not the collection it should be IS the empty collection.
+test('a ledger that is not an object reads as no recorded attempts; candidates that are not a list read as none (final review I2)', () => {
+  const observations = { 'git-commit': { identity: 'catalog', noisy: true, ledger: 'hand-edited' } };
+  const d = decide('git commit -m x', { catalog, observations });
+  assert.equal(d.mode, 'suggest');
+  assert.equal(d.suggestFlags, '--quiet');
+  const stringCandidates = { 'git-commit': { ...catalog['git-commit'], candidates: '--quiet' } };
+  const clean = { 'git-commit': { identity: 'catalog', noisy: true, ledger: {} } };
+  assert.equal(decide('git commit -m x', { catalog: stringCandidates, observations: clean }).mode, 'noisy', 'no list, nothing to suggest: straight to wrap');
+  const numberRecord = { 'git-commit': 7 };
+  assert.equal(decide('git commit -m x', { catalog, observations: numberRecord }).mode, 'observe', 'a record that is not an object is no record');
+});
+
 test('RED CHECK: a tool with N candidates reaches wrap in at most N suggest states, never suggests twice', () => {
   const many = { t: { match: { type: 'prefix', value: 'toolx' }, outcome: 'x', candidates: ['-a', '-b', '-c'] } };
   let observations = { t: { identity: 'catalog', noisy: true, ledger: {} } };

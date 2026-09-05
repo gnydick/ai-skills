@@ -255,16 +255,18 @@ test('RED CHECK: an unusable catalog entry warns and degrades, it does not eat t
 test('RED CHECK: a corrupt observation record cannot cost a suggest run its output or its exit code', { skip: !bash }, () => {
   // observations.mjs promises in its own header that "a missing, truncated or hand-edited record is
   // data, not a broken invariant" — which only holds if every reader of that record agrees. A
-  // hand-edited `ledger` that is a string rather than an object reaches assimilate.mjs's
-  // `!(c in ledger)` and throws `Cannot use 'in' operator`. This was the one resolution site in
-  // this file with no fail-open around it, and the measured cost was total: the wrapped command's
-  // real output vanished and its exit 7 came back as 1.
+  // hand-edited `ledger` that is a string rather than an object reached assimilate.mjs's
+  // `!(c in ledger)` and threw `Cannot use 'in' operator`; the measured cost was total: the wrapped
+  // command's real output vanished and its exit 7 came back as 1. The runner's fail-open caught
+  // that; the final review (I2) then hardened the reader itself, so a string ledger now reads as
+  // "no recorded attempts" and the run suggests the untried flag rather than warning. The try/catch
+  // in the runner stays as the backstop for whatever else a hand edit can do.
   const root = repo('quiet-run-badrecord-');
   seed(root, 'tool-catalog.json', { runner: { match: { type: 'prefix', value: 'node ' }, outcome: '^real-output$', candidates: ['--quiet'] } });
   seed(root, 'observations.json', { runner: { identity: 'catalog', noisy: true, lines: 900, ledger: 'hand-edited-garbage' } });
   const cmd = `node -e "console.log('real-output');process.exit(7)"`;
   const r = runScript('scripts/quiet-run.mjs', { cwd: root, args: ['--shell', 'bash', '--mode', 'suggest', '-c', cmd] });
   assert.equal(r.code, 7, 'the command’s own exit status survives an unreadable record');
-  assert.match(r.stdout, /^real-output\n\[quiet:suggest\]/, 'the output survives, and the run still says what mode it was in');
-  assert.match(r.stderr, /quiet-run: unusable observation record/);
+  assert.match(r.stdout, /^real-output\n\[quiet:suggest\] runner .*--quiet\n$/, 'the output survives, and the untried flag is suggested: the string ledger read as empty');
+  assert.doesNotMatch(r.stderr, /unusable observation record/, 'hardened at the source: nothing threw, so nothing was caught');
 });

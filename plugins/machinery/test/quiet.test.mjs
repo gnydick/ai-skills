@@ -64,9 +64,12 @@ test('fails OPEN: garbage stdin → no output, exit 0 (spec I17)', () => {
   assert.equal(r.stdout, ''); assert.equal(r.code, 0);
 });
 
-test('fails OPEN: unwritable temp dir → no output, exit 0 (spec I17)', () => {
+test('fails OPEN: unwritable temp dir → no output, exit 0 (spec I17) — and says what it swallowed (final review I2)', () => {
   const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo test'), env: { CLAUDE_JOB_DIR: 'Z:\\nonexistent\\dir\\for\\quiet' } });
   assert.equal(r.stdout, ''); assert.equal(r.code, 0);
+  // Fail open is the posture; fail SILENT was the defect. One line, naming the error, on stderr.
+  assert.match(r.stderr, /^quiet: .*unfiltered/);
+  assert.equal(r.stderr.trim().split('\n').length, 1);
 });
 
 test('RED CHECK: the rewrite is not the identity', () => {
@@ -150,6 +153,31 @@ test('an off-the-shelf tool recorded noisy with an untried candidate is wrapped 
   const root = project({ testq: { identity: 'catalog', noisy: true, lines: 900, ledger: {} } }, TESTQ);
   const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'scripts/testq.sh --workspace') });
   assert.match(out(r.stdout).updatedInput.command, /--mode suggest/);
+});
+
+// Final review I2, both measured reproductions. A project catalog entry with no `match`, and a
+// record whose `ledger` is a string, each took the hook down: empty stdout, empty stderr, exit 0 —
+// not observed, not warned, and every command in the project lost assimilation until someone
+// noticed. Hardened at the source: the entry is dropped and NAMED, the ledger reads as empty.
+test('a malformed project catalog entry disables only itself, and is named on stderr (final review I2)', () => {
+  const root = project(null, { testq: { outcome: '^MERGE GATE', candidates: ['--quiet'] } });
+  const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'bash scripts/battery.sh') });
+  assert.match(out(r.stdout).updatedInput.command, /--mode observe/, 'the command is still observed');
+  assert.match(r.stderr, /testq/);
+  assert.equal(r.stderr.trim().split('\n').length, 1, 'exactly one line');
+});
+
+test('a hand-edited ledger that is not an object is data: the tool is still suggested to', () => {
+  const root = project({ testq: { identity: 'catalog', noisy: true, lines: 900, ledger: 'hand-edited' } }, TESTQ);
+  const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'scripts/testq.sh --workspace') });
+  assert.match(out(r.stdout).updatedInput.command, /--mode suggest/);
+});
+
+test('RED CHECK: a clean run prints nothing on stderr — the warning line is not always there', () => {
+  const root = project(null, TESTQ);
+  const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'scripts/testq.sh --workspace') });
+  assert.match(out(r.stdout).updatedInput.command, /--mode observe/);
+  assert.equal(r.stderr, '');
 });
 
 test('RED CHECK: the NEVER exemption survives plain no longer meaning untouched', () => {

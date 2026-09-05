@@ -12,7 +12,7 @@ import { captureRun } from './lib/capture.mjs';
 import { projectRoot } from './lib/root.mjs';
 import { loadCatalog, matchTool, matchedCandidate } from './lib/catalog.mjs';
 import { loadObservations, saveObservations, recordRun, bespokeKey } from './lib/observations.mjs';
-import { decide } from './lib/assimilate.mjs';
+import { decide, candidatesOf } from './lib/assimilate.mjs';
 
 const SHELLS = Object.freeze({
   bash: (cmd) => {
@@ -110,7 +110,8 @@ async function main() {
     // a trial of — already present in the command — which is the only thing the ledger can record
     // a verdict about. The flag to RECOMMEND is by definition not in the command, so
     // matchedCandidate() can never name it; decide() owns that choice and is re-asked below.
-    if (toolId) candidate = matchedCandidate(command, catalog[toolId].candidates ?? []);
+    // candidatesOf() is decide()'s own reading of the list — one coercion, not two that drift.
+    if (toolId) candidate = matchedCandidate(command, candidatesOf(catalog[toolId]));
   } catch (e) {
     process.stderr.write(`quiet-run: unusable tool catalog (${e.message}); falling back to the generic filter\n`);
     catalog = {}; toolId = null; outcomePattern = undefined; candidate = null;

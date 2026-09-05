@@ -10,16 +10,59 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pluginRoot } from './config.mjs';
 
-function readJson(file, fallback) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
+const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// A file that is missing, unparsable, or not a JSON object at the top is external input, not a
+// broken invariant: it reads as an empty table.
+function readTable(file) {
+  try { const v = JSON.parse(fs.readFileSync(file, 'utf8')); return isObject(v) ? v : {}; } catch { return {}; }
+}
+
+// Why an entry cannot be used, or null. `match` is the one field every reader dereferences —
+// matchTool() destructures it — so it is checked HERE, once, at the source (final review I2): a
+// project entry with no `match` used to throw out of the hook, which swallowed it, and every command
+// in that project silently lost assimilation. `outcome` is deliberately not checked here: the
+// runner compiles it at its own site and warns there, because a bad answer pattern still leaves a
+// matchable tool, whereas a bad `match` leaves nothing.
+function entryProblem(entry) {
+  if (!isObject(entry)) return 'the entry is not a JSON object';
+  const m = entry.match;
+  if (!isObject(m)) return '"match" is missing or not an object';
+  if (m.type !== 'prefix' && m.type !== 'regex') return `"match.type" is '${String(m.type)}', expected "prefix" or "regex"`;
+  if (typeof m.value !== 'string' || m.value === '') return '"match.value" is missing or not a non-empty string';
+  if (m.type === 'regex') { try { new RegExp(m.value); } catch (e) { return `"match.value" is not a valid regex: ${e.message}`; } }
+  return null;
 }
 
 // The universal table, with the project's own entries laid over it. A project wins on an id
 // collision by design: the local record is the one that has actually watched the tool run here.
+// A malformed entry is dropped and the rest kept — one bad line in a hand-edited overlay must not
+// switch the whole catalog off — and the drops come back AS PART OF THE RESULT, never as a side
+// channel a caller can lose (rules/design-invariants.md § What a diagnostic and a measurement may
+// claim). A malformed project override leaves the universal entry it failed to replace in place.
+export function loadCatalogReport(root) {
+  const sources = [
+    ['universal', path.join(pluginRoot(), 'data', 'tool-catalog.json')],
+    ['project', path.join(root, '.claude', 'machinery', 'tool-catalog.json')],
+  ];
+  const catalog = {}, dropped = [];
+  for (const [source, file] of sources) {
+    for (const [id, entry] of Object.entries(readTable(file))) {
+      const problem = entryProblem(entry);
+      if (problem) dropped.push({ id, source, file, problem }); else catalog[id] = entry;
+    }
+  }
+  return { catalog, dropped };
+}
+
+// The command-line face of loadCatalogReport(): says on stderr what it dropped, one line per entry
+// naming the id, the file and the reason, and hands back the usable table. Both CLI callers — the
+// hook and the runner — want exactly this; a library caller that wants the drops as data takes the
+// report instead.
 export function loadCatalog(root) {
-  const universal = readJson(path.join(pluginRoot(), 'data', 'tool-catalog.json'), {});
-  const project = readJson(path.join(root, '.claude', 'machinery', 'tool-catalog.json'), {});
-  return { ...universal, ...project };
+  const { catalog, dropped } = loadCatalogReport(root);
+  for (const d of dropped) process.stderr.write(`tool catalog: skipping '${d.id}' (${d.source} catalog, ${d.file}): ${d.problem}\n`);
+  return catalog;
 }
 
 // The tool id this command invokes, or null. First entry wins, so catalog order is significant.

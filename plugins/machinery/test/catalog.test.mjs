@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { loadCatalog, matchTool, matchedCandidate } from '../scripts/lib/catalog.mjs';
+import { loadCatalog, loadCatalogReport, matchTool, matchedCandidate } from '../scripts/lib/catalog.mjs';
 import { select } from '../scripts/lib/filter.mjs';
 import { bury, survivalProblems } from '../scripts/lib/survival.mjs';
 
@@ -54,6 +54,50 @@ test('project catalog entries override a universal id of the same name', () => {
   const catalog = loadCatalog(tmp);
   assert.equal(catalog['git-commit'].outcome, 'OVERRIDDEN');
   assert.ok(catalog['pytest'], 'the universal entries the project did not name are still there');
+});
+
+// Final review I2: `matchTool` destructured `entry.match` unguarded, so ONE project entry with no
+// `match` threw out of the hook — which swallowed it — and switched assimilation off for every
+// command in that project, silently. Hardened at the source: a malformed entry is dropped at load,
+// the rest of the catalog survives, and the drop is part of the result rather than a side channel.
+function projectWith(entries) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-'));
+  fs.mkdirSync(path.join(tmp, '.claude', 'machinery'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, '.claude', 'machinery', 'tool-catalog.json'), JSON.stringify(entries));
+  return tmp;
+}
+test('a malformed project entry is dropped, named, and the rest of the catalog is kept (final review I2)', () => {
+  const tmp = projectWith({
+    testq: { outcome: '^MERGE GATE', candidates: ['--quiet'] },                       // the review's exact case: no match
+    badre: { match: { type: 'regex', value: '^(unclosed' } },                           // match that cannot compile
+    badtype: { match: { type: 'glob', value: 'x' } },                                   // unknown match type
+    notobj: 'a string where an entry should be',
+    good: { match: { type: 'prefix', value: 'scripts/good.sh' }, outcome: '^OK', candidates: [] },
+  });
+  const { catalog, dropped } = loadCatalogReport(tmp);
+  assert.ok(catalog.good, 'the well-formed sibling survives');
+  assert.ok(catalog.pytest, 'the universal entries survive');
+  for (const id of ['testq', 'badre', 'badtype', 'notobj']) assert.ok(!(id in catalog), `${id} must not be matchable`);
+  assert.deepEqual(dropped.map((d) => d.id).sort(), ['badre', 'badtype', 'notobj', 'testq']);
+  for (const d of dropped) assert.match(d.problem, /match|object/, `${d.id}: the reason names what was wrong`);
+  assert.equal(matchTool('scripts/testq.sh --workspace', catalog), null, 'and matchTool over the result cannot throw');
+  assert.deepEqual(loadCatalogReport(PLUGIN).dropped, [], 'the shipped universal catalog drops nothing');
+});
+
+test('loadCatalog says on stderr which entry it dropped, one line each, and nothing on a clean catalog', () => {
+  const said = [];
+  const orig = process.stderr.write;
+  process.stderr.write = (s) => { said.push(String(s)); return true; };
+  try {
+    loadCatalog(projectWith({ testq: { outcome: '^MERGE GATE' } }));
+    assert.equal(said.length, 1);
+    assert.match(said[0], /testq/);
+    assert.match(said[0], /match/);
+    assert.ok(said[0].endsWith('\n') && !said[0].slice(0, -1).includes('\n'), 'exactly one line');
+    said.length = 0;
+    loadCatalog(projectWith({ good: { match: { type: 'prefix', value: 'x' } } }));
+    assert.deepEqual(said, [], 'RED CHECK: a clean catalog prints nothing');
+  } finally { process.stderr.write = orig; }
 });
 
 test('a project with no catalog of its own loads the universal one unchanged', () => {
