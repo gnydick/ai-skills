@@ -1,6 +1,6 @@
 ---
 name: install
-description: Use once per machine (`--machine`) to make the universal rules always-on, and once per project to install the commit gate, inbox and index. Idempotent; re-run after a plugin update to refresh the gate.
+description: Use once per machine (`--machine`) to make the universal rules always-on, and once per project to install the commit gate, inbox, index, and the two tool-assimilation files (`tool-catalog.json`, tracked; `observations.json`, gitignored). Idempotent; re-run after a plugin update to refresh the gate.
 ---
 # /machinery:install
 
