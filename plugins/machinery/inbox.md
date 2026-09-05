@@ -34,3 +34,9 @@ disposition: filed → rules/agent-topology.md § Which model
 urule: Add your rules you just suggested
 
 disposition: filed → rules/agent-topology.md § Handing a ruling to a dispatched agent
+
+## FILED 2026-09-05T21:00:02Z URULE 130ad271-0bca-4f17-9037-309f86afb0e8
+
+URULE: work on campaigns, don't get distracted by new issues outside of the campaign. multiple-object support is a large campaign. once within a campaign, work one feature to completion a feature may take multiple tickets
+
+disposition: filed → rules/work-tracking.md § Staying inside the effort

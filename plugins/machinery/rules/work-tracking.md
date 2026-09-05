@@ -105,3 +105,9 @@ start.
   is the point, not an obstacle.
 
 <!-- rows: 6.1–6.21, 6.23–6.30, 6.36 -->
+
+## Staying inside the effort
+
+- Work happens inside a campaign, and a campaign is worked on its own terms: an issue discovered outside the scope of the campaign in hand is filed as a ticket pair and left there, never chased. Being interesting, adjacent, or quick does not bring it into scope. (Gabe, 2026-09-05, URULE.)
+- Within a campaign, one feature is worked to completion before the next is started. Half-finished features side by side are the failure this prevents: each one looks nearly done and none of them ships.
+- A feature may take several tickets. Completion is judged on the feature, not on any one ticket: closing a ticket while the feature it belongs to is still unusable is not finishing, it is moving on.
