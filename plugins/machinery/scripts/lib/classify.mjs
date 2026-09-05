@@ -1,6 +1,26 @@
 // Story: hooks/quiet-output.md steps 4–14. Precedence is the ORDER below and
 // nowhere else (spec I10, I18): never → piped → redirected → read → infra → noisy → plain.
+// 'read' has two sources at the same step: the gh reads, and — ruling C1, owner 2026-09-05,
+// "Only need wrapping for output producers, not filter pipes" — the byte-movers in READ below.
 const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)*`;
+// The token ends here: `cat` is a byte-mover, `catalog-tool` is not, and `\b` alone would admit
+// `cat-fish`. `env` is a byte-mover only alone (or with flags) — `env VAR=x cmd` runs cmd — and
+// `git branch` only when every argument is a flag: `git branch -d x` and `git branch x` do work.
+const END = String.raw`(?=\s|$|[;&|)])`;
+const READ = new RegExp(LEAD + String.raw`(?:` +
+  String.raw`(?:cat|grep|rg|sed|awk|head|tail|sort|uniq|cut|tr|wc|jq|find|diff|ls|pwd|echo|printf|less|more|tee|xargs` +
+  String.raw`|basename|dirname|realpath|stat|file|which|type|printenv|date|test|true|false` +
+  String.raw`|cd|mkdir|rmdir|rm|cp|mv|touch|ln|chmod)` + END +
+  String.raw`|env(?:\s+-\S+)*\s*(?:$|[;&|)])` +
+  String.raw`|git\s+(?:-C\s+\S+\s+)?(?:log|diff|show|status|blame|ls-files|rev-parse|worktree\s+list)` + END +
+  String.raw`|git\s+(?:-C\s+\S+\s+)?branch(?:\s+-\S+)*\s*(?:$|[;&|)])` +
+  String.raw`)`);
+// A command is a byte-mover only if every segment of it is. Recognised at LEAD like the other
+// regexes — but tested per segment, because LEAD matching ANYWHERE would make `cargo build && echo
+// done` a read and unwrap the build; the exemption is by kind, and a compound with an output producer
+// in it is not of that kind. Pipes are not split here: a `|` was already 'piped' at the step above.
+const SEGMENT = /\s*(?:;|&&|\|\||\r?\n)\s*/;
+const isRead = (command) => command.split(SEGMENT).every((s) => READ.test(s));
 
 const NOISY = new RegExp(LEAD + String.raw`(?:` +
   String.raw`cargo\s+(?:\+\S+\s+)?(?:build|b|test|t|check|c|clippy|run|r|bench|doc|install|update|fetch|clean|nextest|fmt|llvm-cov|tarpaulin|xtask)\b` +
@@ -45,7 +65,7 @@ export function classify(command) {
   if (PIPED.test(command)) return 'piped';
   // quiet_hook.py:105 — a stderr-merge token cancels the redirect exemption entirely.
   if (command.includes('>') && FILE_REDIRECT.test(command) && !command.includes('2>&1')) return 'redirected';
-  if (GH_READ.test(command)) return 'read';
+  if (GH_READ.test(command) || isRead(command)) return 'read';
   if (INFRA.test(command)) return 'infra';
   if (NOISY.test(command)) return 'noisy';
   return 'plain';

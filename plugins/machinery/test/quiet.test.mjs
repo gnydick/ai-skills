@@ -39,6 +39,20 @@ test('read / piped / redirected commands are untouched', () => {
   }
 });
 
+// Ruling C1 (owner, 2026-09-05): "Only need wrapping for output producers, not filter pipes." The
+// final review measured `cat big.txt` observed on run 1 and cut to 8 of 120 lines on run 2; these
+// are its exact commands, through the hook, in a real repository with no history. A byte-mover
+// never reaches the assimilator, so it is untouched with or without a record.
+test('a byte-mover is never wrapped, never observed: the exemption is by kind, not by record', () => {
+  const root = project({ cat: { identity: 'bespoke', noisy: true, lines: 120, stdoutLines: 120, stderrLines: 0, ledger: {} } });
+  // Four spawns, not the whole list: the rest of the set is covered per command in
+  // lib-classify.test.mjs, and every hook spawn here costs the pre-commit budget ~150 ms.
+  for (const c of ['cat big.txt', 'sed -n 1,200p x', 'grep -rn line .', 'git log --oneline -50']) {
+    const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) });
+    assert.equal(r.stdout, '', c); assert.equal(r.code, 0, c);
+  }
+});
+
 test('a non-shell tool is untouched', () => {
   const p = JSON.parse(fixture('PreToolUse-Bash', 'cargo test')); p.tool_name = 'Read';
   const r = runScript('scripts/quiet.mjs', { stdin: JSON.stringify(p) });

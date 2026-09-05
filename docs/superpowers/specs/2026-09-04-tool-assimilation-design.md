@@ -519,6 +519,26 @@ Declared standard: **structural**. This changes behaviour deliberately.
   travel, even in aggregate.
 - **The observation record is JSON**, read directly by the assimilator.
 
+## Decisions taken by the owner, 2026-09-05 (final whole-branch review)
+
+- **Byte-movers are out of scope, by kind.** Ruling C1, verbatim: "Only need wrapping for
+  output producers, not filter pipes." The assembled system had observed `cat big.txt` on its
+  first run and cut it to 8 of 120 lines on its second, because `plain` now means "observe"
+  and nothing distinguished a file-reading command from a tool. The mechanism: `classify()`
+  recognises the byte-movers by name at the leading position — `cat`, `grep`, `rg`, `sed`,
+  `awk`, `head`, `tail`, `sort`, `uniq`, `cut`, `tr`, `wc`, `jq`, `find`, `diff`, `ls`, `pwd`,
+  `echo`, `printf`, `less`, `more`, `tee`, `xargs`, `basename`, `dirname`, `realpath`, `stat`,
+  `file`, `which`, `type`, `env` (alone), `printenv`, `date`, `test`, `true`, `false`, the
+  silent file operations (`cd`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `touch`, `ln`, `chmod`),
+  and git's reporting subcommands (`log`, `diff`, `show`, `status`, `blame`, `ls-files`,
+  `rev-parse`, `branch` when listing, `worktree list`) — and routes them to the existing `read`
+  bucket, which the hook already skips, so they never reach `decide()` and generate no
+  observation record. A compound command is a byte-mover only if every segment of it is:
+  `cargo build && echo done` stays wrapped. Rejected alongside: a stdout-only-noise heuristic
+  inside `decide()`, and an allowlist of tool-shaped invocations — the owner chose an
+  exemption by kind. `bespokeKey` was deliberately not changed: an exempt command writes no
+  record, so its key collapse is moot.
+
 ## Open questions
 
 None outstanding. The three above were the last, and are decided.
