@@ -12,14 +12,14 @@ import { loadCatalog } from './lib/catalog.mjs';
 import { loadObservations } from './lib/observations.mjs';
 import { decide } from './lib/assimilate.mjs';
 
-// classify() says 'plain' about two different things: a command it simply does not recognise,
-// whose volume is UNKNOWN rather than quiet (specs/2026-09-04-tool-assimilation-design.md, "The
-// default is also backwards"), and one the NEVER list exempts outright. Only the first is the
+// classify() says 'plain' about three things: a command it simply does not recognise, whose volume
+// is UNKNOWN rather than quiet (specs/2026-09-04-tool-assimilation-design.md, "The default is also
+// backwards"); a command the catalog knows, which the catalog — not the regexes — is the authority
+// on (ruling I1, 2026-09-05); and one the NEVER list exempts outright. Only the first two are the
 // assimilator's business. Returns the wrap mode, or null for "leave this command alone".
-function assimilated(command) {
+function assimilated(command, { root, catalog }) {
   if (isNever(command)) return null;
-  const root = projectRoot(process.cwd());
-  const d = decide(command, { catalog: loadCatalog(root), observations: loadObservations(root) });
+  const d = decide(command, { catalog, observations: loadObservations(root) });
   if (d.mode === 'plain') return null;              // seen here, and it was quiet
   return d.mode === 'noisy' ? 'filter' : d.mode;    // 'filter' | 'observe' | 'suggest'
 }
@@ -31,9 +31,16 @@ function main() {
   if (tool !== 'Bash' && tool !== 'PowerShell') return;
   const input = p.tool_input ?? {};
   const command = input.command ?? '';
-  const kind = classify(command);
+  // The project root and its catalog, resolved ONCE and handed to both readers below. Outside a
+  // repository there is no project half to overlay and no record to keep, so the catalog is empty
+  // and the assimilator is not consulted — the regex chain alone answers, as it always did there.
+  // That is the one throw swallowed here on purpose; anything else reaches the catch at the bottom.
+  let root = null;
+  try { root = projectRoot(process.cwd()); } catch { /* not inside a repository */ }
+  const catalog = root ? loadCatalog(root) : {};
+  const kind = classify(command, { catalog });
   let mode = kind === 'infra' ? 'infra' : kind === 'noisy' ? 'filter' : null;
-  if (!mode && kind === 'plain') mode = assimilated(command);
+  if (!mode && kind === 'plain' && root) mode = assimilated(command, { root, catalog });
   if (!mode) return;
   const shell = tool === 'PowerShell' ? 'powershell' : 'bash';
   const job = process.env.CLAUDE_JOB_DIR;

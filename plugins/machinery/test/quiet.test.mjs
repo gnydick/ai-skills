@@ -98,11 +98,27 @@ function project(obs, cat) {
   return PROJECT;
 }
 
-// A project-declared off-the-shelf tool. MEASURED, not assumed: every entry in the universal
-// catalog is already classified before the assimilator is ever consulted — `pytest` and
-// `npm install` are NOISY, `git commit` is INFRA — so the catalog branch of decide() is
-// reachable from quiet.mjs only through the project's own overlay.
+// A project-declared off-the-shelf tool, for the overlay path. The universal entries are exercised
+// separately below (ruling I1): until then `pytest` and `npm install` were NOISY and `git commit`
+// INFRA before the assimilator was ever consulted, so the catalog branch of decide() was reachable
+// from quiet.mjs only through the project's own overlay — the final review's I1.
 const TESTQ = { testq: { match: { type: 'prefix', value: 'scripts/testq.sh' }, outcome: '^MERGE GATE', candidates: ['--quiet'] } };
+
+// Ruling I1 (owner, 2026-09-05): a verified catalog entry is the authority, and classify() reports
+// plain for it. The final review MEASURED the hook answering filter / filter / infra for these three
+// with a record saying each is noisy and its candidate untried, while decide() on the same inputs
+// said suggest. This is that reproduction: the spec's central claim — "a known tool's first noisy
+// pass is suggest-only, and unwrapped" — has to hold for the tools the shipped catalog knows.
+test("I1: the universal catalog's suggest state is reachable from the hook", () => {
+  const noisyUntried = (id) => ({ [id]: { identity: 'catalog', noisy: true, lines: 900, ledger: {} } });
+  for (const [id, c] of [['pytest', 'pytest tests/'], ['npm-install', 'npm install'], ['git-commit', 'git commit -m x']]) {
+    const root = project(noisyUntried(id));
+    const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) });
+    const u = out(r.stdout).updatedInput;
+    assert.match(u.command, /--mode suggest/, c);
+    assert.equal(u.description, 'd [quiet:suggest]', c);
+  }
+});
 
 test('a plain-classified command with no observation history is wrapped in observe mode', () => {
   const root = project(null, TESTQ);

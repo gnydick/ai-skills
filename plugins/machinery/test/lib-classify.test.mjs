@@ -61,6 +61,38 @@ for (const [cmd, want] of readCases) test(`C1: classify(${JSON.stringify(cmd)}) 
 
 test('RED CHECK: the classifier is not the identity', () => assert.notEqual(classify('cargo build'), 'plain'));
 
+// Ruling I1 (owner, 2026-09-05): "When a command has a verified catalog entry, that entry is the
+// authority and classify() reports `plain` for it (which is the bucket that hands off to the
+// assimilator); only commands the catalog has no entry for fall through to the old regex heuristic."
+// The catalog is passed in by the caller that already loads it; with none, classify() is exactly the
+// string-only function every case above exercises.
+const CATALOG = {
+  'git-commit': { match: { type: 'regex', value: '^git\\s+commit\\b' }, outcome: 'x', candidates: ['--quiet'] },
+  pytest: { match: { type: 'prefix', value: 'pytest' }, outcome: 'x', candidates: ['-q'] },
+  cat: { match: { type: 'prefix', value: 'cat ' }, outcome: 'x', candidates: [] },
+};
+test('I1: a catalog-matched command is plain — the catalog outranks INFRA and NOISY', () => {
+  assert.equal(classify('git commit -m x', { catalog: CATALOG }), 'plain');
+  assert.equal(classify('pytest -q tests/', { catalog: CATALOG }), 'plain');
+});
+test('I1: without a catalog, or for a command the catalog does not know, the regex fallback still answers', () => {
+  assert.equal(classify('git commit -m x'), 'infra');
+  assert.equal(classify('git commit -m x', {}), 'infra');
+  assert.equal(classify('git push', { catalog: CATALOG }), 'infra');
+  assert.equal(classify('cargo test', { catalog: CATALOG }), 'noisy');
+});
+test('I1: the read exemption (C1) runs before the catalog — a byte-mover is exempt even if someone catalogs it', () => {
+  assert.equal(classify('cat big.txt', { catalog: CATALOG }), 'read');
+});
+test('I1: never / piped / redirected still come before the catalog', () => {
+  assert.equal(classify('pytest --help', { catalog: CATALOG }), 'plain'); // NEVER's plain, not the catalog's
+  assert.equal(classify('pytest | tail -5', { catalog: CATALOG }), 'piped');
+  assert.equal(classify('pytest > log', { catalog: CATALOG }), 'redirected');
+});
+test('RED CHECK: the catalog check is load-bearing — the same command flips between infra and plain on the catalog alone', () => {
+  assert.notEqual(classify('git commit -m x', { catalog: CATALOG }), classify('git commit -m x', { catalog: {} }));
+});
+
 test('RED CHECK: the read exemption is not the identity either — a byte-mover with an output producer behind it is still wrapped', () => {
   assert.equal(classify('cat big.txt'), 'read');
   assert.notEqual(classify('cat big.txt && cargo build'), 'read');

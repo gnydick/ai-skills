@@ -538,6 +538,24 @@ Declared standard: **structural**. This changes behaviour deliberately.
   inside `decide()`, and an allowlist of tool-shaped invocations — the owner chose an
   exemption by kind. `bespokeKey` was deliberately not changed: an exempt command writes no
   record, so its key collapse is moot.
+- **The catalog outranks the regex heuristics.** Ruling I1, verbatim: "The old classifier
+  consults the catalog first, before its own regex guesses. When a command has a verified
+  catalog entry, that entry is the authority and classify() reports `plain` for it (which is
+  the bucket that hands off to the assimilator); only commands the catalog has no entry for
+  fall through to the old regex heuristic. The regex chain then becomes what it should have
+  been all along — the fallback for tools nobody has characterized yet — and the catalog is
+  the single authority for any tool it knows." The review had measured the hook answering
+  `filter` / `filter` / `infra` for `pytest`, `npm install` and `git commit` where `decide()`
+  said `suggest`: the five states above were unreachable for every tool the shipped catalog
+  knew. The consequence the ruling names: `classify(command, { catalog })` is catalog-aware,
+  the catalog being loaded once by the hook and passed in, so classify stays exercisable from a
+  literal and is unchanged when called with the string alone. Precedence is now never → piped
+  → redirected → read → catalog → infra → noisy → plain. Rejected: a second override beside
+  `classify()` in the hook (two places that classify), and deleting the `git commit` /
+  `npm install` / `pytest` alternatives from the regexes (loses the safe fallback for
+  invocation shapes the catalog's `match` does not cover). A named consequence: `git commit`
+  in a project is now observed once and, being quiet, left alone thereafter, where before it
+  was always filtered as infra.
 
 ## Open questions
 

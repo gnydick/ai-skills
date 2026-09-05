@@ -1,7 +1,13 @@
-// Story: hooks/quiet-output.md steps 4–14. Precedence is the ORDER below and
-// nowhere else (spec I10, I18): never → piped → redirected → read → infra → noisy → plain.
+// Story: hooks/quiet-output.md steps 4–14. Precedence is the ORDER below and nowhere else
+// (spec I10, I18): never → piped → redirected → read → catalog → infra → noisy → plain.
 // 'read' has two sources at the same step: the gh reads, and — ruling C1, owner 2026-09-05,
 // "Only need wrapping for output producers, not filter pipes" — the byte-movers in READ below.
+// 'catalog' is ruling I1, owner 2026-09-05: a command with a verified catalog entry is 'plain'
+// (the bucket that hands off to the assimilator) because that entry is the authority on the tool;
+// the regex chain after it is the fallback for tools nobody has characterised. Read runs before
+// the catalog on purpose: a byte-mover is exempt even if someone catalogs it.
+import { matchTool } from './catalog.mjs';
+
 const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)*`;
 // The token ends here: `cat` is a byte-mover, `catalog-tool` is not, and `\b` alone would admit
 // `cat-fish`. `env` is a byte-mover only alone (or with flags) — `env VAR=x cmd` runs cmd — and
@@ -60,12 +66,16 @@ export const MODES = Object.freeze(['read', 'piped', 'redirected', 'infra', 'noi
 // day the predicate grows a term the regex cannot carry, and nothing would report it.
 export const isNever = (command) => !command || NEVER.test(command);
 
-export function classify(command) {
+// `catalog` is the loaded tool catalog (universal + project overlay), passed by the one caller that
+// loads it — quiet.mjs — so the file is read once, at one site, and this stays exercisable from a
+// literal. With no catalog the function is exactly what it was: a pure function of the string.
+export function classify(command, { catalog } = {}) {
   if (isNever(command)) return 'plain';
   if (PIPED.test(command)) return 'piped';
   // quiet_hook.py:105 — a stderr-merge token cancels the redirect exemption entirely.
   if (command.includes('>') && FILE_REDIRECT.test(command) && !command.includes('2>&1')) return 'redirected';
   if (GH_READ.test(command) || isRead(command)) return 'read';
+  if (catalog && matchTool(command, catalog)) return 'plain';
   if (INFRA.test(command)) return 'infra';
   if (NOISY.test(command)) return 'noisy';
   return 'plain';

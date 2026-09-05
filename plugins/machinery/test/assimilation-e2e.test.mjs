@@ -36,11 +36,12 @@ const SPEC_PLAIN = [
 // Mirrors quiet.mjs main(): decide() is consulted for exactly one classify() result, 'plain'.
 // 'infra' and 'noisy' were wrapped before this plan existed, and 'read' (like 'piped' and
 // 'redirected') never reaches the assimilator there either. Gating on anything wider would
-// exercise a path the hook does not have.
+// exercise a path the hook does not have. The same empty catalog goes to both, as in the hook
+// (ruling I1 made classify() catalog-aware): this proves the bespoke floor, so it stays empty.
 function silentlyUnobserved(observations) {
   const rows = [];
   for (const cmd of COMMANDS) {
-    const kind = classify(cmd);
+    const kind = classify(cmd, { catalog: {} });
     if (kind !== 'plain') { rows.push({ cmd, kind, decided: null }); continue; }
     const d = decide(cmd, { catalog: {}, observations });
     rows.push({ cmd, kind, decided: d });
