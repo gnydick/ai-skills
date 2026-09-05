@@ -61,6 +61,32 @@ for (const [cmd, want] of readCases) test(`C1: classify(${JSON.stringify(cmd)}) 
 
 test('RED CHECK: the classifier is not the identity', () => assert.notEqual(classify('cargo build'), 'plain'));
 
+// Re-review R1, measured: a trailing separator or newline left an EMPTY segment, READ.test('') is
+// false, and the whole command fell to 'plain' — so `cat a;` was observed and, once long, wrapped:
+// the exact C1 failure for that shape. Whitespace-only segments carry no command and are not
+// counted; but a command with no segment left at all is not a read either.
+const trailingCases = [
+  ['cat a;', 'read'], ['cat a; ', 'read'], ['cat a\n', 'read'], ['ls\n', 'read'], ['ls -la\n\n', 'read'], ['cat a &&', 'read'],
+  // The fix must not widen the exemption: a work-doer with a trailing separator is still a work-doer.
+  ['cargo build;', 'noisy'], ['cargo build\n', 'noisy'],
+];
+for (const [cmd, want] of trailingCases) test(`R1: classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
+test('R1 positive control: dropping empty segments does not drop the `every` — a non-byte-mover segment still fails it', () => {
+  assert.notEqual(classify('cat a; cargo build;'), 'read');
+  assert.notEqual(classify('cat a\ncargo build\n'), 'read');
+});
+
+// Re-review R2, measured: LEAD accepts a single `&` as a leading position, but the splitter did not
+// split on it, so `cargo build & cat x` was one segment whose LEAD-anchored `cat` made the whole
+// thing a read — a backgrounded build, unwrapped. A single `&` is a segment boundary, like LEAD says.
+const ampersandCases = [
+  ['cargo build & cat x', 'noisy'], ['cargo build & ls', 'noisy'],
+  ['cat a & ls', 'read'], ['cat a && ls', 'read'],
+  // `2>&1` is a redirect, not a boundary: splitting at its `&` would leave a `1` segment.
+  ['cat a 2>&1', 'read'], ['cargo build 2>&1 > build.log', 'noisy'],
+];
+for (const [cmd, want] of ampersandCases) test(`R2: classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
+
 // Ruling I1 (owner, 2026-09-05): "When a command has a verified catalog entry, that entry is the
 // authority and classify() reports `plain` for it (which is the bucket that hands off to the
 // assimilator); only commands the catalog has no entry for fall through to the old regex heuristic."

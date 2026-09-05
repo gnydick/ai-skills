@@ -25,8 +25,17 @@ const READ = new RegExp(LEAD + String.raw`(?:` +
 // regexes — but tested per segment, because LEAD matching ANYWHERE would make `cargo build && echo
 // done` a read and unwrap the build; the exemption is by kind, and a compound with an output producer
 // in it is not of that kind. Pipes are not split here: a `|` was already 'piped' at the step above.
-const SEGMENT = /\s*(?:;|&&|\|\||\r?\n)\s*/;
-const isRead = (command) => command.split(SEGMENT).every((s) => READ.test(s));
+// A trailing separator or newline (`cat a;`, `ls\n`) leaves a whitespace-only segment that names no
+// command; it is not counted, or `READ.test('')` fails the `every` and the byte-mover is observed
+// (re-review R1). A command with no segment left at all is not a read: `every` over nothing is true.
+// A single `&` is a boundary too, as LEAD already says it is (re-review R2: `cargo build & cat x`
+// was one segment, and its LEAD-anchored `cat` made the backgrounded build a read) — but not the
+// `&` of `&&`, and not the one inside a redirect (`2>&1`, `>&2`), which would leave a `1` segment.
+const SEGMENT = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
+const isRead = (command) => {
+  const segments = command.split(SEGMENT).filter((s) => s.trim() !== '');
+  return segments.length > 0 && segments.every((s) => READ.test(s));
+};
 
 const NOISY = new RegExp(LEAD + String.raw`(?:` +
   String.raw`cargo\s+(?:\+\S+\s+)?(?:build|b|test|t|check|c|clippy|run|r|bench|doc|install|update|fetch|clean|nextest|fmt|llvm-cov|tarpaulin|xtask)\b` +
