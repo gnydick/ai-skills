@@ -77,6 +77,23 @@ test('matchedCandidate treats a quote attached to a flag as opening a quoted spa
   assert.equal(matchedCandidate('git commit -m"unterminated --quiet', ['--quiet']), null, 'an unterminated quote is data: the span runs to the end');
 });
 
+// Issue #11: the quote rule has ONE home, scripts/lib/quotes.mjs (rules/design-invariants.md §
+// Never re-derive a fact). tokens() above and classify.mjs's segment splitter both read it. Field
+// privacy cannot keep a second scanner out — one more `ch === '"'` loop compiles perfectly — so
+// this is the check over the source the rule asks for: a file that compares a character against
+// a quote is scanning quotes, and exactly one file under scripts/ may.
+const QUOTE_LITERAL = /'"'|"'"|'\\''|"\\""/;
+const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
+const quoteScanners = (dir) => walk(dir).filter((f) => f.endsWith('.mjs') && QUOTE_LITERAL.test(fs.readFileSync(f, 'utf8'))).map((f) => path.relative(dir, f).split(path.sep).join('/'));
+test('exactly one file under scripts/ compares against a quote character: the shared scanner (issue #11)', () => {
+  assert.deepEqual(quoteScanners(path.join(PLUGIN, 'scripts')), ['lib/quotes.mjs']);
+});
+test('RED CHECK: the quote-scanner scan matches the loop catalog.mjs used to carry', () => {
+  assert.match(`if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }`, QUOTE_LITERAL);
+  assert.match(`const q = "'";`, QUOTE_LITERAL);
+  assert.doesNotMatch(`const s = 'no quotes here';`, QUOTE_LITERAL);
+});
+
 test('project catalog entries override a universal id of the same name', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-'));
   fs.mkdirSync(path.join(tmp, '.claude', 'machinery'), { recursive: true });
