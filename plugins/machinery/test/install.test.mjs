@@ -130,3 +130,63 @@ test('RED CHECK: outside a git repository the project install refuses', () => {
   const res = runScript('scripts/install.mjs', { args: ['--root', d], cwd: d });
   assert.notEqual(res.code, 0); assert.match(res.stderr, /git repository/);
 });
+
+// Task 9: the two tool-assimilation project files. Ruling (2026-09-05): tool-catalog.json is a team
+// decision and is tracked like inbox.md/INDEX.md; observations.json is per-machine measurement and
+// is gitignored, never staged.
+test('install creates an empty project tool catalog and observation record', () => {
+  const r = makeRepo();
+  try {
+    const res = install(r.root);
+    assert.equal(res.code, 0, res.stderr);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'tool-catalog.json'), 'utf8')), {});
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'observations.json'), 'utf8')), {});
+    assert.match(res.stdout, /created \.claude[\\/]machinery[\\/]tool-catalog\.json/);
+    assert.match(res.stdout, /created \.claude[\\/]machinery[\\/]observations\.json/);
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: tool-catalog.json is staged, observations.json is gitignored, not staged', () => {
+  const r = makeRepo();
+  try {
+    install(r.root);
+    const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: r.root, encoding: 'utf8' });
+    assert.match(staged, /\.claude\/machinery\/tool-catalog\.json/, 'the shared catalog overlay must be staged');
+    assert.doesNotMatch(staged, /\.claude\/machinery\/observations\.json/, 'per-machine measurement must never be staged');
+    assert.match(staged, /^\.gitignore$/m, 'the ignore entry travels with the install');
+    const ignored = execFileSync('git', ['check-ignore', '.claude/machinery/observations.json'], { cwd: r.root, encoding: 'utf8' });
+    assert.match(ignored, /observations\.json/, 'observations.json must actually be gitignored, not merely unstaged this once');
+    // The observer is alive: the tracked sibling is NOT reported ignored by the same query.
+    assert.throws(() => execFileSync('git', ['check-ignore', '.claude/machinery/tool-catalog.json'], { cwd: r.root, encoding: 'utf8', stdio: 'pipe' }));
+  } finally { r.cleanup(); }
+});
+
+test('the .gitignore entry is appended once, after existing content, even when that content is CRLF with no trailing newline', () => {
+  const r = makeRepo();
+  try {
+    fs.writeFileSync(path.join(r.root, '.gitignore'), 'node_modules/\r\ndist/');
+    install(r.root);
+    const first = fs.readFileSync(path.join(r.root, '.gitignore'), 'utf8');
+    assert.equal(first, 'node_modules/\r\ndist/\n.claude/machinery/observations.json\n');
+    install(r.root); // idempotent: no second line, whatever the line endings already in the file
+    assert.equal(fs.readFileSync(path.join(r.root, '.gitignore'), 'utf8'), first);
+    fs.writeFileSync(path.join(r.root, '.gitignore'), 'node_modules/\r\n.claude/machinery/observations.json\r\n');
+    const res = install(r.root);
+    assert.equal(fs.readFileSync(path.join(r.root, '.gitignore'), 'utf8'), 'node_modules/\r\n.claude/machinery/observations.json\r\n');
+    assert.doesNotMatch(res.stdout, /added .*observations\.json to \.gitignore/);
+  } finally { r.cleanup(); }
+});
+
+test('an observations.json already tracked from before the ruling is named, not silently left tracked', () => {
+  const r = makeRepo();
+  try {
+    fs.mkdirSync(path.join(r.root, '.claude', 'machinery'), { recursive: true });
+    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'observations.json'), '{}\n');
+    execFileSync('git', ['add', '.claude/machinery/observations.json'], { cwd: r.root });
+    execFileSync('git', ['commit', '-q', '-m', 'tracked before the ruling'], { cwd: r.root });
+    const res = install(r.root);
+    assert.equal(res.code, 0, res.stderr);
+    assert.match(res.stderr, /observations\.json is tracked/);
+    assert.match(res.stderr, /git rm --cached/);
+  } finally { r.cleanup(); }
+});

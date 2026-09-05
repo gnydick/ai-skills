@@ -61,6 +61,28 @@ function installProject() {
   fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true });
   const inbox = path.join(mach, 'inbox.md');
   if (!fs.existsSync(inbox)) { fs.writeFileSync(inbox, ''); say(`created ${path.relative(root, inbox)}`); }
+  // Ruling 2026-09-05 (specs: tool-assimilation, "The ledger"): tool-catalog.json is a team decision,
+  // tracked like inbox.md; observations.json is per-machine measurement and is gitignored, never
+  // staged — see the add list at the end, where it is deliberately absent.
+  const toolCatalog = path.join(mach, 'tool-catalog.json');
+  if (!fs.existsSync(toolCatalog)) { fs.writeFileSync(toolCatalog, '{}\n'); say(`created ${path.relative(root, toolCatalog)}`); }
+  const observations = path.join(mach, 'observations.json');
+  if (!fs.existsSync(observations)) { fs.writeFileSync(observations, '{}\n'); say(`created ${path.relative(root, observations)}`); }
+  const ignoreLine = '.claude/machinery/observations.json';
+  const gitignore = path.join(root, '.gitignore');
+  const existingIgnore = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, 'utf8') : '';
+  // Split on either line ending and trim, so a CRLF .gitignore does not gain a second copy per run.
+  // The project's own .gitignore is the authority, not `git check-ignore`: a global exclude on this
+  // machine would satisfy check-ignore and leave every other clone tracking the file.
+  const ignoreWritten = !existingIgnore.split(/\r?\n/).map((l) => l.trim()).includes(ignoreLine);
+  if (ignoreWritten) {
+    fs.writeFileSync(gitignore, existingIgnore + (existingIgnore && !/\r?\n$/.test(existingIgnore) ? '\n' : '') + ignoreLine + '\n');
+    say(`added ${ignoreLine} to .gitignore`);
+  }
+  // An ignore entry does nothing for a file already in the index. Name it rather than let the
+  // ruling look applied when it is not (rules/design-invariants.md § Telling the user what you dropped).
+  if (git(['ls-files', '--error-unmatch', '--', ignoreLine], root).code === 0)
+    process.stderr.write(`warning: ${ignoreLine} is tracked; it is per-machine data and should not be. Run: git rm --cached ${ignoreLine}\n`);
   fs.writeFileSync(path.join(mach, 'INDEX.md'), generateIndex(rules)); say('regenerated .claude/machinery/INDEX.md');
   const hooksDir = path.join(root, '.githooks'), gateDir = path.join(hooksDir, 'machinery');
   fs.rmSync(gateDir, { recursive: true, force: true });
@@ -89,7 +111,10 @@ function installProject() {
   // Final review A1(c): stage exactly the layout this run created/updated, so the first commit
   // after install has something to actually commit — the gate's register check otherwise sees
   // a generated-but-unstaged index and rejects a remedy (reindex) that would produce nothing new.
-  git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/INDEX.md', '.githooks'], root);
+  // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
+  // not swept into the next commit. observations.json is deliberately absent from this list.
+  git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/INDEX.md',
+       '.claude/machinery/tool-catalog.json', ...(ignoreWritten ? ['.gitignore'] : []), '.githooks'], root);
   return 0;
 }
 
