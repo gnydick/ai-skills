@@ -23,8 +23,10 @@ definition obeys. Loaded at session start.
 - Use the cheapest model that can do each dispatched task. Quality is held by
   the checks on the result, never by paying for a bigger model.
 - Match the model to the kind of work: the cheapest tier for enumerating and
-  extracting with citations, a mid tier for synthesis and judgement, and the
-  main conversation's own model only for design, adjudication and verdicts.
+  extracting with citations, a mid tier for synthesis and judgement, and a
+  fixed top tier above sonnet for design, adjudication and verdicts — not
+  whatever model the session's own main conversation happens to be running,
+  since that gets switched around and is not a stable reference.
 - When a cheap agent's work fails its spot-check, redo that batch one tier up
   and record that you did. Never re-run it silently.
 - A plan says which model each kind of task runs on.

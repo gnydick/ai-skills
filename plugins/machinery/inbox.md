@@ -12,3 +12,11 @@ A fixture that spawns a real subprocess strips every ambient environment variabl
 (Written by hand: ruled in conversation on 2026-09-02 — Gabe: "that rule should be incorporated into machinery" — in reply to the post-mortem of the fixture GIT_* leak, without the URULE: marker, so the capture hook did not fire.)
 
 disposition: filed → rules/worktree-discipline.md § Working in it
+
+## 2026-09-05T00:18:39Z URULE session_01BgBtukUw8mp7b9cavY8rnR
+
+URULE: In § Which model, "the main conversation's own model" is not a fixed reference — the owner switches which model runs the main session (just did, to Sonnet 5). Design, adjudication and verdicts go to a fixed top tier, above sonnet, not to whatever the session's own model currently is.
+
+(Written by hand: ruled in conversation on 2026-09-04 — Gabe, correcting the § Which model wording — without the URULE: marker, so the capture hook did not fire.)
+
+disposition: filed → rules/agent-topology.md § Which model
