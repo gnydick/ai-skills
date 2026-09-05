@@ -83,16 +83,50 @@ test('matchedCandidate treats a quote attached to a flag as opening a quoted spa
 // privacy cannot keep a second scanner out — one more `ch === '"'` loop compiles perfectly — so
 // this is the check over the source the rule asks for: a file that compares a character against
 // a quote is scanning quotes, and exactly one file under scripts/ may.
-const QUOTE_LITERAL = /'"'|"'"|'\\''|"\\""/;
+// The scan sees a quote character NAMED in the source: as a one-character string literal (plain,
+// escaped, or cross-escaped — closed by the quote that opened it, so the display literal '""' in
+// worktree-create.mjs's message is not one), a template literal or regex character class holding
+// one quote or the two different ones (never "" or '', which are display and array forms), a hex
+// or unicode escape, or a char-code call beside 34 / 39 / 0x22 / 0x27. What a source scan cannot
+// see is a quote computed at run time — arithmetic on a code, a value read from data — and the
+// test name below claims no more than the scan detects.
+const QUOTE_LITERAL = new RegExp([
+  String.raw`(['"])\\?["']\1`,                                                          // '"'  "'"  '\''  "\""  '\"'  "\'"
+  String.raw`\x60(?:["']|"'|'")\x60`,                                                   // `"`  `'`  `"'`  `'"`
+  String.raw`\\(?:x22|x27|u0022|u0027)\b`,                                              // '\x22'  '''
+  String.raw`\[\^?(?:["']|"'|'")\]`,                                                    // ["']  ['"]  [^"']  ["]
+  String.raw`(?:charCodeAt|codePointAt|fromCharCode|fromCodePoint)[^\n]*\b(?:34|39|0x22|0x27)\b`,
+].join('|'));
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
 const quoteScanners = (dir) => walk(dir).filter((f) => f.endsWith('.mjs') && QUOTE_LITERAL.test(fs.readFileSync(f, 'utf8'))).map((f) => path.relative(dir, f).split(path.sep).join('/'));
-test('exactly one file under scripts/ compares against a quote character: the shared scanner (issue #11)', () => {
+test('exactly one file under scripts/ names a quote character — by literal, escape, template, regex class or char code; a quote computed at run time is invisible to this scan (issue #11)', () => {
   assert.deepEqual(quoteScanners(path.join(PLUGIN, 'scripts')), ['lib/quotes.mjs']);
 });
-test('RED CHECK: the quote-scanner scan matches the loop catalog.mjs used to carry', () => {
-  assert.match(`if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }`, QUOTE_LITERAL);
-  assert.match(`const q = "'";`, QUOTE_LITERAL);
-  assert.doesNotMatch(`const s = 'no quotes here';`, QUOTE_LITERAL);
+// Fix round 1 for #11: the first pattern matched four spellings and a reviewer wrote six scanners
+// past it. Every spelling below is a way a second scanner has actually been written; each must be
+// SEEN, or the guard above claims more than it detects (rules/design-invariants.md § Weak claims).
+const SPELLINGS = [
+  [`if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }`, 'the loop catalog.mjs used to carry'],
+  [`const q = "'";`, 'a single quote in a double-quoted literal'],
+  [`if (ch === '\\'' || ch === "\\"") {}`, 'the escaped forms'],
+  [`if (ch === '\\"' || ch === "\\'") {}`, 'the cross-escaped forms'],
+  ['if (ch === `"` || ch === `\'`) {}', 'template literals'],
+  ['if (`"\'`.includes(ch)) {}', 'a template literal holding both'],
+  [`if (ch === '\\x22' || ch === '\\x27') {}`, 'hex escapes'],
+  [`if (ch === '\\u0022' || ch === '\\u0027') {}`, 'unicode escapes'],
+  [`if (/["']/.test(ch)) {}`, 'a regex character class'],
+  [`if (/['"]/.test(ch)) {}`, 'the class the other way round'],
+  [`const QUOTE = /[^"']/;`, 'a negated class'],
+  [`if (ch.charCodeAt(0) === 34 || ch.charCodeAt(0) === 39) {}`, 'charCodeAt against 34/39'],
+  [`const q = String.fromCharCode(39);`, 'fromCharCode(39)'],
+  [`if (ch.codePointAt(0) === 0x22) {}`, 'codePointAt against hex 0x22'],
+];
+test('RED CHECK: the quote-scanner scan sees every spelling a second scanner has been written in', () => {
+  for (const [src, how] of SPELLINGS) assert.match(src, QUOTE_LITERAL, how);
+  for (const clean of [`const s = 'no quotes here';`, `const items = ['a', "b"];`, `const n = 34 + 39;`, 'const msg = `the entry is ${id}`;', `const re = /[a-z]/;`,
+    `name=\${name === '' ? '""' : name}`, `const empty = [""];`, 'const t = `""`;', `const e = "''";`]) {
+    assert.doesNotMatch(clean, QUOTE_LITERAL, `false positive: ${clean}`);
+  }
 });
 // The behavioural half of the same claim: the tokeniser and the segment splitter see the same span,
 // so one pair of quotes flips both answers, and an unterminated span runs to the end for both.

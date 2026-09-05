@@ -32,12 +32,15 @@ export function quoteStates(command) {
   return states;
 }
 
-// `command.split(separator)`, except that a match may not start, end or reach inside a span: the
-// separator runs over a copy in which every non-OUTSIDE code unit is replaced by FILL, and the
-// pieces are cut from the original at the positions found there. FILL is a control character no
-// separator names — `\s` does not match it, and a separator written with `.` would be wrong here
-// anyway. The quote characters stay in the pieces: a reader that wants them stripped wants tokens.
-const FILL = '';
+// `command.split(separator)`, with three differences. A match may not start, end or reach inside a
+// span: the separator runs over a copy in which every non-OUTSIDE code unit is replaced by FILL,
+// and the pieces are cut from the original at the positions found there. An empty match is
+// skipped, never a boundary, where String.split would cut between every character. And a capture
+// group in the separator is never spliced into the result, where String.split would insert each
+// group between the pieces. FILL is a control character no separator names — `\s` does not match
+// it, and a separator written with `.` would be wrong here anyway. The quote characters stay in
+// the pieces: a reader that wants them stripped wants tokens.
+const FILL = '\u0001';
 export function splitOutside(command, separator) {
   const states = quoteStates(command);
   let mask = '';

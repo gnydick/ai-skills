@@ -534,7 +534,10 @@ Declared standard: **structural**. This changes behaviour deliberately.
   `rev-parse`, `branch` when listing, `worktree list`) — and routes them to the existing `read`
   bucket, which the hook already skips, so they never reach `decide()` and generate no
   observation record. A compound command is a byte-mover only if every segment of it is:
-  `cargo build && echo done` stays wrapped. Rejected alongside: a stdout-only-noise heuristic
+  `cargo build && echo done` stays wrapped. Segments are split outside quotes: a `;`, `&&`,
+  `||`, single `&` or newline inside a single- or double-quoted span is data, not a boundary,
+  and an unterminated quote runs to the end of the command — the span rule is the one
+  `catalog.mjs`'s tokeniser reads, in `scripts/lib/quotes.mjs` (#11). Rejected alongside: a stdout-only-noise heuristic
   inside `decide()`, and an allowlist of tool-shaped invocations — the owner chose an
   exemption by kind. `bespokeKey` was deliberately not changed: an exempt command writes no
   record, so its key collapse is moot.
