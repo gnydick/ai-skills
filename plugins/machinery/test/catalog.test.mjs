@@ -14,7 +14,8 @@ process.env.CLAUDE_PLUGIN_ROOT = PLUGIN;
 const CATALOG_FILE = path.join(PLUGIN, 'data', 'tool-catalog.json');
 const FIXTURES = path.join(PLUGIN, 'test', 'fixtures', 'tool-catalog');
 const readCatalog = () => JSON.parse(fs.readFileSync(CATALOG_FILE, 'utf8'));
-const fixtureLines = (id) => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${id}.json`), 'utf8')).lines;
+const readFixture = (id) => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${id}.json`), 'utf8'));
+const fixtureLines = (id) => readFixture(id).lines;
 
 // select() keeps the last TAIL_LINES lines unconditionally, so a short fixture's outcome line
 // survives whatever its declaration says — the check would pass with no declaration at all.
@@ -22,23 +23,40 @@ const fixtureLines = (id) => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${i
 // that window, so a keep is attributable to a rule that actually looked at the line.
 const bury = (lines) => [...lines, ...Array.from({ length: TAIL_LINES + 4 }, (_, i) => `   Compiling crate${i} v0.1.0`)];
 
-// The per-entry contract from the design's Verification 7. What carries the weight here is the
-// FIRST assertion: real recorded output must contain a line the declared pattern matches, which is
-// what catches a pattern written from memory instead of from the tool. The survival assertions pin
-// select()'s contract — that an outcome match is kept unconditionally, and not merely because it
-// landed in the tail window. That an outcome match survives is true by construction while select()
-// keeps what it matches; it is a regression guard on that contract, not proof the declaration is
-// what saved the line. The test below that one proves the declaration is load-bearing.
-function assertOutcomeSurvives(id, entry, lines) {
+// The per-entry contract from the design's Verification 7.
+//
+// The fixture names its own answer lines, in `answers`, as indices a person read off the recorded
+// runs — NEVER found by applying the outcome pattern, which would make the check test itself. That
+// is what carries the weight: EVERY declared answer must match, so a fixture only has to include a
+// form the pattern gets wrong for the wrong pattern to go red. A check that searched for the first
+// matching line instead would pass on a fixture whose first run happens to suit both patterns, and
+// silently prove nothing about the rest.
+//
+// The survival assertions pin select()'s contract — that an outcome match is kept unconditionally,
+// and not merely because it landed in the tail window. That an outcome match survives is true by
+// construction while select() keeps what it matches; it is a regression guard on that contract,
+// not proof the declaration is what saved the line. The test below it proves that separately.
+function assertOutcomeSurvives(id, entry, fixture) {
+  const { lines, answers } = fixture;
   const outcome = new RegExp(entry.outcome);
-  const i = lines.findIndex((l) => outcome.test(l));
-  assert.ok(i >= 0, `${id}: fixture does not contain a line matching its own outcome pattern`);
-  assert.ok(select(lines, outcome).has(i), `${id}: outcome line did not survive select()`);
+  assert.ok(Array.isArray(answers) && answers.length > 0, `${id}: fixture declares no answer lines — it proves nothing`);
   const buried = bury(lines);
-  assert.ok(buried.length - i > TAIL_LINES, `${id}: outcome line is still inside the unconditional tail window`);
-  const kept = select(buried, outcome);
-  assert.ok(kept.has(i), `${id}: outcome line did not survive select() once outside the tail window`);
-  assert.ok(kept.size < buried.length, `${id}: select() kept every line — "it survived" would prove nothing here`);
+  const keptPlain = select(lines, outcome), keptBuried = select(buried, outcome);
+  for (const i of answers) {
+    assert.ok(i >= 0 && i < lines.length, `${id}: declared answer index ${i} is not a line of this fixture`);
+    assert.ok(outcome.test(lines[i]), `${id}: the outcome pattern does not match a line this tool really emits: ${JSON.stringify(lines[i])}`);
+    assert.ok(keptPlain.has(i), `${id}: answer line ${i} did not survive select()`);
+    assert.ok(buried.length - i > TAIL_LINES, `${id}: answer line ${i} is still inside the unconditional tail window`);
+    assert.ok(keptBuried.has(i), `${id}: answer line ${i} did not survive select() once outside the tail window`);
+  }
+  // The pattern is not allowed to be so wide it swallows the tool's ordinary chatter: nothing the
+  // fixture did NOT declare an answer may match it. This is what stops a wrong pattern being
+  // "fixed" by widening it until everything matches. Checked before the assertion below, because a
+  // pattern that matches every line would otherwise be reported as select() keeping too much.
+  lines.forEach((line, i) => {
+    if (!answers.includes(i)) assert.ok(!outcome.test(line), `${id}: the outcome pattern also matches a non-answer line ${i}: ${JSON.stringify(line)}`);
+  });
+  assert.ok(keptBuried.size < buried.length, `${id}: select() kept every line — "it survived" would prove nothing here`);
 }
 
 test('matchTool recognises a real invocation by regex and by prefix, and declines unrelated commands', () => {
@@ -82,42 +100,61 @@ test('every universal catalog entry has a fixture proving its outcome survives f
   for (const id of ids) {
     const fixturePath = path.join(FIXTURES, `${id}.json`);
     assert.ok(fs.existsSync(fixturePath), `${id}: no fixture at ${fixturePath} — an entry with no fixture is not an entry`);
-    assertOutcomeSurvives(id, catalog[id], fixtureLines(id));
+    assertOutcomeSurvives(id, catalog[id], readFixture(id));
   }
 });
 
 // The one non-vacuous proof that a declaration changes the outcome: git commit's answer line is
 // caught by nothing in filter.mjs's generic heuristics, so buried it is dropped without the
 // declaration and kept with it. If select() ever stopped honouring outcomePattern, this fails.
-test('the outcome declaration is load-bearing: git commit’s answer line is dropped without it', () => {
-  const catalog = readCatalog();
-  const buried = bury(fixtureLines('git-commit'));
-  const outcome = new RegExp(catalog['git-commit'].outcome);
-  const i = buried.findIndex((l) => outcome.test(l));
-  assert.ok(!select(buried).has(i), 'the generic heuristics already keep this line — this test would prove nothing');
-  assert.ok(select(buried, outcome).has(i));
+test('the outcome declaration is load-bearing: git commit’s answer lines are dropped without it', () => {
+  const outcome = new RegExp(readCatalog()['git-commit'].outcome);
+  const { lines, answers } = readFixture('git-commit');
+  const buried = bury(lines);
+  const without = select(buried), with_ = select(buried, outcome);
+  for (const i of answers) {
+    assert.ok(!without.has(i), `the generic heuristics already keep line ${i} — this test would prove nothing about it`);
+    assert.ok(with_.has(i), `line ${i} was not kept by the declaration`);
+  }
 });
 
-// A pin, not coverage. npm's and pytest's answer lines are already caught by filter.mjs's SUMMARY
-// regex, so their declarations are today a belt over an existing brace; git commit's is the only
-// one carrying the guarantee alone. Recording that means a change on either side has to be
-// re-reviewed rather than silently moving where the guarantee comes from.
-test('pin: only git-commit’s outcome line depends on its declaration once outside the tail window', () => {
-  const catalog = readCatalog();
-  const dependent = Object.keys(catalog).filter((id) => {
-    const buried = bury(fixtureLines(id));
-    const i = buried.findIndex((l) => new RegExp(catalog[id].outcome).test(l));
-    return !select(buried).has(i);
+// A pin, not coverage. Measured 2026-09-04, once the fixtures carried every recorded form:
+//   git-commit  all three bracket lines — kept by NOTHING generic
+//   npm-install "added 1 package, …"     — kept by SUMMARY's `\badded \d+ packages?\b`
+//               "up to date, audited …"  — kept by NOTHING generic (SUMMARY wants "added")
+//   pytest      both summary lines       — kept by SUMMARY's `^={3,}.*={3,}$` / `\b\d+ passed\b`
+// So two of the three entries carry a form whose survival rests on the declaration alone, and
+// pytest's is today a belt over an existing brace. Recording that means a change on either side
+// has to be re-reviewed rather than silently moving where the guarantee comes from.
+test('pin: which entries carry an answer line that depends on their declaration once outside the tail window', () => {
+  const dependent = Object.keys(readCatalog()).filter((id) => {
+    const { lines, answers } = readFixture(id);
+    const without = select(bury(lines));
+    return answers.some((i) => !without.has(i));
   });
-  assert.deepEqual(dependent.sort(), ['git-commit']);
+  assert.deepEqual(dependent.sort(), ['git-commit', 'npm-install']);
 });
 
-test('RED CHECK: the survival check rejects a fixture without the outcome line, and the tail rule is not what passes it', () => {
-  const gitEntry = readCatalog()['git-commit'];
-  assert.throws(() => assertOutcomeSurvives('x', gitEntry, ['   Compiling a', '   Compiling b']),
-    /does not contain a line matching its own outcome pattern/);
-  // And the precondition the load-bearing test rests on: buried, this real answer line is dropped
-  // by select() with no declaration. If it were kept anyway, both tests above would be theatre.
+test('RED CHECK: the survival check catches a pattern that misses a real form, an undeclared fixture, an over-wide pattern, and the tail rule passing it', () => {
+  const real = readFixture('git-commit');
+
+  // 1. The reason the fixtures carry more than one recorded run. This is the plan's ORIGINAL
+  //    git pattern — `\S+` cannot cross the space in `[main (root-commit) …]` or
+  //    `[detached HEAD …]`. Against the real fixture it must go red, so reverting the correction
+  //    cannot pass. Before the fixture carried those runs, this same revert passed silently.
+  assert.throws(() => assertOutcomeSurvives('x', { outcome: '^\\[\\S+ [0-9a-f]{7,}\\]' }, real),
+    /does not match a line this tool really emits/);
+
+  // 2. A fixture that declares no answers proves nothing and must say so.
+  assert.throws(() => assertOutcomeSurvives('x', real, { lines: real.lines, answers: [] }),
+    /declares no answer lines/);
+
+  // 3. A pattern cannot be "fixed" by widening it until it swallows ordinary chatter.
+  assert.throws(() => assertOutcomeSurvives('x', { outcome: '.' }, real),
+    /also matches a non-answer line/);
+
+  // 4. The precondition the load-bearing test rests on: buried, a real answer line is dropped by
+  //    select() with no declaration. If it were kept anyway, that test would be theatre.
   const buried = bury(['[main a1b2c3d] a commit message', ' 1 file changed, 2 insertions(+)']);
   assert.ok(!select(buried).has(0), 'select() keeps this line without a declaration — the checks above prove nothing');
 });

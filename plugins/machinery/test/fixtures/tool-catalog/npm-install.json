@@ -1,8 +1,16 @@
 {
-  "source": "npm 11.15.0. Recorded 2026-09-04 from `npm install` (all defaults, audit and fund on) in a scratch project with one `file:` dependency, through normalise().",
+  "source": "npm 11.15.0. Two runs recorded 2026-09-04, concatenated and put through normalise(): `npm install` in a scratch project with one `file:` dependency (all defaults, audit and fund on), then the identical command again. The second run's answer says \"up to date,\" with a COMMA where a count would go, which is what a \"up to date d+ package\" pattern cannot match.",
+  "answers": [
+    1,
+    5
+  ],
   "lines": [
     "",
-    "added 1 package, and audited 3 packages in 399ms",
+    "added 1 package, and audited 3 packages in 456ms",
+    "",
+    "found 0 vulnerabilities",
+    "",
+    "up to date, audited 3 packages in 436ms",
     "",
     "found 0 vulnerabilities"
   ]

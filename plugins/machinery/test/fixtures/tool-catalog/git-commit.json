@@ -1,7 +1,12 @@
 {
-  "source": "git 2.45.1.windows.1. Recorded 2026-09-04 from `git commit -m \"add twelve files\"` in a scratch repository with twelve staged new files, through normalise(). The answer line is FIRST here, well above the unconditional tail window.",
+  "source": "git 2.45.1.windows.1. Three runs recorded 2026-09-04, concatenated in order and put through normalise(): `git commit -m \"add twelve files\"` with twelve staged new files (its answer line lands FIRST, fourteen lines above the tail), then `git commit -m \"the first commit\"` in a fresh repository (the root-commit form), then the same on a detached HEAD. The last two carry a SPACE in the bracket first field, which is what a S+ pattern cannot cross.",
+  "answers": [
+    0,
+    14,
+    17
+  ],
   "lines": [
-    "[main 77ad41b] add twelve files",
+    "[main c736cfd] add twelve files",
     " 12 files changed, 12 insertions(+)",
     " create mode 100644 file1.txt",
     " create mode 100644 file10.txt",
@@ -14,6 +19,12 @@
     " create mode 100644 file6.txt",
     " create mode 100644 file7.txt",
     " create mode 100644 file8.txt",
-    " create mode 100644 file9.txt"
+    " create mode 100644 file9.txt",
+    "[main (root-commit) 90a0003] the first commit",
+    " 1 file changed, 1 insertion(+)",
+    " create mode 100644 f.txt",
+    "[detached HEAD 1913fca] on a detached head",
+    " 1 file changed, 1 insertion(+)",
+    " create mode 100644 extra.txt"
   ]
 }

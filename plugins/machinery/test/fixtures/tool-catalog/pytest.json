@@ -1,5 +1,9 @@
 {
-  "source": "pytest 9.1.1 on Python 3.12.10. Recorded 2026-09-04 from `pytest -p no:cacheprovider` over twelve passing tests, through normalise() (which strips the ANSI colour the real run emitted).",
+  "source": "pytest 9.1.1 on Python 3.12.10. Two runs recorded 2026-09-04, concatenated and put through normalise() (which strips the ANSI colour the real runs emitted): `pytest` over twelve passing tests, then `pytest -q` — this entry's own suggested candidate — over a failing pair. Under -q pytest drops the ==== banner, which is what a pattern requiring that banner cannot match.",
+  "answers": [
+    8,
+    20
+  ],
   "lines": [
     "============================= test session starts =============================",
     "platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0",
@@ -9,6 +13,18 @@
     "",
     "test_demo.py ............                                                [100%]",
     "",
-    "============================= 12 passed in 0.02s =============================="
+    "============================= 12 passed in 0.02s ==============================",
+    ".F                                                                       [100%]",
+    "================================== FAILURES ===================================",
+    "__________________________________ test_bad ___________________________________",
+    "",
+    ">   def test_bad(): assert 1 == 2",
+    "                    ^^^^^^^^^^^^^",
+    "E   assert 1 == 2",
+    "",
+    "test_one_fails.py:2: AssertionError",
+    "=========================== short test summary info ===========================",
+    "FAILED test_one_fails.py::test_bad - assert 1 == 2",
+    "1 failed, 1 passed in 0.07s"
   ]
 }
