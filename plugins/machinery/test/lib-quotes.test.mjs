@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quoteStates, splitOutside, OUTSIDE, DELIM, INSIDE } from '../scripts/lib/quotes.mjs';
+import { quoteStates, splitOutside, segmentsOutside, OUTSIDE, DELIM, INSIDE } from '../scripts/lib/quotes.mjs';
 
 // Issue #11: the one definition of a quoted span (rules/design-invariants.md § Never re-derive a
 // fact). catalog.mjs's tokens() and classify.mjs's segment splitter both read this; neither keeps
@@ -58,4 +58,40 @@ test('RED CHECK: the scanner sees quotes and the splitter splits — a scanner t
   assert.notDeepEqual(quoteStates('"x"'), [O, O, O]);
   assert.equal(splitOutside('a;b', /;/).length, 2);
   assert.equal(splitOutside('"a;b"', /;/).length, 1);
+});
+
+// Issue #13: the hook wraps each segment of a compound on its own and rejoins the separators
+// verbatim, so the split has to hand back the separator that FOLLOWS each piece — spacing and all,
+// because the rebuilt command is `text + sep` for every piece. One definition of the split:
+// segmentsOutside() is the loop, and splitOutside() is its pieces with the separators dropped.
+const SEP = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
+test('#13: segmentsOutside hands back each piece with the separator that follows it, spacing included', () => {
+  assert.deepEqual(segmentsOutside('a && b; c', SEP), [{ text: 'a', sep: ' && ' }, { text: 'b', sep: '; ' }, { text: 'c', sep: '' }]);
+  assert.deepEqual(segmentsOutside('cargo build & cat x', SEP), [{ text: 'cargo build', sep: ' & ' }, { text: 'cat x', sep: '' }]);
+  assert.deepEqual(segmentsOutside('plain', SEP), [{ text: 'plain', sep: '' }], 'no separator: the whole command, once, followed by nothing');
+  assert.deepEqual(segmentsOutside('', SEP), [{ text: '', sep: '' }], 'the empty command is one empty piece, like splitOutside');
+  assert.deepEqual(segmentsOutside('cat a;', SEP), [{ text: 'cat a', sep: ';' }, { text: '', sep: '' }], 'a trailing separator leaves an empty last piece, as splitOutside does');
+});
+
+test('#13: a separator inside a span is data to segmentsOutside too — it is the same loop', () => {
+  assert.deepEqual(segmentsOutside('echo "a && b" && ls', SEP), [{ text: 'echo "a && b"', sep: ' && ' }, { text: 'ls', sep: '' }]);
+  assert.deepEqual(segmentsOutside("cat 'x; cargo build", SEP), [{ text: "cat 'x; cargo build", sep: '' }], 'an unterminated span swallows every separator after it');
+});
+
+test('#13: rejoining text + sep is the identity, so a command can be rebuilt around the pieces that get wrapped', () => {
+  for (const c of ['a && b; c', 'cat a;', '\ncargo build', 'a ;; b', 'echo "x; y" || ls\n', 'cargo build 2>&1 & ls', '  spaced  &&  out  ', '']) {
+    assert.equal(segmentsOutside(c, SEP).map((s) => s.text + s.sep).join(''), c, JSON.stringify(c));
+  }
+});
+
+test('#13: splitOutside is segmentsOutside without the separators — one definition of the split, not two', () => {
+  for (const c of ['a && b; c', 'echo "a && b" && ls', 'cat a;', 'plain', '', 'cat a 2>&1 & ls']) {
+    assert.deepEqual(splitOutside(c, SEP), segmentsOutside(c, SEP).map((s) => s.text), JSON.stringify(c));
+  }
+});
+
+test('RED CHECK: the separator handed back is the real one, not a constant — different separators in one command come back different', () => {
+  const seps = segmentsOutside('a && b || c; d', SEP).map((s) => s.sep);
+  assert.deepEqual(seps, [' && ', ' || ', '; ', '']);
+  assert.notEqual(seps[0], seps[1]);
 });

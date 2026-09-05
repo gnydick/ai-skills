@@ -41,7 +41,12 @@ export function quoteStates(command) {
 // it, and a separator written with `.` would be wrong here anyway. The quote characters stay in
 // the pieces: a reader that wants them stripped wants tokens.
 const FILL = '\u0001';
-export function splitOutside(command, separator) {
+// Each piece comes back with the separator that FOLLOWED it, exactly as matched — spacing and all —
+// and the last piece's is ''. The quiet hook wraps each segment of a compound on its own and
+// rebuilds the command around the ones it wrapped (issue #13), so `text + sep` over this list has
+// to give the original back byte for byte. splitOutside() below is this list with the separators
+// dropped: one loop, one definition of where a piece ends, so the two readers cannot disagree.
+export function segmentsOutside(command, separator) {
   const states = quoteStates(command);
   let mask = '';
   for (let i = 0; i < command.length; i++) mask += states[i] === OUTSIDE ? command[i] : FILL;
@@ -50,9 +55,10 @@ export function splitOutside(command, separator) {
   let last = 0;
   for (const m of mask.matchAll(new RegExp(separator.source, flags))) {
     if (m[0] === '') continue;
-    pieces.push(command.slice(last, m.index));
+    pieces.push({ text: command.slice(last, m.index), sep: m[0] });
     last = m.index + m[0].length;
   }
-  pieces.push(command.slice(last));
+  pieces.push({ text: command.slice(last), sep: '' });
   return pieces;
 }
+export const splitOutside = (command, separator) => segmentsOutside(command, separator).map((s) => s.text);

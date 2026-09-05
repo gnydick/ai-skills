@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classify } from '../scripts/lib/classify.mjs';
+import { classify, classifySegments } from '../scripts/lib/classify.mjs';
 
 const cases = [
   // ported from quiet_hook_test.py: test_noisy_commands_wrap / test_quiet_commands_pass
@@ -175,4 +175,73 @@ test('R4: a catalog thunk is called exactly once for a command that reaches the 
 test('RED CHECK: the read exemption is not the identity either — a byte-mover with an output producer behind it is still wrapped', () => {
   assert.equal(classify('cat big.txt'), 'read');
   assert.notEqual(classify('cat big.txt && cargo build'), 'read');
+});
+
+// Issue #13 (owner, 2026-09-05: "i would apply the rules to inside the compound. so each outputter
+// gets wrapped. since it's && and not a pipe, it theoretically should be no problem"). classify()
+// gives ONE kind to a whole command, and the final review measured what that costs a compound: a
+// catalog prefix on the first segment claimed `pytest tests/ && cargo build` as 'plain', so the
+// cargo build ran unfiltered where alone it was 'noisy → filter'. classifySegments() applies the
+// same precedence chain — never → piped → redirected → read → catalog → infra → noisy → plain — to
+// each `;`/`&&`/`||`/`&`/newline-joined segment on its own, and hands back the separator that
+// follows each so the hook can rebuild the command around the segments it wraps. classify() itself
+// keeps its meaning for every case above.
+const seg = (text, sep, kind) => ({ text, sep, kind });
+test('#13: classifySegments classifies each segment on its own, with the separator that follows it', () => {
+  assert.deepEqual(classifySegments('pytest tests/ && cargo build', { catalog: CATALOG }), [seg('pytest tests/', ' && ', 'plain'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cat a && cargo build'), [seg('cat a', ' && ', 'read'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build; echo done'), [seg('cargo build', '; ', 'noisy'), seg('echo done', '', 'read')]);
+  assert.deepEqual(classifySegments('cat a && ls'), [seg('cat a', ' && ', 'read'), seg('ls', '', 'read')]);
+  assert.deepEqual(classifySegments('git push || cargo build'), [seg('git push', ' || ', 'infra'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build\ncargo test'), [seg('cargo build', '\n', 'noisy'), seg('cargo test', '', 'noisy')]);
+  // The kind is reported for a backgrounded segment like any other; whether to wrap one is the
+  // hook's decision (quiet.mjs), and it never does — two runners would race on the record.
+  assert.deepEqual(classifySegments('cargo build & cat x'), [seg('cargo build', ' & ', 'noisy'), seg('cat x', '', 'read')]);
+});
+
+test('#13: a pipe is one unit — the segment is piped or redirected exactly as the whole command would be', () => {
+  assert.deepEqual(classifySegments('cargo test | tail -5 && cargo build'), [seg('cargo test | tail -5', ' && ', 'piped'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build > log; cargo test'), [seg('cargo build > log', '; ', 'redirected'), seg('cargo test', '', 'noisy')]);
+});
+
+test('#13: the NEVER exemption is per segment: an exempt segment no longer exempts its neighbours', () => {
+  assert.equal(classify('cargo --version && cargo build'), 'plain', 'whole-command: NEVER anywhere exempts everything');
+  assert.deepEqual(classifySegments('cargo --version && cargo build'), [seg('cargo --version', ' && ', 'plain'), seg('cargo build', '', 'noisy')]);
+});
+
+test('#13: a whitespace-only segment names no command — it is folded into the neighbouring separator, never classified', () => {
+  assert.deepEqual(classifySegments('cargo build;'), [seg('cargo build', ';', 'noisy')]);
+  assert.deepEqual(classifySegments('cat a\n'), [seg('cat a', '\n', 'read')]);
+  assert.deepEqual(classifySegments('cat a; \n'), [seg('cat a', '; \n', 'read')]);
+  assert.deepEqual(classifySegments('\ncargo build'), [seg('\ncargo build', '', 'noisy')], 'a leading blank has no predecessor: it rides on the segment after it');
+  assert.deepEqual(classifySegments(''), []);
+  assert.deepEqual(classifySegments('  '), []);
+  assert.deepEqual(classifySegments(';'), []);
+});
+
+test('#13: the rejoin is the identity — the segments and separators carry every byte of a command that names one', () => {
+  for (const c of ['pytest tests/ && cargo build', 'cargo build;', 'cat a; \n', '\ncargo build', 'echo "a; b" && cargo build', 'cargo build 2>&1 & ls', 'a || b && c; d\ne', '  cargo build  ']) {
+    assert.equal(classifySegments(c).map((s) => s.text + s.sep).join(''), c, JSON.stringify(c));
+  }
+});
+
+test('#13: a single segment classifies exactly as classify() does', () => {
+  for (const c of ['cargo build', 'cat a', 'git push', 'gh issue view 1', 'cargo test | tail', 'cargo build > log', '--help', 'bash x.sh', 'echo "a && b"']) {
+    const s = classifySegments(c, { catalog: CATALOG });
+    assert.equal(s.length, 1, c);
+    assert.equal(s[0].kind, classify(c, { catalog: CATALOG }), c);
+  }
+});
+
+test('#13: the catalog thunk is resolved at most once for the whole compound, and only if a segment reaches the catalog step (R4 holds per segment)', () => {
+  let calls = 0;
+  const thunk = () => { calls += 1; return CATALOG; };
+  assert.deepEqual(classifySegments('git commit -m x && pytest -q && bash x.sh', { catalog: thunk }).map((s) => s.kind), ['plain', 'plain', 'plain']);
+  assert.equal(calls, 1, `three segments reached the catalog step and the thunk was called ${calls} times`);
+  assert.doesNotThrow(() => classifySegments('cat a && ls | wc -l && cargo build > log', { catalog: explode }));
+});
+
+test('RED CHECK: classifySegments is not classify() over the whole command — the compound the issue measured comes apart', () => {
+  assert.equal(classify('pytest tests/ && cargo build', { catalog: CATALOG }), 'plain');
+  assert.deepEqual(classifySegments('pytest tests/ && cargo build', { catalog: CATALOG }).map((s) => s.kind), ['plain', 'noisy']);
 });

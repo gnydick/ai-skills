@@ -7,7 +7,7 @@
 // the regex chain after it is the fallback for tools nobody has characterised. Read runs before
 // the catalog on purpose: a byte-mover is exempt even if someone catalogs it.
 import { matchTool } from './catalog.mjs';
-import { splitOutside } from './quotes.mjs';
+import { splitOutside, segmentsOutside } from './quotes.mjs';
 
 const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)*`;
 // The token ends here: `cat` is a byte-mover, `catalog-tool` is not, and `\b` alone would admit
@@ -97,4 +97,38 @@ export function classify(command, { catalog } = {}) {
   if (INFRA.test(command)) return 'infra';
   if (NOISY.test(command)) return 'noisy';
   return 'plain';
+}
+
+// Issue #13 (owner, 2026-09-05: "i would apply the rules to inside the compound. so each outputter
+// gets wrapped. since it's && and not a pipe, it theoretically should be no problem"). classify()
+// gives a whole command one kind, and the final review measured what that costs a compound: the
+// catalog's `pytest` prefix on the first segment made `pytest tests/ && cargo build` 'plain', so
+// the build ran unfiltered on its observe pass where alone it was 'noisy → filter'; and the read
+// exemption above had to demand that EVERY segment be a byte-mover, because one verdict was all the
+// compound could receive. This applies the same chain to each segment on its own. Segments are the
+// SEGMENT boundaries above — `;`, `&&`, `||`, a single `&`, a newline, outside quotes — and a pipe is
+// never one: `a | b` stays one unit and classifies 'piped' exactly as the whole command would.
+// Each entry carries the separator that FOLLOWS its text, as matched, so the hook can rebuild the
+// command around the segments it wraps with `text + sep` and get every byte back; the shell then
+// runs its own `&&`/`||`/`;` over the runners. A whitespace-only segment names no command
+// (re-review R1) and is never classified; it rides on a neighbour's separator so the rejoin stays
+// the identity — the entry before it, or, for a leading blank, the text of the one after it. The
+// catalog is resolved at most once for the whole compound and only when a segment reaches the
+// catalog step (re-review R4, held per compound rather than per segment). Whether a backgrounded
+// segment (`sep` a lone `&`) may be wrapped is the hook's question, answered there, not here.
+export function classifySegments(command, { catalog } = {}) {
+  let loaded = false, table;
+  const once = () => { if (!loaded) { loaded = true; table = typeof catalog === 'function' ? catalog() : catalog; } return table; };
+  const out = [];
+  let lead = '';
+  for (const { text, sep } of segmentsOutside(command, SEGMENT)) {
+    if (text.trim() === '') {
+      if (out.length) out[out.length - 1].sep += text + sep; else lead += text + sep;
+      continue;
+    }
+    const whole = lead + text;
+    out.push({ text: whole, sep, kind: classify(whole, { catalog: once }) });
+    lead = '';
+  }
+  return out;
 }
