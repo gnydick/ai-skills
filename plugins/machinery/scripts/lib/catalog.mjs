@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pluginRoot } from './config.mjs';
+import { quoteStates, DELIM, INSIDE } from './quotes.mjs';
 
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -81,13 +82,16 @@ export function matchTool(command, catalog) {
 // `-m"do`, `not`, `--quiet`, `me"`, and a flag inside a commit message was recorded as applied). An
 // unterminated span runs to the end of the command — that is data, not a crash. Good enough to tell
 // an argument from a flag, which is all the caller below needs; it is not a shell parser and does
-// not try to be.
+// not try to be. What a span IS comes from quotes.mjs (issue #11): classify.mjs's segment splitter
+// reads the same definition, so the two can no longer disagree about where a quote runs to.
 function tokens(command) {
+  const states = quoteStates(command);
   const out = [];
-  let token = '', inToken = false, quote = null;
-  for (const ch of command) {
-    if (quote) { if (ch === quote) quote = null; else token += ch; continue; }
-    if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }
+  let token = '', inToken = false;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (states[i] === DELIM) { inToken = true; continue; }
+    if (states[i] === INSIDE) { token += ch; continue; }
     if (/\s/.test(ch)) { if (inToken) out.push(token); token = ''; inToken = false; continue; }
     token += ch; inToken = true;
   }
