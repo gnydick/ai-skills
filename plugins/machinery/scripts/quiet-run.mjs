@@ -9,6 +9,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { normalise, select, selectInfra, render, PASS_THROUGH_LINES, MAX_SHOWN } from './lib/filter.mjs';
 import { captureRun } from './lib/capture.mjs';
+import { projectRoot } from './lib/root.mjs';
+import { loadCatalog, matchTool, matchedCandidate } from './lib/catalog.mjs';
+import { loadObservations, saveObservations, recordRun, bespokeKey } from './lib/observations.mjs';
+import { decide } from './lib/assimilate.mjs';
 
 const SHELLS = Object.freeze({
   bash: (cmd) => {
@@ -80,17 +84,74 @@ async function main() {
     const body = records.map((r) => `${r.t.toFixed(3)} ${r.stream === 'stdout' ? 'out' : 'err'}  ${r.text}`).join('\n');
     fs.writeFileSync(logPath, `$ ${command}\n${body}${body ? '\n' : ''}`);
   } catch (e) { logDisplay = `(unavailable: ${e.message})`; }
+  // The assimilator's inputs, resolved once and read by everything below. Nothing here may cost
+  // the wrapped command its output or its exit status, and two separate things can go wrong:
+  // projectRoot() throws outside a git checkout, and a catalog entry is external input — the
+  // project half is machine-written and both halves are hand-editable — so a malformed `match` or
+  // `outcome` pattern throws, and a `candidates` that is not a list throws too. Both degrade to
+  // "nothing is known about this tool" and the second says so, because a silently generic filter
+  // on a tool that declared an answer line is exactly the failure the declaration exists to stop.
+  // Read before recording, so the suggestion below is computed from the same record quiet.mjs saw.
+  let root = null, catalog = {}, observations = {}, toolId = null, outcomePattern, candidate = null;
+  try { root = projectRoot(process.cwd()); catalog = loadCatalog(root); observations = loadObservations(root); }
+  catch { /* not inside a repository: nowhere to keep a record, and nothing to look one up in */ }
+  try {
+    toolId = matchTool(command, catalog);
+    // A missing `outcome` stays undefined rather than becoming `new RegExp(undefined)`, which is
+    // /undefined/ and keeps any line with that word in it. `outcome` is a plain pattern string
+    // carrying no flag information, so this RegExp is non-global by construction — which is what
+    // keeps select() clear of the lastIndex statefulness a /g or /y pattern brings (Task 3's
+    // review). A catalog format that ever allowed flags would have to re-open that.
+    if (toolId && catalog[toolId].outcome) outcomePattern = new RegExp(catalog[toolId].outcome);
+    // Two different questions, deliberately not one variable. `candidate` is the flag THIS run is
+    // a trial of — already present in the command — which is the only thing the ledger can record
+    // a verdict about. The flag to RECOMMEND is by definition not in the command, so
+    // matchedCandidate() can never name it; decide() owns that choice and is re-asked below.
+    if (toolId) candidate = matchedCandidate(command, catalog[toolId].candidates ?? []);
+  } catch (e) {
+    process.stderr.write(`quiet-run: unusable tool catalog (${e.message}); falling back to the generic filter\n`);
+    catalog = {}; toolId = null; outcomePattern = undefined; candidate = null;
+  }
+  const key = toolId ?? bespokeKey(command);
+
   // observe and suggest are ALWAYS verbatim, unconditionally — never the threshold branch.
   // filter/infra keep today's threshold-or-forced verbatim path, unchanged.
   const forced = process.env.MACHINERY_QUIET === '0';
   const verbatim = forced || a.mode === 'observe' || a.mode === 'suggest'
     || (a.mode !== 'infra' && lines.length <= PASS_THROUGH_LINES);
-  if (verbatim) process.stdout.write(lines.join('\n') + (lines.length ? '\n' : ''));
+  let out;
+  if (verbatim) out = lines.join('\n') + (lines.length ? '\n' : '');
   else {
-    const keep = a.mode === 'infra' ? selectInfra(lines, code) : select(lines);
+    const keep = a.mode === 'infra' ? selectInfra(lines, code) : select(lines, outcomePattern);
     const header = `[quiet:${a.mode}] exit=${code}  ${((Date.now() - t0) / 1000).toFixed(1)}s  ${lines.length} lines -> ${Math.min(keep.size, MAX_SHOWN)} shown  full log: ${logDisplay}`;
-    process.stdout.write(render(lines, keep, header) + '\n');
+    out = render(lines, keep, header) + '\n';
   }
+  if (a.mode === 'suggest') {
+    // Advisory, never applied: the assistant is told what to try, and nothing rewrites the command
+    // the user wrote (design, "The nudge register"). The no-flag branch is reachable whenever this
+    // runner is invoked in suggest mode over a tool decide() has nothing to offer for, and saying
+    // so is better than printing `try: ` with nothing after it.
+    const suggestion = decide(command, { catalog, observations }).suggestFlags;
+    out += suggestion
+      ? `[quiet:suggest] ${key} is noisy here — try adding: ${suggestion}\n`
+      : `[quiet:suggest] ${key} is noisy here, and no untried quiet flag is declared for it\n`;
+  }
+  process.stdout.write(out);
+
+  try {
+    if (root) {
+      const stdoutLines = records.filter((r) => r.stream === 'stdout').length;
+      const stderrLines = records.filter((r) => r.stream === 'stderr').length;
+      // Only meaningful on a trial run (a candidate flag is actually present): did the tool's own
+      // declared answer survive taking it? Defaults true, so a bare run — or a tool with no
+      // declared outcome pattern to lose — is judged on line count alone, per Task 5's ruling.
+      const outcomeSurvived = candidate && outcomePattern ? lines.some((l) => outcomePattern.test(l)) : true;
+      saveObservations(root, recordRun(observations, key, {
+        identity: toolId ? 'catalog' : 'bespoke',
+        lineCount: lines.length, stdoutLines, stderrLines, candidate, outcomeSurvived,
+      }));
+    }
+  } catch { /* recording is best-effort; never fail the wrapped command over it */ }
   if (a.cmdfile) { try { fs.rmSync(a.cmdfile); } catch {} }
   return code;
 }

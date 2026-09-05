@@ -4,9 +4,25 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classify } from './lib/classify.mjs';
+import { classify, isNever } from './lib/classify.mjs';
 import { readPayload } from './lib/stdin.mjs';
 import { updatedInput } from './lib/emit.mjs';
+import { projectRoot } from './lib/root.mjs';
+import { loadCatalog } from './lib/catalog.mjs';
+import { loadObservations } from './lib/observations.mjs';
+import { decide } from './lib/assimilate.mjs';
+
+// classify() says 'plain' about two different things: a command it simply does not recognise,
+// whose volume is UNKNOWN rather than quiet (specs/2026-09-04-tool-assimilation-design.md, "The
+// default is also backwards"), and one the NEVER list exempts outright. Only the first is the
+// assimilator's business. Returns the wrap mode, or null for "leave this command alone".
+function assimilated(command) {
+  if (isNever(command)) return null;
+  const root = projectRoot(process.cwd());
+  const d = decide(command, { catalog: loadCatalog(root), observations: loadObservations(root) });
+  if (d.mode === 'plain') return null;              // seen here, and it was quiet
+  return d.mode === 'noisy' ? 'filter' : d.mode;    // 'filter' | 'observe' | 'suggest'
+}
 
 function main() {
   const p = readPayload();
@@ -16,8 +32,9 @@ function main() {
   const input = p.tool_input ?? {};
   const command = input.command ?? '';
   const kind = classify(command);
-  if (kind !== 'infra' && kind !== 'noisy') return;
-  const mode = kind === 'infra' ? 'infra' : 'filter';
+  let mode = kind === 'infra' ? 'infra' : kind === 'noisy' ? 'filter' : null;
+  if (!mode && kind === 'plain') mode = assimilated(command);
+  if (!mode) return;
   const shell = tool === 'PowerShell' ? 'powershell' : 'bash';
   const job = process.env.CLAUDE_JOB_DIR;
   const dir = job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');

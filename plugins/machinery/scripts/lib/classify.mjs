@@ -32,6 +32,12 @@ const FILE_REDIRECT = /\d?>\s*\S/;
 
 export const MODES = Object.freeze(['read', 'piped', 'redirected', 'infra', 'noisy', 'plain']);
 
+// NEVER collapses into 'plain' below, because both mean "do not wrap" to classify()'s own
+// caller. They stop meaning the same thing the moment 'plain' also means "ask the assimilator":
+// an exempted command would then be observed, and an already-wrapped one wrapped again. The
+// exemption is exported rather than restated so there is one spelling of it (quiet.mjs).
+export const isNever = (command) => !command || NEVER.test(command);
+
 export function classify(command) {
   if (!command || NEVER.test(command)) return 'plain';
   if (PIPED.test(command)) return 'piped';
