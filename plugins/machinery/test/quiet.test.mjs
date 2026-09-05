@@ -167,6 +167,26 @@ test('a malformed project catalog entry disables only itself, and is named on st
   assert.equal(r.stderr.trim().split('\n').length, 1, 'exactly one line');
 });
 
+// Re-review R4: the hook loaded the catalog (a git spawn and two file reads) for EVERY command,
+// before classify() had said whether the catalog would be consulted at all. The load is lazy now:
+// a command the chain answers before the catalog step never loads it. The observable, through the
+// hook, is the I2 warning line above — it is printed by the load itself, so it appears for a
+// command that reaches the catalog and not for one that does not; and "exactly one line" for the
+// plain command is the proof the memoised load happens once, not once for classify() and again
+// for the assimilator.
+test('the catalog is loaded lazily: a read / piped / redirected / never command never loads it, a plain one loads it once (re-review R4)', () => {
+  const root = project(null, { testq: { outcome: '^MERGE GATE', candidates: ['--quiet'] } });
+  for (const c of ['cat big.txt', 'cargo build | tail -5', 'cargo build > log', 'pytest --help']) {
+    const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) });
+    assert.equal(r.stdout, '', c);
+    assert.equal(r.stderr, '', `${c}: the malformed-entry line means the catalog was loaded for a command that never reaches it`);
+  }
+  const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'bash scripts/battery.sh') });
+  assert.match(out(r.stdout).updatedInput.command, /--mode observe/);
+  assert.match(r.stderr, /testq/, 'positive control: the same catalog IS loaded, and named, for a command that reaches it');
+  assert.equal(r.stderr.trim().split('\n').length, 1, 'loaded once per hook run — classify() and the assimilator share the load');
+});
+
 test('a hand-edited ledger that is not an object is data: the tool is still suggested to', () => {
   const root = project({ testq: { identity: 'catalog', noisy: true, lines: 900, ledger: 'hand-edited' } }, TESTQ);
   const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'scripts/testq.sh --workspace') });

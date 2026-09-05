@@ -119,6 +119,32 @@ test('RED CHECK: the catalog check is load-bearing — the same command flips be
   assert.notEqual(classify('git commit -m x', { catalog: CATALOG }), classify('git commit -m x', { catalog: {} }));
 });
 
+// Re-review R4: with the catalog passed as a VALUE, quiet.mjs had to resolve the project root (a git
+// spawn) and read two files for every command — the never / piped / redirected / read ones that the
+// chain answers without ever looking at the catalog included. The catalog may be handed in as a
+// thunk, called only when the chain actually reaches the catalog step.
+const explode = () => { throw new Error('the catalog was loaded for a command that never reaches it'); };
+test('R4: a catalog thunk is not called for a command the chain answers before the catalog step', () => {
+  for (const c of ['cat x', 'cargo build | tail', 'cargo build > log', 'gh issue view 1', '--help']) {
+    assert.doesNotThrow(() => classify(c, { catalog: explode }), c);
+  }
+  assert.equal(classify('cat x', { catalog: explode }), 'read');
+  assert.equal(classify('cargo build | tail', { catalog: explode }), 'piped');
+  assert.equal(classify('cargo build > log', { catalog: explode }), 'redirected');
+  assert.equal(classify('gh issue view 1', { catalog: explode }), 'read');
+  assert.equal(classify('--help', { catalog: explode }), 'plain');
+});
+test('R4: a catalog thunk is called exactly once for a command that reaches the catalog step, and its value is what the step uses', () => {
+  for (const [c, want] of [['git commit -m x', 'plain'], ['bash scripts/x.sh', 'plain']]) {
+    let calls = 0;
+    const thunk = () => { calls += 1; return CATALOG; };
+    assert.equal(classify(c, { catalog: thunk }), want, c);
+    assert.equal(calls, 1, `${c}: the thunk was called ${calls} times`);
+  }
+  // The thunk's VALUE is what decides: an empty catalog from a thunk falls through to the regexes.
+  assert.equal(classify('git commit -m x', { catalog: () => ({}) }), 'infra');
+});
+
 test('RED CHECK: the read exemption is not the identity either — a byte-mover with an output producer behind it is still wrapped', () => {
   assert.equal(classify('cat big.txt'), 'read');
   assert.notEqual(classify('cat big.txt && cargo build'), 'read');

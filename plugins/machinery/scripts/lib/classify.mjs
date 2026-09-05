@@ -77,14 +77,18 @@ export const isNever = (command) => !command || NEVER.test(command);
 
 // `catalog` is the loaded tool catalog (universal + project overlay), passed by the one caller that
 // loads it — quiet.mjs — so the file is read once, at one site, and this stays exercisable from a
-// literal. With no catalog the function is exactly what it was: a pure function of the string.
+// literal. It may be the catalog itself or a function returning it: the function is called only when
+// the chain reaches the catalog step, so a command answered above it never pays for the load
+// (re-review R4 — the root spawn and two file reads were being paid for `cat x` and `--help`). With
+// no catalog the function is exactly what it was: a pure function of the string.
 export function classify(command, { catalog } = {}) {
   if (isNever(command)) return 'plain';
   if (PIPED.test(command)) return 'piped';
   // quiet_hook.py:105 — a stderr-merge token cancels the redirect exemption entirely.
   if (command.includes('>') && FILE_REDIRECT.test(command) && !command.includes('2>&1')) return 'redirected';
   if (GH_READ.test(command) || isRead(command)) return 'read';
-  if (catalog && matchTool(command, catalog)) return 'plain';
+  const table = typeof catalog === 'function' ? catalog() : catalog;
+  if (table && matchTool(command, table)) return 'plain';
   if (INFRA.test(command)) return 'infra';
   if (NOISY.test(command)) return 'noisy';
   return 'plain';
