@@ -15,9 +15,10 @@ test('nothing under scripts/gate writes to the tree (spec I23)', () => {
 
 // I19 is about the HOOK channel having one writer, and the blanket ban on JSON.stringify is the
 // proxy that enforces it. The exempt files serialize a record to a FILE — record-payload.mjs the
-// recorded payload, lib/observations.mjs the per-project observation record — and the test below
-// holds them to exactly that, so the exemption cannot quietly grow into a second hook-JSON writer.
-const SERIALISES_TO_A_FILE = [path.join('record-payload.mjs'), path.join('lib', 'observations.mjs')];
+// recorded payload, lib/observations.mjs the per-project observation record, promote-tool.mjs the
+// universal and project tool catalogs it rewrites — and the test below holds them to exactly that,
+// so the exemption cannot quietly grow into a second hook-JSON writer.
+const SERIALISES_TO_A_FILE = [path.join('record-payload.mjs'), path.join('lib', 'observations.mjs'), path.join('promote-tool.mjs')];
 
 test('JSON.stringify appears only in lib/emit.mjs (spec I19)', () => {
   for (const f of walk(path.join(PLUGIN, 'scripts'))) {

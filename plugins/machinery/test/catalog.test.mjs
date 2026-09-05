@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
 import { loadCatalog, matchTool, matchedCandidate } from '../scripts/lib/catalog.mjs';
-import { select, TAIL_LINES } from '../scripts/lib/filter.mjs';
+import { select } from '../scripts/lib/filter.mjs';
+import { bury, survivalProblems } from '../scripts/lib/survival.mjs';
 
 // loadCatalog reads the universal half through pluginRoot(); pin it at this checkout so the suite
 // can never read an installed copy of the plugin instead (lib-config.test.mjs convention).
@@ -17,46 +18,13 @@ const readCatalog = () => JSON.parse(fs.readFileSync(CATALOG_FILE, 'utf8'));
 const readFixture = (id) => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${id}.json`), 'utf8'));
 const fixtureLines = (id) => readFixture(id).lines;
 
-// select() keeps the last TAIL_LINES lines unconditionally, so a short fixture's outcome line
-// survives whatever its declaration says — the check would pass with no declaration at all.
-// bury() appends CHATTER (which the tail rule itself discards) to push the outcome line out of
-// that window, so a keep is attributable to a rule that actually looked at the line.
-const bury = (lines) => [...lines, ...Array.from({ length: TAIL_LINES + 4 }, (_, i) => `   Compiling crate${i} v0.1.0`)];
-
-// The per-entry contract from the design's Verification 7.
-//
-// The fixture names its own answer lines, in `answers`, as indices a person read off the recorded
-// runs — NEVER found by applying the outcome pattern, which would make the check test itself. That
-// is what carries the weight: EVERY declared answer must match, so a fixture only has to include a
-// form the pattern gets wrong for the wrong pattern to go red. A check that searched for the first
-// matching line instead would pass on a fixture whose first run happens to suit both patterns, and
-// silently prove nothing about the rest.
-//
-// The survival assertions pin select()'s contract — that an outcome match is kept unconditionally,
-// and not merely because it landed in the tail window. That an outcome match survives is true by
-// construction while select() keeps what it matches; it is a regression guard on that contract,
-// not proof the declaration is what saved the line. The test below it proves that separately.
+// Verification 7's per-entry contract lives in scripts/lib/survival.mjs, because promote-tool.mjs
+// enforces the same contract at the gate where a project entry crosses into this catalog. One
+// derivation, two callers — a second copy here would eventually disagree with the gate, and the
+// disagreement would arrive as a red suite nobody could attribute. bury() comes from there too.
 function assertOutcomeSurvives(id, entry, fixture) {
-  const { lines, answers } = fixture;
-  const outcome = new RegExp(entry.outcome);
-  assert.ok(Array.isArray(answers) && answers.length > 0, `${id}: fixture declares no answer lines — it proves nothing`);
-  const buried = bury(lines);
-  const keptPlain = select(lines, outcome), keptBuried = select(buried, outcome);
-  for (const i of answers) {
-    assert.ok(i >= 0 && i < lines.length, `${id}: declared answer index ${i} is not a line of this fixture`);
-    assert.ok(outcome.test(lines[i]), `${id}: the outcome pattern does not match a line this tool really emits: ${JSON.stringify(lines[i])}`);
-    assert.ok(keptPlain.has(i), `${id}: answer line ${i} did not survive select()`);
-    assert.ok(buried.length - i > TAIL_LINES, `${id}: answer line ${i} is still inside the unconditional tail window`);
-    assert.ok(keptBuried.has(i), `${id}: answer line ${i} did not survive select() once outside the tail window`);
-  }
-  // The pattern is not allowed to be so wide it swallows the tool's ordinary chatter: nothing the
-  // fixture did NOT declare an answer may match it. This is what stops a wrong pattern being
-  // "fixed" by widening it until everything matches. Checked before the assertion below, because a
-  // pattern that matches every line would otherwise be reported as select() keeping too much.
-  lines.forEach((line, i) => {
-    if (!answers.includes(i)) assert.ok(!outcome.test(line), `${id}: the outcome pattern also matches a non-answer line ${i}: ${JSON.stringify(line)}`);
-  });
-  assert.ok(keptBuried.size < buried.length, `${id}: select() kept every line — "it survived" would prove nothing here`);
+  const problems = survivalProblems(id, entry, fixture);
+  assert.equal(problems.length, 0, problems.join('\n'));
 }
 
 test('matchTool recognises a real invocation by regex and by prefix, and declines unrelated commands', () => {
