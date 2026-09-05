@@ -200,6 +200,104 @@ test('RED CHECK: a clean run prints nothing on stderr — the warning line is no
   assert.equal(r.stderr, '');
 });
 
+// ---- Issue #13: a compound is classified and wrapped per segment ----
+// Owner, 2026-09-05: "i would apply the rules to inside the compound. so each outputter gets
+// wrapped. since it's && and not a pipe, it theoretically should be no problem." The final review
+// measured the whole-command rule's cost: the catalog's `pytest` prefix claimed `pytest tests/ &&
+// cargo build` as one plain command, so the build ran unfiltered on the observe pass. Now every
+// segment with a mode gets its own runner and its own cmdfile, the segments without one stay
+// verbatim, and the separators are rejoined exactly as written — bash then runs its own `&&`, `||`
+// and `;` over the runners, each of which exits with its child's real code.
+const RUNNER = /node "[^"]*quiet-run\.mjs" --shell bash --mode (\w+) "([^"]+)"/g;
+// The rewritten command with each runner reduced to `<mode>`, and the runners in order with what
+// each one's cmdfile holds — the expectations are the input's own segments, not the hook's answer.
+const skeleton = (cmd) => cmd.replace(RUNNER, '<$1>');
+const runners = (cmd) => [...cmd.matchAll(RUNNER)].map((m) => ({ mode: m[1], text: fs.readFileSync(m[2], 'utf8') }));
+
+test('#13: each output producer in a compound gets its own runner, in its own mode, joined as written', () => {
+  const root = project({ pytest: { identity: 'catalog', noisy: true, lines: 900, ledger: {} } });
+  const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', 'pytest tests/ && cargo build') });
+  const u = out(r.stdout).updatedInput;
+  assert.equal(skeleton(u.command), '<suggest> && <filter>');
+  assert.deepEqual(runners(u.command), [{ mode: 'suggest', text: 'pytest tests/' }, { mode: 'filter', text: 'cargo build' }]);
+  assert.equal(u.description, 'd [quiet:suggest,filter]');
+});
+
+test('#13: a byte-mover segment stays verbatim beside a wrapped one, and the separator keeps its spelling', () => {
+  for (const [c, want, texts] of [
+    ['cat a && cargo build', 'cat a && <filter>', ['cargo build']],
+    ['cargo build; echo done', '<filter>; echo done', ['cargo build']],
+    ['cargo build  ||  echo failed', '<filter>  ||  echo failed', ['cargo build']],
+  ]) {
+    const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', c) });
+    const u = out(r.stdout).updatedInput;
+    assert.equal(skeleton(u.command), want, c);
+    assert.deepEqual(runners(u.command).map((x) => x.text), texts, c);
+    assert.equal(u.description, 'd [quiet:filter]', c);
+  }
+});
+
+test('#13: a pipe is one unit and stays untouched; the segment after it is still wrapped', () => {
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo test | tail -5 && cargo build') });
+  const u = out(r.stdout).updatedInput;
+  assert.equal(skeleton(u.command), 'cargo test | tail -5 && <filter>');
+  assert.deepEqual(runners(u.command).map((x) => x.text), ['cargo build']);
+});
+
+test('#13: a compound in which no segment earns a mode is untouched — nothing is emitted', () => {
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cat a && ls') });
+  assert.equal(r.stdout, ''); assert.equal(r.code, 0);
+});
+
+test('#13: a backgrounded segment is never wrapped — two runners would race on the observation record', () => {
+  // `cargo build & cat x`: the build is followed by a lone `&`, so it is left alone, and `cat x` is
+  // a byte-mover — nothing to wrap, nothing emitted. The positive control beside it proves the `&`
+  // is what spared the build, not the compound: the same build followed by `&&` is wrapped.
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo build & cat x') });
+  assert.equal(r.stdout, ''); assert.equal(r.code, 0);
+  const p = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo build & cargo test') });
+  const u = out(p.stdout).updatedInput;
+  assert.equal(skeleton(u.command), 'cargo build & <filter>', 'the foreground segment after a backgrounded one is still wrapped');
+  assert.deepEqual(runners(u.command).map((x) => x.text), ['cargo test']);
+});
+
+test('#13: the PowerShell shell keeps whole-command behaviour — 5.1 has no && or ||', () => {
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-PowerShell', 'cargo build; echo done') });
+  const u = out(r.stdout).updatedInput;
+  assert.match(u.command, /^node "[^"]*quiet-run\.mjs" --shell powershell --mode filter "[^"]+"; exit \$LASTEXITCODE$/);
+  assert.equal(fs.readFileSync(u.command.match(/"([^"]+)"; exit/)[1], 'utf8'), 'cargo build; echo done', 'one cmdfile, holding the whole command');
+  assert.equal(u.description, 'd [quiet:filter]');
+});
+
+// Through real bash: a wrapped segment's exit code is what the shell's own `&&` and `||` see.
+// `node -e` is bespoke; a record saying it is noisy makes the hook wrap it in filter mode, and the
+// runner then exits with the child's real code — 7 here — because each runner is one segment.
+// Both rewrites are taken BEFORE either runs: the first real run records `node` as quiet (0 lines),
+// which is the assimilator doing its job, and a hook call after it would rightly leave the second
+// compound alone. One non-login shell runs both, echoing the `&&` list's status between them — a
+// second shell start would be paid for nothing (pre-commit budget).
+const BASH = ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files/Git/usr/bin/bash.exe'].find((b) => fs.existsSync(b)) ?? (process.platform !== 'win32' ? 'bash' : null);
+test('#13: the compound keeps its control flow — && short-circuits on the wrapped segment\'s real exit code, || takes it', { skip: !BASH }, () => {
+  const root = project({ node: { identity: 'bespoke', noisy: true, lines: 1400, ledger: {} } });
+  const rewrite = (c) => out(runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) }).stdout).updatedInput.command;
+  const and = rewrite('node -e "process.exit(7)" && echo never');
+  const or = rewrite('node -e "process.exit(7)" || echo fallback');
+  assert.equal(skeleton(and), '<filter> && echo never');
+  assert.equal(skeleton(or), '<filter> || echo fallback');
+  const r = execFileSync(BASH, ['-c', `${and}; echo "and=$?"; ${or}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(r, 'and=7\nfallback\n', 'the && list exits 7 and never ran its second segment; the || list ran its fallback');
+});
+
+test('RED CHECK: two wrapped segments get two different cmdfiles, each holding only its own segment', () => {
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo build && cargo test') });
+  const u = out(r.stdout).updatedInput;
+  const files = [...u.command.matchAll(RUNNER)].map((m) => m[2]);
+  assert.equal(files.length, 2);
+  assert.notEqual(files[0], files[1]);
+  assert.deepEqual(files.map((f) => fs.readFileSync(f, 'utf8')), ['cargo build', 'cargo test']);
+  assert.equal(u.description, 'd [quiet:filter,filter]');
+});
+
 test('RED CHECK: the NEVER exemption survives plain no longer meaning untouched', () => {
   // classify() returns 'plain' for a NEVER-listed command exactly as it does for an unrecognised
   // one, so routing every 'plain' to the assimilator would put `--version` in the observation

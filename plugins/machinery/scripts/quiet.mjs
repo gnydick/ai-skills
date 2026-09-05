@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classify, isNever } from './lib/classify.mjs';
+import { classify, classifySegments, isNever } from './lib/classify.mjs';
 import { readPayload } from './lib/stdin.mjs';
 import { updatedInput } from './lib/emit.mjs';
 import { projectRoot } from './lib/root.mjs';
@@ -46,6 +46,27 @@ function assimilated(command, load) {
   return d.mode === 'noisy' ? 'filter' : d.mode;    // 'filter' | 'observe' | 'suggest'
 }
 
+// The wrap mode one unit of command text earns from its kind — the whole command on PowerShell, one
+// segment on bash — or null for "leave it alone". The kind is classify()'s; 'plain' is the
+// assimilator's question, answered above.
+const modeFor = (kind, text, load) =>
+  (kind === 'infra' ? 'infra' : kind === 'noisy' ? 'filter' : kind === 'plain' ? assimilated(text, load) : null);
+
+// Each wrapped unit gets a cmdfile of its own, named for this hook run and its position, because
+// two segments wrapped in the same millisecond would otherwise share a name (#13).
+function cmdfileWriter() {
+  const job = process.env.CLAUDE_JOB_DIR;
+  const dir = job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
+  const stamp = `cmd-${process.pid}-${Date.now()}`;
+  let made = false;
+  return (text, i) => {
+    if (!made) { fs.mkdirSync(dir, { recursive: true }); made = true; }
+    const f = path.join(dir, `${stamp}-${i}.txt`);
+    fs.writeFileSync(f, text, 'utf8');
+    return f;
+  };
+}
+
 function main() {
   const p = readPayload();
   if (!p) return;
@@ -54,23 +75,38 @@ function main() {
   const input = p.tool_input ?? {};
   const command = input.command ?? '';
   const load = projectLoader();
-  const kind = classify(command, { catalog: () => load().catalog });
-  let mode = kind === 'infra' ? 'infra' : kind === 'noisy' ? 'filter' : null;
-  if (!mode && kind === 'plain') mode = assimilated(command, load);
-  if (!mode) return;
-  const shell = tool === 'PowerShell' ? 'powershell' : 'bash';
-  const job = process.env.CLAUDE_JOB_DIR;
-  const dir = job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
-  fs.mkdirSync(dir, { recursive: true });
-  const cmdfile = path.join(dir, `cmd-${process.pid}-${Date.now()}.txt`);
-  fs.writeFileSync(cmdfile, command, 'utf8');
-  let runner = path.join(path.dirname(fileURLToPath(import.meta.url)), 'quiet-run.mjs');
-  let file = cmdfile;
-  if (shell === 'bash') { runner = runner.replace(/\\/g, '/'); file = file.replace(/\\/g, '/'); }
-  const wrapped = shell === 'bash'
-    ? `node "${runner}" --shell bash --mode ${mode} "${file}"`
-    : `node "${runner}" --shell powershell --mode ${mode} "${file}"; exit $LASTEXITCODE`;
-  updatedInput({ ...input, command: wrapped, description: `${input.description ?? ''} [quiet:${mode}]`.trim() });
+  const catalog = () => load().catalog;
+  const runner = path.join(path.dirname(fileURLToPath(import.meta.url)), 'quiet-run.mjs');
+  const tag = (modes) => `${input.description ?? ''} [quiet:${modes.join(',')}]`.trim();
+
+  // Scope rule (b) of #13: PowerShell keeps whole-command behaviour. 5.1 has no `&&` or `||`, so
+  // there is no per-segment control flow for the shell to own, and this path is left as it was.
+  if (tool === 'PowerShell') {
+    const mode = modeFor(classify(command, { catalog }), command, load);
+    if (!mode) return;
+    const file = cmdfileWriter()(command, 0);
+    updatedInput({ ...input, command: `node "${runner}" --shell powershell --mode ${mode} "${file}"; exit $LASTEXITCODE`, description: tag([mode]) });
+    return;
+  }
+
+  // Issue #13 (owner, 2026-09-05: "apply the rules to inside the compound. so each outputter gets
+  // wrapped"). Every `;`/`&&`/`||`/newline-joined segment is classified on its own and the ones
+  // that earn a mode are each wrapped in a runner of their own; the rest stay verbatim and the
+  // separators are rejoined exactly as written, so bash runs its own control flow over the runners
+  // — each exits with its child's real code, which is what `&&` and `||` short-circuit on. A pipe
+  // is one unit, as it always was. Scope rule (a): a segment followed by a lone `&` is NEVER
+  // wrapped. Its output is detached from the tool result anyway, and two runners alive at once
+  // would race on observations.json — quiet-run.mjs reads it, records, and writes it back with
+  // no lock, so the second writer would silently drop the first one's record.
+  const segments = classifySegments(command, { catalog });
+  const modes = segments.map((s) => (s.sep.trim() === '&' ? null : modeFor(s.kind, s.text, load)));
+  if (!modes.some(Boolean)) return;
+  const write = cmdfileWriter();
+  const bash = (f) => f.replace(/\\/g, '/');
+  const rebuilt = segments.map((s, i) => (modes[i]
+    ? `node "${bash(runner)}" --shell bash --mode ${modes[i]} "${bash(write(s.text, i))}"${s.sep}`
+    : s.text + s.sep)).join('');
+  updatedInput({ ...input, command: rebuilt, description: tag(modes.filter(Boolean)) });
 }
 
 // Fail OPEN — the command runs unfiltered — but never silent (final review I2): a swallowed error

@@ -534,7 +534,12 @@ Declared standard: **structural**. This changes behaviour deliberately.
   `rev-parse`, `branch` when listing, `worktree list`) — and routes them to the existing `read`
   bucket, which the hook already skips, so they never reach `decide()` and generate no
   observation record. A compound command is a byte-mover only if every segment of it is:
-  `cargo build && echo done` stays wrapped. Segments are split outside quotes: a `;`, `&&`,
+  `cargo build && echo done` stays wrapped. [Superseded by #13, 2026-09-05, next bullet but
+  one: the every-segment rule existed because the whole compound could receive only one
+  verdict. Classification is per segment now, so the exemption is simply a property of each
+  segment; `cargo build && echo done` still wraps the build, and now leaves the echo alone.
+  The mechanism of the exemption itself — by name, at the leading position, into `read` —
+  is unchanged.] Segments are split outside quotes: a `;`, `&&`,
   `||`, single `&` or newline inside a single- or double-quoted span is data, not a boundary,
   and an unterminated quote runs to the end of the command — the span rule is the one both
   readers, `classify.mjs`'s splitter and `catalog.mjs`'s tokeniser, take from
@@ -560,6 +565,27 @@ Declared standard: **structural**. This changes behaviour deliberately.
   invocation shapes the catalog's `match` does not cover). A named consequence: `git commit`
   in a project is now observed once and, being quiet, left alone thereafter, where before it
   was always filtered as infra.
+- **A compound is classified and wrapped per segment.** #13, owner 2026-09-05, verbatim: "i
+  would apply the rules to inside the compound. so each outputter gets wrapped. since it's &&
+  and not a pipe, it theoretically should be no problem." The final re-review had measured the
+  whole-command rule's cost: the catalog's `pytest` prefix on the first segment claimed
+  `pytest tests/ && cargo build` as one `plain` command, so the build ran unfiltered on its
+  observe pass where alone it was `noisy → filter`. Now `classifySegments()` applies the
+  precedence chain above to each `;`/`&&`/`||`/newline-joined segment on its own (a pipe is
+  one unit, exactly as before), and the hook gives every segment that earns a mode its own
+  cmdfile and its own runner — `pytest tests/ && cargo build` becomes
+  `node … --mode suggest "f1" && node … --mode filter "f2"` — while the other segments stay
+  verbatim and the separators are rejoined as written. The shell owns the control flow: each
+  runner exits with its child's real code, so `&&` and `||` short-circuit on it and `;` runs
+  on, unchanged from bash's own behaviour. Each runner records under its own segment's key,
+  which fell out of `bespokeKey`/`matchTool` being string-in with no change. Two scope
+  rules, stated in the hook's own comments: a segment followed by a lone `&` is never wrapped,
+  because two concurrent runners would race on the observation record (a plain
+  read-modify-write, no lock) and a backgrounded segment's output is detached anyway; and the
+  PowerShell shell keeps whole-command behaviour, because 5.1 has no `&&` or `||`. This
+  supersedes the "which segment owns a compound" question and the every-segment byte-mover
+  rule recorded under C1 above; C1's exemption by kind and I1's precedence both hold
+  unchanged, applied per segment.
 
 ## Open questions
 
