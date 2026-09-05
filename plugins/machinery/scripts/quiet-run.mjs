@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Story: hooks/quiet-output.md steps 15–27 (the runner half). Ported from quiet_run.py.
-// Known ceiling: spawnSync with two pipes cannot interleave stdout/stderr in true
-// chronological order; the story asks for "both streams as one stream". The filter is
-// line-based and selection order rarely depends on interleaving; the full log has both.
+// Capture is lib/capture.mjs's job now: it reads the two pipes separately and records every
+// line in real arrival order with the stream it came from, so the ceiling spawnSync imposed
+// (stdout and stderr concatenated, their true interleaving unrecoverable) is gone. The full
+// log keeps both facts per line; the display path is unchanged and still line-based.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { normalise, select, selectInfra, render, PASS_THROUGH_LINES, MAX_SHOWN } from './lib/filter.mjs';
+import { captureRun } from './lib/capture.mjs';
 
 const SHELLS = Object.freeze({
   bash: (cmd) => {
@@ -37,15 +38,15 @@ function parseArgs(argv) {
     if (x === '--shell') a.shell = argv[++i];
     else if (x === '--mode') a.mode = argv[++i];
     else if (x === '-c' || x === '--command') a.command = argv[++i];
-    else a.cmdfile = x;
+    else if (!x.startsWith('--')) a.cmdfile = x;
   }
   return a;
 }
 
-function main() {
+async function main() {
   const a = parseArgs(process.argv.slice(2));
   if (!SHELLS[a.shell]) { process.stderr.write(`quiet-run: unknown shell '${a.shell}' (bash|powershell)\n`); return 2; }
-  if (a.mode !== 'filter' && a.mode !== 'infra') { process.stderr.write(`quiet-run: unknown mode '${a.mode}'\n`); return 2; }
+  if (!['filter', 'infra', 'observe', 'suggest'].includes(a.mode)) { process.stderr.write(`quiet-run: unknown mode '${a.mode}'\n`); return 2; }
   let command = a.command;
   if (command === null && a.cmdfile) {
     // A re-executed rewritten command can point at a cmdfile that's already been consumed and
@@ -59,18 +60,31 @@ function main() {
   const logPath = path.join(logDir(), `quiet-${stamp}-${process.pid}.log`);
   const [exe, args] = SHELLS[a.shell](command);
   const t0 = Date.now();
-  const r = spawnSync(exe, args, { env: quietEnv(), stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 });
-  if (r.error) { process.stderr.write(`quiet-run: could not start ${a.shell}: ${r.error.message}\n`); return 1; }
-  const code = r.status ?? 1;
-  const raw = Buffer.concat([r.stdout ?? Buffer.alloc(0), r.stderr ?? Buffer.alloc(0)]); // both streams as one (step 19)
+  let code, records;
+  try {
+    // A spawn failure rejects here — it is not an exit code and never was one.
+    ({ code, records } = await captureRun(exe, args, { env: quietEnv() }));
+  } catch (e) {
+    process.stderr.write(`quiet-run: could not start ${a.shell}: ${e.message}\n`);
+    return 1;
+  }
+  // The display path still goes through normalise(), exactly as it did when the input was one
+  // concatenated buffer: filter.mjs owns ANSI stripping, CR-overwrite collapsing, trailing-space
+  // trimming and trailing-blank removal, and skipping it here would silently drop all four.
+  const lines = normalise(records.map((r) => r.text).join('\n'));
   let logDisplay = logPath;
   try {
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
-    fs.writeFileSync(logPath, Buffer.concat([Buffer.from(`$ ${command}\n`), raw]));
+    // The log keeps what the display path cannot: when each line arrived and which stream it
+    // came from. Written verbatim — carriage returns and all — because normalise() owns that.
+    const body = records.map((r) => `${r.t.toFixed(3)} ${r.stream === 'stdout' ? 'out' : 'err'}  ${r.text}`).join('\n');
+    fs.writeFileSync(logPath, `$ ${command}\n${body}${body ? '\n' : ''}`);
   } catch (e) { logDisplay = `(unavailable: ${e.message})`; }
-  const lines = normalise(raw);
+  // observe and suggest are ALWAYS verbatim, unconditionally — never the threshold branch.
+  // filter/infra keep today's threshold-or-forced verbatim path, unchanged.
   const forced = process.env.MACHINERY_QUIET === '0';
-  const verbatim = forced || (a.mode !== 'infra' && lines.length <= PASS_THROUGH_LINES);
+  const verbatim = forced || a.mode === 'observe' || a.mode === 'suggest'
+    || (a.mode !== 'infra' && lines.length <= PASS_THROUGH_LINES);
   if (verbatim) process.stdout.write(lines.join('\n') + (lines.length ? '\n' : ''));
   else {
     const keep = a.mode === 'infra' ? selectInfra(lines, code) : select(lines);
@@ -81,4 +95,4 @@ function main() {
   return code;
 }
 
-process.exitCode = main();
+main().then((code) => { process.exitCode = code; }).catch((e) => { process.stderr.write(`quiet-run: ${e.message}\n`); process.exitCode = 1; });

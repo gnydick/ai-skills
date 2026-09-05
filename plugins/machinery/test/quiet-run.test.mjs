@@ -77,3 +77,38 @@ test('an unwritable log directory does not swallow output or exit status (failur
   assert.ok(rest.some((l) => l === 'error: boom'));
   fs.rmSync(jobDir, { recursive: true, force: true });
 });
+
+// ---- Task 2: capture via lib/capture.mjs (stream separation, always-verbatim modes) ----
+
+test('stderr and stdout both reach the log, each tagged, in real arrival order', { skip: !bash }, () => {
+  // Spaced writes: the point of the record log is arrival order, and only writes the parent
+  // has demonstrably drained between can prove ordering rather than poll-readiness luck.
+  const cmd = `node -e "console.error('e1');setTimeout(()=>{console.log('o1');setTimeout(()=>console.error('e2'),150)},150)"`;
+  // infra mode is never verbatim, so a header (and with it the log path) always exists.
+  const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'bash', '--mode', 'infra', '-c', cmd] });
+  const log = r.stdout.trim().split('\n')[0].split('full log: ')[1];
+  const body = fs.readFileSync(log, 'utf8').trim().split('\n').slice(1); // drop the "$ cmd" line
+  assert.deepEqual(body.map((l) => l.replace(/^\d+\.\d+ /, '')), ['err  e1', 'out  o1', 'err  e2']);
+});
+
+test('observe mode is always verbatim regardless of line count', { skip: !bash }, () => {
+  const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'bash', '--mode', 'observe', '-c', gen(100, 0)] });
+  assert.equal(r.stdout.trim().split('\n').length, 101); // 100 chatter + 1 error line from gen()
+});
+
+test('RED CHECK: suggest mode is verbatim even over threshold — a trial run must never be filtered', { skip: !bash }, () => {
+  const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'bash', '--mode', 'suggest', '-c', gen(100, 0)] });
+  // 100 chatter lines + 1 error line from gen() = 101; verbatim means all 101 appear, not a
+  // filtered ~10-line render. This is the exact case the backwards verbatim condition broke.
+  assert.equal(r.stdout.trim().split('\n').length, 101);
+});
+
+test('RED CHECK: displayed lines still go through normalise — ANSI stripped, CR-overwrite collapsed', { skip: !bash }, () => {
+  // Guards the deviation reported in task-2-report.md: the brief's sample fed records[].text
+  // straight to the display path, silently dropping filter.mjs's normalise() and with it ANSI
+  // stripping, CR-overwrite collapsing and trailing-whitespace trimming.
+  // Built from char codes so no backslash escape has to survive JS -> bash -> node -e intact.
+  const cmd = `node -e "const E=String.fromCharCode(27),CR=String.fromCharCode(13),NL=String.fromCharCode(10);process.stdout.write(E+'[32mgreen'+E+'[0m'+NL);process.stdout.write('a'+CR+'b   '+NL)"`;
+  const r = runScript('scripts/quiet-run.mjs', { args: ['--shell', 'bash', '--mode', 'filter', '-c', cmd] });
+  assert.deepEqual(r.stdout.trim().split('\n'), ['green', 'b']);
+});
