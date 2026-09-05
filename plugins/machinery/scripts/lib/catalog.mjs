@@ -76,12 +76,22 @@ export function matchTool(command, catalog) {
 }
 
 // The command's argv, as the shell would see it, near enough: whitespace-split, with a single- or
-// double-quoted span kept as one token and its quotes stripped. Good enough to tell an argument
-// from a flag, which is all the caller below needs; it is not a shell parser and does not try to be.
+// double-quoted span kept inside one token and its quotes stripped. A quote opens a span wherever it
+// sits in the token, not only at its start (re-review R3: `-m"do not --quiet me"` used to split as
+// `-m"do`, `not`, `--quiet`, `me"`, and a flag inside a commit message was recorded as applied). An
+// unterminated span runs to the end of the command — that is data, not a crash. Good enough to tell
+// an argument from a flag, which is all the caller below needs; it is not a shell parser and does
+// not try to be.
 function tokens(command) {
   const out = [];
-  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
-  for (const m of command.matchAll(re)) out.push(m[1] ?? m[2] ?? m[3]);
+  let token = '', inToken = false, quote = null;
+  for (const ch of command) {
+    if (quote) { if (ch === quote) quote = null; else token += ch; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }
+    if (/\s/.test(ch)) { if (inToken) out.push(token); token = ''; inToken = false; continue; }
+    token += ch; inToken = true;
+  }
+  if (inToken) out.push(token);
   return out;
 }
 

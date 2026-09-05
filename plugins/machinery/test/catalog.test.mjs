@@ -63,6 +63,20 @@ test('matchedCandidate matches whole tokens only (final review I3)', () => {
   assert.equal(matchedCandidate('cargo test -q', ['-q --no-fail-fast']), null, 'half a set is not the set');
 });
 
+// Re-review R3, measured: the tokeniser only saw a quote at the START of a token, so in
+// `-m"do not --quiet me"` the `\S+` branch swallowed `-m"do` and the rest split as bare tokens —
+// `--quiet` among them, recorded as applied for a flag that lived inside a commit message. A quote
+// opening anywhere in a token starts a quoted span that runs to its closing quote.
+test('matchedCandidate treats a quote attached to a flag as opening a quoted span (re-review R3)', () => {
+  assert.equal(matchedCandidate('git commit -m"do not --quiet me"', ['--quiet']), null);
+  assert.equal(matchedCandidate("git commit -m'do not --quiet me'", ['--quiet']), null);
+  assert.equal(matchedCandidate('git commit -m "do not --quiet me"', ['--quiet']), null, 'the detached form still does not match');
+  assert.equal(matchedCandidate('git commit --quiet -m"x"', ['--quiet']), '--quiet', 'a real flag beside an attached quote still matches');
+  assert.equal(matchedCandidate('git commit -m"x" --quiet', ['--quiet']), '--quiet', 'and after one');
+  assert.equal(matchedCandidate('pytest -q', ['-q']), '-q');
+  assert.equal(matchedCandidate('git commit -m"unterminated --quiet', ['--quiet']), null, 'an unterminated quote is data: the span runs to the end');
+});
+
 test('project catalog entries override a universal id of the same name', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'catalog-'));
   fs.mkdirSync(path.join(tmp, '.claude', 'machinery'), { recursive: true });
