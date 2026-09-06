@@ -92,8 +92,9 @@ gates, whose whole purpose is to block.
 ### `gates/commit-gate.md`
 
 - **Event:** the pre-commit entry point, on every commit.
-- **Ordering:** its two executable blocking checks first — the register check
-  and the citation-target check — in either order, then the advisory warning,
+- **Ordering:** its executable blocking check first — the register check (the
+  citation-target check was unwired 2026-09-05, #29, by owner ruling; nothing
+  validates citations at commit or merge time) — then the advisory warning,
   then the verdict. Advisory output never changes the exit status. Its other
   two checks are properties the gate's header states and a person applies (the
   bypass rule and the activation rule), so they have no run order.

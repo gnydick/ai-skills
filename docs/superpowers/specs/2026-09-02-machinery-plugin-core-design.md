@@ -134,10 +134,17 @@ The gate, every commit, check-only, cheap — a closed list:
    regeneration → fail ("the index is generated — run intake/reindex");
    unparseable frontmatter → fail; supersession stamp naming a missing
    section → fail.
-2. **Citation-target check:** every *new* citation in the staged hunks —
-   `path:line` → file exists, line non-blank; `file § Section` → file and
-   heading exist — read from the index (merge tip in merge mode); self-excludes
-   the checker and fixtures; never re-audits old citations.
+2. **Citation-target check — unwired 2026-09-05 (#29).** It validated every
+   *new* citation in the staged hunks — `path:line` → file exists, line
+   non-blank; `file § Section` → file and heading exist — read from the index
+   (merge tip in merge mode); self-excluded the checker and fixtures; never
+   re-audited old citations. Owner ruling (Gabe, 2026-09-05): citations anchor
+   on a symbol name, never a line number, so a line-and-heading validator is
+   the wrong mechanism; "i'd rather not worry about gating citations at all
+   right now, we can do big sweeps later". The entry is removed from `CHECKS`;
+   `scripts/gate/citation-target.mjs` still ships and is still tested (through
+   a test-only driver), for a future sweep tool. **Nothing validates citations
+   at commit or merge time now.**
 3. **Sweep guard (advisory, exit 0):** docs-shaped commit that also adds a
    brand-new non-docs file → warn with the file and denominators; silent when
    the commit also modifies an existing non-docs file.
@@ -192,9 +199,13 @@ filing happens.
   empty; `emit()` shapes; index generator on a fixture tree; `place`.
 - Integration (temp repos from one fixture factory under `os.tmpdir()`):
   capture from inside a worktree writes the root inbox; gate outcomes for
-  pending / stale index / blank-line citation / missing section / sweep cases /
-  clean; `install` idempotent and refreshing; intake refuses `PRULE` from a
-  worktree, files from root, bumps on the universal path.
+  pending / stale index / sweep cases / clean, plus a gate run proving a
+  blank-line citation no longer blocks and prints no proof line (#29); the
+  blank-line citation / missing section cases drive `citation-target.mjs`
+  directly through `test/helpers/citation-target-driver.mjs`, since the gate
+  no longer reaches it (amended 2026-09-05, #29); `install` idempotent and
+  refreshing; intake refuses `PRULE` from a worktree, files from root, bumps
+  on the universal path.
 - Every suite has a mutation fixture proving red; a meta-test counts them.
 - Hook payloads are recorded once from this machine into
   `test/fixtures/payloads/` and replayed; a missing fixture fails the suite.
@@ -219,7 +230,7 @@ exits non-zero only where its story says it blocks.
 | I2 | The index never disagrees with the rule files. | Index is generated; gate regenerates and fails on difference. | 6 | 8 = no file; kept as file because the platform loads files. |
 | I3 | A captured rule lands only in the inbox its marker names. | One hook is the sole inbox writer; destination from marker; bare `RULE:` writes nothing; `markers.json` read by hook, banner, gate. | 6 | Prose restates markers (0); drift test on banner text. |
 | I4 | A rule change is a plugin change others receive. | Intake bumps in the same commit; version check is the backstop. | 6 + 4 | — |
-| I5 | Nothing commits with a pending entry or a broken citation. | Commit gate, every commit. | 4 | — |
+| I5 | Nothing commits with a pending entry or a broken citation. | Commit gate, every commit — for the pending entry only. The citation half has no mechanism since 2026-09-05 (#29): the citation-target leg is unwired by owner ruling, and a broken citation blocks nothing at commit or merge time. | 4 / 0 | Amended 2026-09-05, #29: the citation half is deliberately unenforced until a symbol-anchored sweep tool exists; the module stays shipped for it. |
 | I6 | Installed git hooks survive plugin updates. | Gate copied into the project, version-stamped; refresh = `/install`. | 8 / 2 | — |
 | I7 | Hooks are activated per clone, never self-installing. | `/install` is the only `core.hooksPath` writer; banner measures and prints the truth. | 6 / 2 | Deliberate ceiling (owner rule). |
 | I8 | Inbox and index are consumed only as parsed records. | One parser per format; malformed = gate failure. | 6 | 7 with TypeScript brands; filed. |
@@ -239,8 +250,8 @@ exits non-zero only where its story says it blocks.
 | I22 | Nothing depends on an undocumented event. | Skills hold without `WorktreeCreate`; banner measures whether it fires. | 2 | Promote when documented. |
 | I23 | The gate never mutates the tree. | Read-side imports only; lint forbids `fs.write*` under `gate/`. | 4 | — |
 | I24 | The gate stays cheap. | Closed check array; no config extension point. | 7 | — |
-| I25 | Every executed check reports a denominator. | `register_check` and `citation_target` always report N of M through a single `report()` (asserted by the clean-commit test). The advisory sweep guard is outside this claim: it is silent when it has nothing to flag — no denominator line. | 6 | Amended 2026-09-02, final review H1: dropped the claimed self-test that would fail a check omitting `report()` — none exists; coverage is the two calls above, not a generic guard. |
-| I26 | Citations are validated once, at authoring. | Only staged-diff citations are examined. | 6 | `--full` (a full-tree sweep) is spec-2 surface, not implemented here; dropped from the mechanism text (amended 2026-09-02, final review H1). |
+| I25 | Every executed check reports a denominator. | `register_check` always reports N of M through a single `report()` (asserted by the clean-commit test, which also asserts no `citation_target` line appears — a proof line for a leg that did not run would be a false claim). The advisory sweep guard is outside this claim: it is silent when it has nothing to flag — no denominator line. | 6 | Amended 2026-09-02, final review H1: dropped the claimed self-test that would fail a check omitting `report()` — none exists. Amended 2026-09-05, #29: `citation_target` is no longer an executed check; coverage is the one call above. |
+| I26 | Citations are validated once, at authoring. | None since 2026-09-05 (#29): the only mechanism was the citation-target leg, unwired by owner ruling. The module that examined staged-diff citations still exists and is tested, but nothing runs it on a commit or a merge. | 0 | Was 6. `--full` (a full-tree sweep) is spec-2 surface, not implemented here (amended 2026-09-02, final review H1); the owner's 2026-09-05 direction is "big sweeps later", anchored on symbol names rather than lines, which is a different tool from this leg. |
 | I27 | What runs in the project is what the plugin shipped. | Version stamp; banner compares. | 2 | Ceiling by I6. |
 | I28 | The index cannot be hand-edited into acceptance. | Gate compares staged index to regeneration. | 6 | — |
 | I29 | A project rule's filing commit lands in the project root. | Intake refuses `PRULE` filing unless git dir = common dir. | 6 | — |
