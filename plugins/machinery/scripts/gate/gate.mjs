@@ -22,7 +22,9 @@ const CHECKS = Object.freeze([
   () => citationTarget({ root, mergeMode }),
 ]);
 let ok = true;
-for (const check of CHECKS) { try { if (!check()) ok = false; } catch (e) { process.stdout.write(`gate: a check could not run — ${e.message}\n`); ok = false; } }
+// citationTarget streams the diff and is async (ticket #19); registerCheck is sync — awaiting
+// a plain boolean is harmless, and one loop keeps the closed list closed.
+for (const check of CHECKS) { try { if (!(await check())) ok = false; } catch (e) { process.stdout.write(`gate: a check could not run — ${e.message}\n`); ok = false; } }
 sweepGuard({ root });
 if (!ok) process.stdout.write('commit gate FAILED (see lines above). Commit rejected. Bypass only for a genuine emergency: `git commit --no-verify`; twice means the checker is wrong — fix the checker.\n');
 process.exitCode = ok ? 0 : 1;
