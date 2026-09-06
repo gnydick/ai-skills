@@ -46,3 +46,9 @@ disposition: filed → rules/work-tracking.md § Staying inside the effort
 URULE: i only want to merge code that is not broken and will not cause problems like if it's incomplete, but unreachable
 
 disposition: filed → rules/worktree-discipline.md § What may be merged
+
+## FILED 2026-09-06T23:12:58Z URULE a97f7197-5a7f-48f0-9778-fea87343b4a4
+
+URULE: anything starting with SPEC: is a specification to be implemented, not a behavior. expect it to be framed in the context of discussed or currently in flight work, feature, or campaign.  expect to find associated tickets with them. a specification is analogous to what your principal architect would give you. it is authoritative.
+
+disposition: filed → rules/work-tracking.md § A specification handed down
