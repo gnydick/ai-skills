@@ -5,9 +5,9 @@
 // (stdout and stderr concatenated, their true interleaving unrecoverable) is gone. The full
 // log keeps both facts per line; the display path is unchanged and still line-based.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { normalise, select, selectInfra, render, PASS_THROUGH_LINES, MAX_SHOWN } from './lib/filter.mjs';
+import { select, selectInfra, render, PASS_THROUGH_LINES, MAX_SHOWN } from './lib/filter.mjs';
+import { logDir, formatRunLog, linesOf } from './lib/runlog.mjs';
 import { captureRun } from './lib/capture.mjs';
 import { projectRoot } from './lib/root.mjs';
 import { loadCatalog, matchTool, matchedCandidate } from './lib/catalog.mjs';
@@ -28,11 +28,6 @@ function quietEnv() {
     GH_PAGER: 'cat', GH_NO_UPDATE_NOTIFIER: '1', GH_PROMPT_DISABLED: '1', CLICOLOR: '0', CLICOLOR_FORCE: '0' };
   delete env.FORCE_COLOR; delete env.GH_FORCE_TTY;
   return env;
-}
-
-function logDir() {
-  const job = process.env.CLAUDE_JOB_DIR;
-  return job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
 }
 
 function parseArgs(argv) {
@@ -75,14 +70,16 @@ async function main() {
   // The display path still goes through normalise(), exactly as it did when the input was one
   // concatenated buffer: filter.mjs owns ANSI stripping, CR-overwrite collapsing, trailing-space
   // trimming and trailing-blank removal, and skipping it here would silently drop all four.
-  const lines = normalise(records.map((r) => r.text).join('\n'));
+  // linesOf() is the one derivation of the display lines — normalise() over the record texts — and
+  // train-tool.mjs reads the same lines back out of the log through the same function, so the index
+  // the session identifies is an index into exactly what was shown.
+  const lines = linesOf(records);
   let logDisplay = logPath;
   try {
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
     // The log keeps what the display path cannot: when each line arrived and which stream it
     // came from. Written verbatim — carriage returns and all — because normalise() owns that.
-    const body = records.map((r) => `${r.t.toFixed(3)} ${r.stream === 'stdout' ? 'out' : 'err'}  ${r.text}`).join('\n');
-    fs.writeFileSync(logPath, `$ ${command}\n${body}${body ? '\n' : ''}`);
+    fs.writeFileSync(logPath, formatRunLog(command, records));
   } catch (e) { logDisplay = `(unavailable: ${e.message})`; }
   // The assimilator's inputs, resolved once and read by everything below. Nothing here may cost
   // the wrapped command its output or its exit status — that claim covers THREE sites, this one,
