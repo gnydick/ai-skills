@@ -48,11 +48,9 @@ test('a noisy bespoke run ends with the training nudge, naming a log that exists
   const r = run(root, 'filter', gen(100));
   const m = NUDGE.exec(r.stdout);
   assert.ok(m, `no nudge at the end of:\n${r.stdout.slice(-400)}`);
-  // DEVIATION from the brief's literal `assert.ok(fs.existsSync(m[1]), ...)`: train-tool.mjs is
-  // Task 8's deliverable and has not landed in this worktree yet (confirmed: absent from the tree
-  // and from git log through e81eb4c). Asserting existence would fail for a reason unrelated to
-  // this task's own code, so the check here is what IS decidable now — that the nudge's own path
-  // construction (TRAINER in quiet-run.mjs) is well-formed and sits beside quiet-run.mjs itself.
+  // Restored (Task 8): train-tool.mjs now exists, so the nudge's path is checked against the real
+  // file, not just its shape. The shape checks stay alongside it rather than being replaced.
+  assert.ok(fs.existsSync(m[1]), `the nudge names a train-tool.mjs that does not exist: ${m[1]}`);
   assert.equal(path.basename(m[1]), 'train-tool.mjs', 'the trainer the nudge names is train-tool.mjs');
   assert.equal(path.basename(path.dirname(m[1])), 'scripts', 'the trainer sits beside quiet-run.mjs');
   const { command, records } = parseRunLog(fs.readFileSync(m[2], 'utf8'));
