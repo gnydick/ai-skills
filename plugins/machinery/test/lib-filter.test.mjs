@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalise, select, selectInfra, render, MAX_SHOWN, PASS_THROUGH_LINES } from '../scripts/lib/filter.mjs';
+import { normalise, select, selectInfra, render, hasErrorBlock, MAX_SHOWN, PASS_THROUGH_LINES } from '../scripts/lib/filter.mjs';
 
 const lines = (...l) => l;
 const shown = (ls, keep) => render(ls, keep, 'H').split('\n').slice(1);
@@ -133,4 +133,75 @@ test('omitting the outcome pattern leaves select() behaviour unchanged (regressi
 
 test('passing the outcome pattern as undefined is the same as omitting it (regression)', () => {
   assert.deepEqual(sorted(select(outcomeCorpus(), undefined)), OUTCOME_CORPUS_BASELINE);
+});
+
+// ---- The training loop: the drift trigger's error-block fact, and the floor (design Verification 13) ----
+
+test('hasErrorBlock reads the same rule select() opens a block on', () => {
+  assert.equal(hasErrorBlock(['   Compiling a', 'error[E0599]: no method', '  --> x']), true);
+  assert.equal(hasErrorBlock(['   Compiling a', 'test result: ok. 3 passed; 0 failed']), false);
+  assert.equal(hasErrorBlock([]), false);
+});
+
+// A deliberately WRONG learned matcher — a prefix nothing in the corpus starts with — leaves the floor
+// exactly as it was: the final line, the error block and the proof lines survive, and nothing kept
+// without the matcher is lost. This is the bound that makes model-trained matching acceptable, so it
+// is tested rather than argued.
+test('V13: a wrong learned matcher promotes nothing and removes nothing — the floor stands', () => {
+  const wrong = { test: (line) => line.startsWith('NOTHING STARTS WITH THIS') };
+  const without = sorted(select(outcomeCorpus()));
+  const withWrong = sorted(select(outcomeCorpus(), wrong));
+  assert.deepEqual(withWrong, without);
+  assert.ok(withWrong.includes(17), 'the final line survives');
+  assert.ok(withWrong.includes(2) && withWrong.includes(3), 'the error block survives');
+  assert.ok(withWrong.includes(6) && withWrong.includes(7), 'the proof lines survive');
+});
+
+test('V13: a learned matcher that matches a line ADDS it and can subtract nothing — the kept set only grows', () => {
+  const matcher = { test: (line) => line.startsWith('   Compiling a') }; // index 0: a chatter line, outside the tail
+  const without = sorted(select(outcomeCorpus()));
+  const withIt = sorted(select(outcomeCorpus(), matcher));
+  assert.deepEqual(withIt, [0, ...without]);
+});
+
+// I1 of the final whole-branch review, and the reason V13 no longer stops at select(). The floor is
+// a property of select(); render()'s display cap sits ABOVE it. Once more than MAX_SHOWN lines are
+// kept, render() shows a head and a tail with an explicit elision line between them, so at exactly
+// the cap promoting one more line pushes a previously shown line into the elided middle. Ruled
+// 2026-09-06: the cap is a pre-existing display limit that applies to all output whether a matcher
+// is involved or not, so the DOCUMENTATION changes (README, and the spec's § The floor stays
+// underneath) and render() does not — and the boundary is pinned by this test rather than by prose.
+const proof = (i) => `my_tool: line ${i}`; // a PROOF_LINE: kept on its own account, never by the tail rule
+// n proof lines, then chatter long enough that the tail window holds nothing but chatter: select()
+// keeps every proof line plus the unconditionally kept last line, and nothing else.
+const capCorpus = (proofs) => [...Array.from({ length: proofs }, (_, i) => proof(i)), ...Array.from({ length: 12 }, (_, i) => `   Compiling c${i}`)];
+const promoteBuriedChatter = { test: (line) => line === '   Compiling c0' };
+// render() interleaves its own scaffolding — `... [n lines omitted] ...` between non-adjacent kept
+// lines, and the elision line at the cap. The question here is which of the tool's OWN lines a
+// reader can still see, so the scaffolding is separated out rather than compared as content.
+const MARKER = /^\.\.\. \[.+\] \.\.\.$/;
+const body = (ls, keep) => shown(ls, keep).filter((l) => !MARKER.test(l));
+const scaffolding = (ls, keep) => shown(ls, keep).filter((l) => MARKER.test(l));
+
+test('V13 through render(): under the display cap a matcher hides nothing; AT the cap it can, and the elision line says how many', () => {
+  const under = capCorpus(MAX_SHOWN - 2);
+  assert.equal(select(under).size, MAX_SHOWN - 1, 'the corpus sits one under the cap');
+  assert.equal(select(under, promoteBuriedChatter).size, MAX_SHOWN, 'and promotion puts it exactly on the cap');
+  const underAfter = body(under, select(under, promoteBuriedChatter));
+  assert.deepEqual(body(under, select(under)).filter((l) => !underAfter.includes(l)), [], 'nothing shown before is missing after');
+  assert.ok(underAfter.includes('   Compiling c0'), 'and the promoted line is shown');
+  assert.ok(!scaffolding(under, select(under, promoteBuriedChatter)).some((l) => /elided/.test(l)), 'no elision at or under the cap');
+
+  // One line further on, the promotion crosses the cap. This is the boundary, and it is the whole
+  // of it: what a matcher can cost is one line moved into an elision that names itself.
+  const at = capCorpus(MAX_SHOWN - 1);
+  assert.equal(select(at).size, MAX_SHOWN, 'the corpus sits exactly on the cap');
+  assert.equal(select(at, promoteBuriedChatter).size, MAX_SHOWN + 1);
+  const before = body(at, select(at)), after = body(at, select(at, promoteBuriedChatter));
+  assert.ok(!scaffolding(at, select(at)).some((l) => /elided/.test(l)), 'a keep set exactly at the cap renders whole');
+  assert.ok(scaffolding(at, select(at, promoteBuriedChatter)).includes('... [1 kept lines elided between head and tail] ...'),
+    `the elision names its own count: ${scaffolding(at, select(at, promoteBuriedChatter)).join(' | ')}`);
+  const hidden = before.filter((l) => !after.includes(l));
+  assert.equal(hidden.length, 1, `exactly the one line the crossing cost: ${hidden.join(' | ')}`);
+  assert.match(hidden[0], /^my_tool: line \d+$/, 'RED CHECK: what it hid is an ordinary kept line, not the elision marker itself');
 });

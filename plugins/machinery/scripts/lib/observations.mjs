@@ -42,6 +42,27 @@ export function bespokeKey(command) {
   return (firstFlag === -1 ? tokens : tokens.slice(0, firstFlag)).join(' ');
 }
 
+// The key a run is recorded under and — inseparably — HOW it was derived. Both derivation sites
+// (quiet-run.mjs's runner, train-tool.mjs's identify and logs) already hold the answer matchTool()
+// gave them, so it is handed in rather than asked for a second time (rules/design-invariants.md
+// § Never re-derive a fact); this is the one place that turns it into the pair, so the two sites
+// can no longer derive the key differently.
+//
+// Why a pair and not the bare string: the id a bespoke key sanitizes to can COINCIDE with an
+// existing learned entry's id without that entry having matched the command at all — `./a.sh`
+// graduates to the id `a.sh`, and a later `a.sh --x`, which that entry does NOT match, keys on
+// `a.sh` too. `matched` is the only thing that separates "this tool again" from "a different tool
+// at the same string", and lib/graduate.mjs cannot recover it from the key. Both halves are read
+// off one normalized `id`, so they cannot disagree, and the pair carries a brand no other module
+// can forge: a caller cannot hand the graduation gate a `matched` it did not get from matchTool()
+// (rules/design-invariants.md § Where a distinguishing type is created).
+const TOOL_KEY = Symbol('toolKey');
+export function toolKey(toolId, command) {
+  const id = toolId ?? null;
+  return Object.freeze({ [TOOL_KEY]: true, key: id ?? bespokeKey(command), matched: id !== null });
+}
+export const isToolKey = (v) => !!v && typeof v === 'object' && v[TOOL_KEY] === true;
+
 // Fields with no value are left out rather than written as `undefined`: JSON drops an explicit
 // undefined, so writing one would make the record in memory a different shape from the record that
 // comes back off disk, and anything testing for a field's presence would read the two differently.
@@ -58,7 +79,10 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
     ? { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines }
     // A bare run IS the tool's natural noise level.
     : { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines };
-  const entry = { ...defined({ identity, ...measured }), ledger: { ...prev.ledger } };
+  // The training loop's sub-record (lib/training.mjs) rides on the same entry and is nobody's
+  // business here: carried forward exactly as it was when present, absent when it was absent. A
+  // record rebuilt without it would silently reset a tool's training on every run.
+  const entry = { ...defined({ identity, ...measured }), ledger: { ...prev.ledger }, ...(prev.training === undefined ? {} : { training: prev.training }) };
   // Sufficient means BOTH quiet enough AND the tool still said something. A flag that drops the
   // line count by deleting the tool's own answer is not a fix, it's a worse failure mode — measured
   // on `git commit --quiet` and `npm install --silent`, which print nothing at all. outcomeSurvived
@@ -66,4 +90,20 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
   // alone; the bare branch above never reads it.
   if (candidate) entry.ledger[candidate] = (lineCount <= PASS_THROUGH_LINES && outcomeSurvived) ? 'sufficient' : 'insufficient';
   return { ...obs, [key]: entry };
+}
+
+const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// The training loop's own sub-record, written by the runner (noteRun / reopen) and by train-tool.mjs
+// (identify). Set on a record that exists, or on the minimal record when none does — a pick can land
+// before the runner has ever measured the tool here (batch identification over a stored log), and
+// that record must not invent a `noisy`: absence stays the signal decide() reads as unseen.
+export const withTraining = (obs, key, training) => ({ ...obs, [key]: { ...(isObject(obs[key]) ? obs[key] : { ledger: {} }), training } });
+
+// Renames a record: graduation gives a bespoke tool a catalog id, and the measurement made under the
+// bespoke key follows it rather than being taken again. Nothing to move returns obs itself.
+export function moveRecord(obs, from, to) {
+  if (!(from in obs)) return obs;
+  const { [from]: rec, ...rest } = obs;
+  return { ...rest, [to]: rec };
 }

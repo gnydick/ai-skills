@@ -370,6 +370,19 @@ So the worst a wrong matcher can do is fail to promote a line that deserved it. 
 never hide the last thing a tool said. That bound is what makes it acceptable to let a
 model train this at all.
 
+**The display cap sits above the floor, and is not the matcher's.** The floor is a property
+of `select()`, which decides the kept set. `render()`, which decides what is printed, caps
+the display at `MAX_SHOWN` (200) kept lines for every wrapped command whether a matcher was
+involved or not: past that it prints the first 120 and the last 80 with an
+`... [n kept lines elided between head and tail] ...` line between them. So on a run whose
+keep set is at exactly the cap, promoting one more line moves one line into that elision. The
+promotion never removes a line from the kept set — the floor holds — and the elision names
+itself in the output, which is what keeps the loss visible rather than silent.
+This is stated because it is measurable, not because it is desirable: `filter.mjs`'s
+`render()` is a pre-existing display limit and the ruling of 2026-09-06 was to make this
+description true rather than to change its slicing for a case that arises only at exactly the
+cap. `test/lib-filter.test.mjs` pins the boundary through `render()`.
+
 ### The honest limit
 
 This produces a heuristic trained by a model on one project's output. It is not a proof,

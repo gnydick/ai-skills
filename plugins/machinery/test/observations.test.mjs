@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { bespokeKey, recordRun, loadObservations, saveObservations } from '../scripts/lib/observations.mjs';
+import { bespokeKey, toolKey, isToolKey, recordRun, loadObservations, saveObservations, withTraining, moveRecord } from '../scripts/lib/observations.mjs';
 
 test('bespokeKey strips flags and arguments, keeping the leading command shape', () => {
   assert.equal(bespokeKey('bash scripts/battery.sh --quick'), 'bash scripts/battery.sh');
@@ -13,6 +13,25 @@ test('bespokeKey strips flags and arguments, keeping the leading command shape',
   // whether or not it starts with a dash. Dropping only the dashed tokens leaves the value behind
   // and gives the same tool two keys — see the fragmentation red check below.
   assert.equal(bespokeKey('bash scripts/battery.sh --jobs 4'), 'bash scripts/battery.sh');
+});
+
+// Both halves off one matchTool() answer, so a key and its provenance cannot disagree. The values
+// come from the two commands' own shapes: a matched command keys on the id the catalog gave, an
+// unmatched one on its own leading tokens.
+test('toolKey carries the key and whether the catalog matched, both from the one answer it was handed', () => {
+  const CMD = 'bash scripts/battery.sh --quick';
+  const matched = toolKey('bash-scripts-battery.sh', CMD);
+  assert.equal(matched.key, 'bash-scripts-battery.sh'); assert.equal(matched.matched, true);
+  const bespoke = toolKey(null, CMD);
+  assert.equal(bespoke.key, bespokeKey(CMD)); assert.equal(bespoke.matched, false);
+  // A caller with nothing to say says nothing: an absent answer is no match, never a match on a
+  // key it made up itself.
+  const absent = toolKey(undefined, 'a.sh --x');
+  assert.equal(absent.key, 'a.sh'); assert.equal(absent.matched, false);
+  // The mark is not a field a caller can write. Only what toolKey() made carries it.
+  assert.ok(isToolKey(matched) && isToolKey(bespoke));
+  assert.ok(!isToolKey({ key: 'a.sh', matched: true }), 'a hand-built lookalike is not the pair');
+  assert.ok(!isToolKey('a.sh') && !isToolKey(null));
 });
 
 test('recordRun marks noisy from the line count, using the one shared threshold', () => {
@@ -153,4 +172,32 @@ test('a missing or unreadable record loads as empty, never as a crash (external 
     fs.writeFileSync(file, '{ this is not json');
     assert.deepEqual(loadObservations(root), {});
   } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
+// ---- The training loop: the record carries the loop's own sub-record ----
+
+test('recordRun carries a training sub-record forward unchanged, on a bare run and on a trial', () => {
+  const training = { picks: [{ text: 'done', log: 'l', at: 'a' }], streak: 1, history: [] };
+  let obs = withTraining({}, 'bash scripts/battery.sh', training);
+  obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'bespoke', lineCount: 200, stdoutLines: 200, stderrLines: 0 });
+  assert.deepEqual(obs['bash scripts/battery.sh'].training, training);
+  assert.equal(obs['bash scripts/battery.sh'].noisy, true);
+  obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'catalog', lineCount: 3, candidate: '-q' });
+  assert.deepEqual(obs['bash scripts/battery.sh'].training, training);
+});
+
+test('RED CHECK: a record with no training has no training field after recordRun — nothing is invented', () => {
+  const obs = recordRun({}, 'x', { identity: 'bespoke', lineCount: 3 });
+  assert.ok(!('training' in obs.x));
+});
+
+test('withTraining writes on a record that exists and creates the minimal one that does not; moveRecord renames a key', () => {
+  let obs = recordRun({}, 'a', { identity: 'bespoke', lineCount: 90, stdoutLines: 90, stderrLines: 0 });
+  obs = withTraining(obs, 'a', { picks: [], streak: 0, history: [] });
+  assert.equal(obs.a.noisy, true); assert.deepEqual(obs.a.training, { picks: [], streak: 0, history: [] });
+  obs = withTraining(obs, 'fresh', { picks: [], streak: 0, history: [] });
+  assert.deepEqual(obs.fresh, { ledger: {}, training: { picks: [], streak: 0, history: [] } }, 'no noisy invented: absence stays the signal');
+  const moved = moveRecord(obs, 'a', 'a-slug');
+  assert.ok(!('a' in moved)); assert.equal(moved['a-slug'].noisy, true); assert.ok('fresh' in moved);
+  assert.equal(moveRecord(obs, 'absent', 'x'), obs, 'nothing to move: the same object back');
 });

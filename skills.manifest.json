@@ -65,7 +65,8 @@
             "rule-intake",
             "effort-lifecycle",
             "refresh-diverged-branch",
-            "invariant-audit"
+            "invariant-audit",
+            "train-tool"
           ]
         }
       }

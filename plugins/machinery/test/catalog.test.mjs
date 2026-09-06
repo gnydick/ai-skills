@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { loadCatalog, loadCatalogReport, matchTool, matchedCandidate } from '../scripts/lib/catalog.mjs';
+import { loadCatalog, loadCatalogReport, matchTool, matchedCandidate, outcomeMatcher, isLearned, entryProblem } from '../scripts/lib/catalog.mjs';
 import { classify } from '../scripts/lib/classify.mjs';
 import { select } from '../scripts/lib/filter.mjs';
 import { bury, survivalProblems } from '../scripts/lib/survival.mjs';
@@ -307,4 +307,67 @@ test('RED CHECK: the survival check catches a pattern that misses a real form, a
   //    select() with no declaration. If it were kept anyway, that test would be theatre.
   const buried = bury(['[main a1b2c3d] a commit message', ' 1 file changed, 2 insertions(+)']);
   assert.ok(!select(buried).has(0), 'select() keeps this line without a declaration — the checks above prove nothing');
+});
+
+// ---- The training loop: the machine-derived outcome form (design, "Match techniques") ----
+
+test('outcomeMatcher: a string is a regex, an object is a prefix or literal tested without any regex, absence is undefined', () => {
+  assert.ok(outcomeMatcher({ outcome: '^test result:' }) instanceof RegExp);
+  const p = outcomeMatcher({ outcome: { type: 'prefix', value: 'test result: ' } });
+  assert.ok(!(p instanceof RegExp));
+  assert.equal(p.type, 'prefix'); assert.equal(p.value, 'test result: ');
+  assert.equal(p.test('test result: ok. 3 passed'), true);
+  assert.equal(p.test('  test result: ok'), false, 'a prefix is anchored at column 0 by construction');
+  assert.equal(p.test('test result:'), false, 'shorter than the prefix is not a match');
+  const l = outcomeMatcher({ outcome: { type: 'literal', value: 'DONE' } });
+  assert.equal(l.test('DONE'), true);
+  assert.equal(l.test('DONE.'), false);
+  assert.equal(outcomeMatcher({}), undefined);
+  assert.equal(outcomeMatcher(undefined), undefined);
+});
+
+test('RED CHECK — V9 at the compiler: regex metacharacters in a prefix are characters, never syntax', () => {
+  const p = outcomeMatcher({ outcome: { type: 'prefix', value: '[main (root-commit)' } });
+  assert.equal(p.test('[main (root-commit) a1b2c3d] x'), true);
+  assert.equal(p.test('main root-commit a1b2c3d'), false);
+  // A RegExp, not a bare string: assert.throws() reads a string second argument as the assertion's
+  // own MESSAGE, so the seeded text would have proved only that something threw (final review M3).
+  // `[main (root-commit)` opens a character class it never closes, so what comes back is the engine
+  // refusing to compile it — which is the point: the same text a prefix takes literally is not a
+  // usable regex at all, and that is why a machine never writes one.
+  assert.throws(() => outcomeMatcher({ outcome: '[main (root-commit)' }), /Invalid regular expression/,
+    'the same text as a regex is unusable, which is exactly why a machine never writes one');
+});
+
+test('outcomeMatcher throws, naming the outcome, on every other shape', () => {
+  for (const outcome of ['', { type: 'regex', value: 'x' }, { type: 'prefix' }, { type: 'prefix', value: '' }, 42, ['x']]) {
+    assert.throws(() => outcomeMatcher({ outcome }), /outcome/, String(outcome));
+  }
+});
+
+test('V9 at load: a learned entry whose outcome is a regex string is dropped and named; a learned prefix entry and a hand-written regex entry both load', () => {
+  const tmp = projectWith({
+    smuggled: { match: { type: 'prefix', value: 'scripts/a.sh' }, outcome: '^done', candidates: [], learned: { at: '2026-09-05T00:00:00Z', picks: 4 } },
+    earned: { match: { type: 'prefix', value: 'scripts/b.sh' }, outcome: { type: 'prefix', value: 'done: ' }, candidates: [], learned: { at: '2026-09-05T00:00:00Z', picks: 4 } },
+    hand: { match: { type: 'prefix', value: 'scripts/c.sh' }, outcome: '^done', candidates: [] },
+  });
+  const { catalog, dropped } = loadCatalogReport(tmp);
+  assert.ok(catalog.earned && catalog.hand);
+  assert.ok(!('smuggled' in catalog));
+  assert.deepEqual(dropped.map((d) => d.id), ['smuggled']);
+  assert.match(dropped[0].problem, /never a regex/);
+  assert.equal(isLearned(catalog.earned), true);
+  assert.equal(isLearned(catalog.hand), false);
+  assert.equal(entryProblem(catalog.earned), null);
+});
+
+test('survivalProblems judges the prefix form by the same rules: it must match every answer and no non-answer', () => {
+  const fixture = { source: 't', answers: [1], lines: ['widgets: alpha', 'widgets built: 3', 'cleanup'] };
+  assert.deepEqual(survivalProblems('t', { outcome: { type: 'prefix', value: 'widgets built: ' } }, fixture), []);
+  const wide = survivalProblems('t', { outcome: { type: 'prefix', value: 'widgets' } }, fixture);
+  assert.ok(wide.some((p) => /also matches a non-answer line 0/.test(p)), wide.join('\n'));
+  const broken = survivalProblems('t', { outcome: { type: 'prefix', value: '' } }, fixture);
+  assert.ok(broken.some((p) => /unusable/.test(p)), broken.join('\n'));
+  const none = survivalProblems('t', { candidates: [] }, fixture);
+  assert.ok(none.some((p) => /declares no `outcome`/.test(p)), none.join('\n'));
 });

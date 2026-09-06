@@ -57,6 +57,24 @@ promote it with `node "${CLAUDE_PLUGIN_ROOT}/scripts/promote-tool.mjs" --id <id>
 — it refuses unless the project's fixture proves the outcome line survives filtering, then
 moves the entry into the universal catalog and bumps the plugin version.
 
+A tool the catalog does not know starts on the generic contract — the last line, error blocks,
+proof lines and whatever the summary heuristics catch — and earns its own answer line through the
+training loop. A noisy run ends with a `[quiet:train]` line naming the run's log; the session reads
+the log and says which line is the answer (`/machinery:train-tool`); the matcher is the longest
+common prefix of the lines identified across runs, a prefix by construction and never a regex; and
+after two consecutive identifications on which that prefix picks exactly the line the session picked
+— consecutive identifications, not consecutive runs: identifying in batch over stored logs skips
+runs freely — it graduates into a learned entry in `.claude/machinery/tool-catalog.json` (tracked, a
+team artifact like the rest of the project catalog) with a frozen fixture in
+`.claude/machinery/fixtures/<id>.json` as its regression test. A learned matcher can only add a line
+to the kept set, never remove one. Above that floor sits the display cap, which is not the matcher's:
+once more than `MAX_SHOWN` (200) lines are kept, the render shows the first 120 and the last 80 with
+an `... [n kept lines elided between head and tail] ...` line between them, whether a matcher was
+involved or not — so promoting a line into a keep set already at exactly 200 moves one line into that
+elision, which names itself in the output. It goes back into training on its own when it matches
+nothing in a run, when a run fails with no error block, or when the output's shape moves; the state
+of that training lives in `observations.json` and is per-machine like the rest of it.
+
 ## Dependency
 
 The commit gate assumes invariants are enforced the way `cant-break-by-design`

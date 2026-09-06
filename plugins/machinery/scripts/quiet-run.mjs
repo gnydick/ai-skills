@@ -5,14 +5,16 @@
 // (stdout and stderr concatenated, their true interleaving unrecoverable) is gone. The full
 // log keeps both facts per line; the display path is unchanged and still line-based.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { normalise, select, selectInfra, render, PASS_THROUGH_LINES, MAX_SHOWN } from './lib/filter.mjs';
+import { fileURLToPath } from 'node:url';
+import { select, selectInfra, render, hasErrorBlock, PASS_THROUGH_LINES, MAX_SHOWN } from './lib/filter.mjs';
+import { logDir, formatRunLog, linesOf } from './lib/runlog.mjs';
 import { captureRun } from './lib/capture.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { loadCatalog, matchTool, matchedCandidate } from './lib/catalog.mjs';
-import { loadObservations, saveObservations, recordRun, bespokeKey } from './lib/observations.mjs';
+import { loadCatalog, matchTool, matchedCandidate, outcomeMatcher, isLearned } from './lib/catalog.mjs';
+import { loadObservations, saveObservations, recordRun, toolKey, withTraining } from './lib/observations.mjs';
 import { decide, candidatesOf } from './lib/assimilate.mjs';
+import { trainingOf, noteRun, driftReason, reopen, GRADUATION_AGREEMENTS } from './lib/training.mjs';
 
 const SHELLS = Object.freeze({
   bash: (cmd) => {
@@ -30,9 +32,17 @@ function quietEnv() {
   return env;
 }
 
-function logDir() {
-  const job = process.env.CLAUDE_JOB_DIR;
-  return job ? path.join(job, 'tmp') : path.join(os.tmpdir(), 'claude-quiet');
+// The training nudge (design, "The nudge register"): advisory, on this runner's own stdout after
+// the output — the same channel as the suggest line — never a hook that waits on anything, and
+// never applied to anything. It points at the log this run wrote and at the one command that hands
+// the session's pick to the loop; the <N> is for the session to supply. Forward slashes in both
+// paths: node reads them on every platform and the bash shell needs them.
+const TRAINER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'train-tool.mjs').replace(/\\/g, '/');
+function trainingNudge(key, training, learned, logPath) {
+  const state = learned
+    ? `learned answer line re-opened for training (${training.open.reason})`
+    : `answer line not yet learned (${training.picks.length} identified, ${training.streak} of ${GRADUATION_AGREEMENTS} agreements)`;
+  return `[quiet:train] ${key}: ${state} — read the log, then: node "${TRAINER}" identify --log "${logPath.replace(/\\/g, '/')}" --line <N>\n`;
 }
 
 function parseArgs(argv) {
@@ -75,14 +85,16 @@ async function main() {
   // The display path still goes through normalise(), exactly as it did when the input was one
   // concatenated buffer: filter.mjs owns ANSI stripping, CR-overwrite collapsing, trailing-space
   // trimming and trailing-blank removal, and skipping it here would silently drop all four.
-  const lines = normalise(records.map((r) => r.text).join('\n'));
+  // linesOf() is the one derivation of the display lines — normalise() over the record texts — and
+  // train-tool.mjs reads the same lines back out of the log through the same function, so the index
+  // the session identifies is an index into exactly what was shown.
+  const lines = linesOf(records);
   let logDisplay = logPath;
   try {
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
     // The log keeps what the display path cannot: when each line arrived and which stream it
     // came from. Written verbatim — carriage returns and all — because normalise() owns that.
-    const body = records.map((r) => `${r.t.toFixed(3)} ${r.stream === 'stdout' ? 'out' : 'err'}  ${r.text}`).join('\n');
-    fs.writeFileSync(logPath, `$ ${command}\n${body}${body ? '\n' : ''}`);
+    fs.writeFileSync(logPath, formatRunLog(command, records));
   } catch (e) { logDisplay = `(unavailable: ${e.message})`; }
   // The assimilator's inputs, resolved once and read by everything below. Nothing here may cost
   // the wrapped command its output or its exit status — that claim covers THREE sites, this one,
@@ -100,12 +112,12 @@ async function main() {
   catch { /* not inside a repository: nowhere to keep a record, and nothing to look one up in */ }
   try {
     toolId = matchTool(command, catalog);
-    // A missing `outcome` stays undefined rather than becoming `new RegExp(undefined)`, which is
-    // /undefined/ and keeps any line with that word in it. `outcome` is a plain pattern string
-    // carrying no flag information, so this RegExp is non-global by construction — which is what
-    // keeps select() clear of the lastIndex statefulness a /g or /y pattern brings (Task 3's
-    // review). A catalog format that ever allowed flags would have to re-open that.
-    if (toolId && catalog[toolId].outcome) outcomePattern = new RegExp(catalog[toolId].outcome);
+    // outcomeMatcher() is the one compiler: a regex for a hand-written entry, a startsWith test for a
+    // learned one, undefined for none. It is non-global by construction either way — a catalog
+    // `outcome` carries no flag information — which is what keeps select() clear of the lastIndex
+    // statefulness a /g or /y pattern brings (Task 3 of the core plan). A malformed outcome throws
+    // here and is caught below like the other two catalog reads.
+    if (toolId) outcomePattern = outcomeMatcher(catalog[toolId]);
     // Two different questions, deliberately not one variable. `candidate` is the flag THIS run is
     // a trial of — already present in the command — which is the only thing the ledger can record
     // a verdict about. The flag to RECOMMEND is by definition not in the command, so
@@ -116,7 +128,9 @@ async function main() {
     process.stderr.write(`quiet-run: unusable tool catalog (${e.message}); falling back to the generic filter\n`);
     catalog = {}; toolId = null; outcomePattern = undefined; candidate = null;
   }
-  const key = toolId ?? bespokeKey(command);
+  // One derivation shared with train-tool.mjs, from the matchTool() answer already in hand rather
+  // than a second lookup: the trainer's pick has to land on the record this run writes.
+  const key = toolKey(toolId, command).key;
 
   // observe and suggest are ALWAYS verbatim, unconditionally — never the threshold branch.
   // filter/infra keep today's threshold-or-forced verbatim path, unchanged.
@@ -153,6 +167,7 @@ async function main() {
   }
   process.stdout.write(out);
 
+  let nudge = '';
   try {
     if (root) {
       const stdoutLines = records.filter((r) => r.stream === 'stdout').length;
@@ -161,15 +176,45 @@ async function main() {
       // declared answer survive taking it? Defaults true, so a bare run — or a tool with no
       // declared outcome pattern to lose — is judged on line count alone, per Task 5's ruling.
       const outcomeSurvived = candidate && outcomePattern ? lines.some((l) => outcomePattern.test(l)) : true;
-      const ignored = saveObservations(root, recordRun(observations, key, {
+      let next = recordRun(observations, key, {
         identity: toolId ? 'catalog' : 'bespoke',
         lineCount: lines.length, stdoutLines, stderrLines, candidate, outcomeSurvived,
-      }));
+      });
+      // The training loop (design, "How an outcome pattern is learned"), for the runs that can
+      // learn: a bare run — never a trial, whose lines measure a flag — of a tool with no declared
+      // answer line of its own, which is a bespoke tool or one whose entry the loop itself wrote
+      // (isLearned). Not infra: selectInfra() takes no outcome pattern, so nothing learned there
+      // would ever be applied. Drift is judged BEFORE this run joins the history it is judged
+      // against, and only while the matcher stands — a re-opened one is already in question, and
+      // re-judging it every run would discard each new pick before it could count.
+      const learned = toolId !== null && isLearned(catalog[toolId]);
+      if (!candidate && a.mode !== 'infra' && (toolId === null || learned)) {
+        let training = trainingOf(next[key]);
+        if (learned && !training.open) {
+          const reason = driftReason(training, {
+            matched: outcomePattern ? lines.filter((l) => outcomePattern.test(l)).length : 0,
+            code, errorBlock: hasErrorBlock(lines), lines: lines.length, stdoutLines, stderrLines,
+          });
+          if (reason) training = reopen(training, reason, logPath, new Date().toISOString());
+        }
+        training = noteRun(training, { log: logPath, lines: lines.length, stdoutLines, stderrLines, code });
+        next = withTraining(next, key, training);
+        // Noisy by the one threshold, and not yet (or no longer) graduated: the session is asked. A
+        // quiet tool is never wrapped again, so a matcher for it would never be applied. No log,
+        // nothing to identify in — said, not skipped.
+        if (lines.length > PASS_THROUGH_LINES && (!learned || training.open)) {
+          nudge = logDisplay === logPath
+            ? trainingNudge(key, training, learned, logPath)
+            : `[quiet:train] ${key}: nothing to identify this run — the log could not be written ${logDisplay}\n`;
+        }
+      }
+      const ignored = saveObservations(root, next);
       // Said once, when it happens: the project's .gitignore just changed under the user
       // (rules/design-invariants.md § Telling the user what you dropped — additions too).
       if (ignored) process.stderr.write('quiet-run: created .claude/machinery/observations.json and added it to .gitignore (per-machine measurement, never tracked)\n');
     }
   } catch { /* recording is best-effort; never fail the wrapped command over it */ }
+  if (nudge) process.stdout.write(nudge);
   if (a.cmdfile) { try { fs.rmSync(a.cmdfile); } catch {} }
   return code;
 }
