@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from './lib/root.mjs';
 import { loadCatalog, matchTool, isLearned } from './lib/catalog.mjs';
-import { loadObservations, saveObservations, bespokeKey, withTraining } from './lib/observations.mjs';
+import { loadObservations, saveObservations, toolKey, withTraining } from './lib/observations.mjs';
 import { parseRunLog, linesOf, listRunLogs, logDir } from './lib/runlog.mjs';
 import { trainingOf, identify, GRADUATION_AGREEMENTS } from './lib/training.mjs';
 import { graduate } from './lib/graduate.mjs';
@@ -35,9 +35,12 @@ function readLog(file) {
   catch (e) { return die(e.code === 'ENOENT' ? `no run log at ${file}` : `cannot read ${file}: ${e.message}`); }
   try { return parseRunLog(text); } catch (e) { return die(`${file}: ${e.message}`); }
 }
-// The key exactly as the runner derives it for the same command — one derivation, so the pick lands
-// on the record the runner writes to, and a graduated tool is found under its learned id.
-const keyOf = (command, catalog) => matchTool(command, catalog) ?? bespokeKey(command);
+// The key exactly as the runner derives it for the same command — literally one derivation now, not
+// two that agree by inspection: toolKey() is the single site, so the pick lands on the record the
+// runner writes to and a graduated tool is found under its learned id. It carries WHETHER the
+// catalog matched along with the key, which is what the graduation gate needs and cannot recover
+// from the key string (rules/design-invariants.md § Never re-derive a fact).
+const toolOf = (command, catalog) => toolKey(matchTool(command, catalog), command);
 
 function identifyCmd() {
   const file = opt('--log'), n = Number(opt('--line'));
@@ -51,7 +54,8 @@ function identifyCmd() {
   try { root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd()); } catch (e) { return die(e.message); }
   const catalog = loadCatalog(root);
   const observations = loadObservations(root);
-  const key = keyOf(command, catalog);
+  const tool = toolOf(command, catalog);
+  const key = tool.key;
   const entry = catalog[key];
   if (entry && !isLearned(entry)) die(`'${key}' has a hand-written catalog entry; its answer line is declared there, not learned`);
   const training = trainingOf(observations[key]);
@@ -63,7 +67,7 @@ function identifyCmd() {
   else say(`shadow: ${r.agreed ? 'agreed' : 'disagreed'} — ${r.training.streak} of ${GRADUATION_AGREEMENTS} consecutive agreements`);
   if (r.matcher) say(`matcher: prefix \`${r.matcher.value}\``);
   if (!r.graduates) { saveObservations(root, withTraining(observations, key, r.training)); return; }
-  const g = graduate(root, { key, catalog, observations, training: r.training, matcher: r.matcher, lines, index, log: file, at });
+  const g = graduate(root, { tool, catalog, observations, training: r.training, matcher: r.matcher, lines, index, log: file, at });
   if (!g.ok) {
     // The pick still counts; the gate is what said no, and it says why. The header is NEUTRAL:
     // graduate() also refuses for reasons the fixture has nothing to do with — a collision at the
@@ -87,7 +91,7 @@ function logsCmd() {
   for (const file of files) {
     let command;
     try { ({ command } = parseRunLog(fs.readFileSync(file, 'utf8'))); } catch { continue; }
-    const key = keyOf(command, catalog);
+    const key = toolOf(command, catalog).key;
     if (want && key !== want) continue;
     say(`${file}\t${key}`); shown++;
   }

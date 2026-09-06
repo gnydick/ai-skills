@@ -5,9 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
 import { graduate, projectCatalogFile, projectFixtureFile } from '../scripts/lib/graduate.mjs';
-import { loadCatalogReport } from '../scripts/lib/catalog.mjs';
+import { loadCatalogReport, matchTool } from '../scripts/lib/catalog.mjs';
 import { survivalProblems } from '../scripts/lib/survival.mjs';
-import { emptyTraining, identify } from '../scripts/lib/training.mjs';
+import { emptyTraining, identify, learnedId } from '../scripts/lib/training.mjs';
+import { bespokeKey, toolKey } from '../scripts/lib/observations.mjs';
 
 // loadCatalogReport reads the universal half through pluginRoot(); pin it at this checkout.
 process.env.CLAUDE_PLUGIN_ROOT = PLUGIN;
@@ -25,8 +26,11 @@ function trained() {
 }
 const root = () => fs.mkdtempSync(path.join(os.tmpdir(), 'graduate-'));
 const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+// The tool pair as the CLI derives it: matchTool() said nothing about `bash scripts/battery.sh`
+// until it has graduated, so the default is the bespoke half. A case that needs the matched half
+// passes its own `tool`.
 const args = (r, extra = {}) => ({
-  key: KEY, catalog: {}, training: r.training, matcher: r.matcher, lines: r.lines, index: 2, log: 'l4', at: AT,
+  tool: toolKey(null, KEY), catalog: {}, training: r.training, matcher: r.matcher, lines: r.lines, index: 2, log: 'l4', at: AT,
   observations: { [KEY]: { identity: 'bespoke', noisy: true, lines: 1400, ledger: {}, training: r.training } },
   ...extra,
 });
@@ -103,11 +107,53 @@ test('re-graduation overwrites the learned entry and its fixture, and leaves the
   // C1: how a re-graduation ACTUALLY arrives. Once the entry exists matchTool() answers with the
   // id, so the runner and train-tool.mjs both key on the id and hand THAT in. The entry's own match
   // has to survive it: rebuilt from the id it would read `bash-scripts-battery.sh`, which no
-  // command starts with, and the entry would match nothing for ever.
-  const byId = graduate(dir, args(r, { key: ID, catalog: { [ID]: read(projectCatalogFile(dir))[ID] }, at: '2026-09-07T00:00:00.000Z' }));
+  // command starts with, and the entry would match nothing for ever. The pair is derived here the
+  // way the CLI derives it — from matchTool() over the command itself — so what makes this a
+  // re-graduation is the entry answering for the command, not the two strings being equal.
+  const landed = { [ID]: read(projectCatalogFile(dir))[ID] };
+  assert.equal(matchTool(KEY, landed), ID, 'precondition: the entry really does match the command now');
+  const byId = graduate(dir, args(r, { tool: toolKey(matchTool(KEY, landed), KEY), catalog: landed, at: '2026-09-07T00:00:00.000Z' }));
   assert.equal(byId.ok, true, byId.problems && byId.problems.join('\n'));
   assert.equal(byId.id, ID);
   assert.deepEqual(read(projectCatalogFile(dir))[ID].match, { type: 'prefix', value: KEY }, 'the bespoke command shape is preserved, never replaced by the id');
+});
+
+// Final re-review: the C1 fix reads "an existing learned entry sits at this key" as "this is that
+// tool again", and a bespoke key can land on that string BY COINCIDENCE. `./a.sh` graduates to the
+// id `a.sh` (learnedId strips the leading `./`), and a later run of `a.sh --x` — a command that
+// entry does NOT match, since it does not start with `./a.sh` — keys on bespokeKey('a.sh --x'),
+// which is also `a.sh`. The strings collide; the tools do not. Read as a re-graduation, one
+// invocation's learned answer is silently overwritten with the other's while `match.value` still
+// says `./a.sh`. A re-graduation is real only when the entry's OWN match answered for this command.
+// Every value below is derived from the two commands' own shapes, never from graduate()'s output.
+test('RED CHECK — a bespoke key that merely COINCIDES with a learned id is a collision, not a re-graduation', () => {
+  const dir = root(), r = trained();
+  const FIRST = './a.sh', SECOND = 'a.sh --x';
+  const ALIAS = learnedId(FIRST);
+  assert.equal(ALIAS, bespokeKey(SECOND), 'precondition: two unrelated commands, one string');
+  const other = { [ALIAS]: { match: { type: 'prefix', value: FIRST }, outcome: { type: 'prefix', value: 'ok: ' }, candidates: [], learned: { at: AT, picks: 4 } } };
+  assert.equal(matchTool(SECOND, other), null, 'precondition: the entry does not match the second command');
+  fs.mkdirSync(path.dirname(projectCatalogFile(dir)), { recursive: true });
+  fs.writeFileSync(projectCatalogFile(dir), JSON.stringify(other, null, 2) + '\n');
+  const before = fs.readFileSync(projectCatalogFile(dir), 'utf8');
+  // The pair exactly as the callers derive it for SECOND: matchTool said nothing, so it is bespoke.
+  const g = graduate(dir, args(r, { tool: toolKey(matchTool(SECOND, other), SECOND), catalog: other }));
+  assert.equal(g.ok, false, 'the entry never matched this command, so the shared string is not identity');
+  assert.match(g.problems[0], /already the learned entry for '\.\/a\.sh'/);
+  assert.equal(fs.readFileSync(projectCatalogFile(dir), 'utf8'), before, 'the other tool’s entry is byte-unchanged');
+  assert.ok(!fs.existsSync(projectFixtureFile(dir, ALIAS)), 'and no fixture was written');
+});
+
+// The mechanism behind the case above, exercised rather than asserted in prose: `matched` cannot be
+// claimed by a caller, only obtained from toolKey(). A bare key string — the old calling shape — and
+// a hand-built lookalike are both refused, so the coincidence case cannot come back by a caller
+// deciding for itself that the strings being equal means the tool matched.
+test('the graduation gate takes only the derived pair: a key string, and a hand-built lookalike, are both refused', () => {
+  const dir = root(), r = trained();
+  const { tool, ...rest } = args(r);
+  assert.throws(() => graduate(dir, { ...rest, tool: KEY }), /not a key string/);
+  assert.throws(() => graduate(dir, { ...rest, tool: { key: KEY, matched: true } }), /not a key string/);
+  assert.ok(!fs.existsSync(projectCatalogFile(dir)), 'and nothing was written on the way to the throw');
 });
 
 test('a project catalog that is not valid JSON is external input: graduation refuses rather than replacing it', () => {

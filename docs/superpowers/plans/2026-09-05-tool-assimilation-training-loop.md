@@ -1542,7 +1542,7 @@ git commit -m "machinery: quiet-run.mjs notes each training-eligible run, re-ope
 
 **Test cost:** CLI spawns only (node, over synthetic logs written with `formatRunLog`), one `git init` per case, in a new file.
 
-*Corrected after the final whole-branch review (ledger #12): this line read "12 CLI spawns … two `git init`s" and was wrong on the second count as landed — the file has four `repo()` calls, not two. The C1 fix then added a fifth case, `the loop closes backward`, which is the one exception to "no bash, no tool run": it drives the real runner once, because only the runner can produce drift. As it stands the file costs 21 node spawns, one of which wraps a real bash run, and five `git init`s, and runs in ~1.1 s well inside the pre-commit budget whose pole is `gate.test.mjs`.*
+*Corrected after the final whole-branch review (ledger #12): this line read "12 CLI spawns … two `git init`s" and was wrong on the second count as landed — the file has four `repo()` calls, not two. The C1 fix then added a fifth case, `the loop closes backward`, which is the one exception to "no bash, no tool run": it drives the real runner once, because only the runner can produce drift. As it stands the file costs 22 node spawns — 21 of `train-tool.mjs`, plus the one `quiet-run.mjs` spawn that wraps a real bash run — and five `git init`s, and runs in ~1.1 s well inside the pre-commit budget whose pole is `gate.test.mjs`.*
 
 - [ ] **Step 1: Write the failing tests**
 

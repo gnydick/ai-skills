@@ -22,7 +22,7 @@ import path from 'node:path';
 import { isLearned, entryProblem } from './catalog.mjs';
 import { survivalProblems } from './survival.mjs';
 import { learnedId, learnedEntry, frozenFixture, graduated } from './training.mjs';
-import { moveRecord, withTraining } from './observations.mjs';
+import { moveRecord, withTraining, isToolKey } from './observations.mjs';
 
 export const projectCatalogFile = (root) => path.join(root, '.claude', 'machinery', 'tool-catalog.json');
 export const projectFixtureFile = (root, id) => path.join(root, '.claude', 'machinery', 'fixtures', `${id}.json`);
@@ -39,17 +39,29 @@ function readProjectCatalog(file) {
   return { value };
 }
 
-export function graduate(root, { key, catalog, observations, training, matcher, lines, index, log, at }) {
+export function graduate(root, { tool, catalog, observations, training, matcher, lines, index, log, at }) {
+  // `tool` is observations.mjs's toolKey() pair, never a bare key string: whether the catalog
+  // MATCHED this command is not recoverable from the key, and the branch below turns on it. A
+  // caller cannot forge the pair — the brand is a module-private symbol — so it cannot claim a
+  // match it never made. This is a programmer error, not external input, so it throws.
+  if (!isToolKey(tool)) throw new TypeError('graduate() takes the pair observations.mjs toolKey() makes, not a key string: whether the catalog matched this command is not recoverable from the key');
+  const { key, matched } = tool;
   // A tool has TWO identities and the loop has to close under both: the bespoke key
   // (`bash scripts/battery.sh`) before graduation, and the sanitized catalog id
   // (`bash-scripts-battery.sh`) after. From the first run after graduation matchTool() answers with
   // the id, so the runner and train-tool.mjs both key on the id from then on, and a re-graduation
-  // after drift arrives with `key` ALREADY EQUAL to the id. catalog[key] being a learned entry is
-  // the only way that can happen — a bespoke key is a command shape and never names an entry — so
-  // it is the fact that identifies a re-graduation, read once, here. The entry's own `match` is then
+  // after drift arrives with `key` ALREADY EQUAL to the id. The entry's own `match` is then
   // PRESERVED rather than rebuilt from `key`: rebuilt, it would carry the id, which no command
   // starts with, leaving a dead entry that matches nothing forever (final whole-branch review, C1).
-  const retrained = isLearned(catalog[key]) ? catalog[key] : null;
+  //
+  // What makes it a re-graduation is that the entry's OWN match answered for this command —
+  // `matched`, decided at the one site that derives the key — and not merely that a learned entry
+  // sits at the same string. A bespoke key can land on that string by coincidence: `./a.sh`
+  // graduates to the id `a.sh`, and a later `a.sh --x` keys on `a.sh` without matching that entry
+  // at all. Read as identity, that overwrites one invocation's learned answer with the other's and
+  // leaves `match.value` pointing at the first (final re-review). A coincidence is a COLLISION, and
+  // falls through to the guards below, which refuse and write nothing.
+  const retrained = matched && isLearned(catalog[key]) ? catalog[key] : null;
   const id = retrained ? key : learnedId(key);
   if (!retrained) {
     // A first graduation, so nothing at this id may already belong to another tool. Both refusals

@@ -42,6 +42,27 @@ export function bespokeKey(command) {
   return (firstFlag === -1 ? tokens : tokens.slice(0, firstFlag)).join(' ');
 }
 
+// The key a run is recorded under and — inseparably — HOW it was derived. Both derivation sites
+// (quiet-run.mjs's runner, train-tool.mjs's identify and logs) already hold the answer matchTool()
+// gave them, so it is handed in rather than asked for a second time (rules/design-invariants.md
+// § Never re-derive a fact); this is the one place that turns it into the pair, so the two sites
+// can no longer derive the key differently.
+//
+// Why a pair and not the bare string: the id a bespoke key sanitizes to can COINCIDE with an
+// existing learned entry's id without that entry having matched the command at all — `./a.sh`
+// graduates to the id `a.sh`, and a later `a.sh --x`, which that entry does NOT match, keys on
+// `a.sh` too. `matched` is the only thing that separates "this tool again" from "a different tool
+// at the same string", and lib/graduate.mjs cannot recover it from the key. Both halves are read
+// off one normalized `id`, so they cannot disagree, and the pair carries a brand no other module
+// can forge: a caller cannot hand the graduation gate a `matched` it did not get from matchTool()
+// (rules/design-invariants.md § Where a distinguishing type is created).
+const TOOL_KEY = Symbol('toolKey');
+export function toolKey(toolId, command) {
+  const id = toolId ?? null;
+  return Object.freeze({ [TOOL_KEY]: true, key: id ?? bespokeKey(command), matched: id !== null });
+}
+export const isToolKey = (v) => !!v && typeof v === 'object' && v[TOOL_KEY] === true;
+
 // Fields with no value are left out rather than written as `undefined`: JSON drops an explicit
 // undefined, so writing one would make the record in memory a different shape from the record that
 // comes back off disk, and anything testing for a field's presence would read the two differently.

@@ -12,7 +12,7 @@ import { logDir, formatRunLog, linesOf } from './lib/runlog.mjs';
 import { captureRun } from './lib/capture.mjs';
 import { projectRoot } from './lib/root.mjs';
 import { loadCatalog, matchTool, matchedCandidate, outcomeMatcher, isLearned } from './lib/catalog.mjs';
-import { loadObservations, saveObservations, recordRun, bespokeKey, withTraining } from './lib/observations.mjs';
+import { loadObservations, saveObservations, recordRun, toolKey, withTraining } from './lib/observations.mjs';
 import { decide, candidatesOf } from './lib/assimilate.mjs';
 import { trainingOf, noteRun, driftReason, reopen, GRADUATION_AGREEMENTS } from './lib/training.mjs';
 
@@ -128,7 +128,9 @@ async function main() {
     process.stderr.write(`quiet-run: unusable tool catalog (${e.message}); falling back to the generic filter\n`);
     catalog = {}; toolId = null; outcomePattern = undefined; candidate = null;
   }
-  const key = toolId ?? bespokeKey(command);
+  // One derivation shared with train-tool.mjs, from the matchTool() answer already in hand rather
+  // than a second lookup: the trainer's pick has to land on the record this run writes.
+  const key = toolKey(toolId, command).key;
 
   // observe and suggest are ALWAYS verbatim, unconditionally — never the threshold branch.
   // filter/infra keep today's threshold-or-forced verbatim path, unchanged.
