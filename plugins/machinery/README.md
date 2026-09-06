@@ -57,6 +57,19 @@ promote it with `node "${CLAUDE_PLUGIN_ROOT}/scripts/promote-tool.mjs" --id <id>
 — it refuses unless the project's fixture proves the outcome line survives filtering, then
 moves the entry into the universal catalog and bumps the plugin version.
 
+A tool the catalog does not know starts on the generic contract — the last line, error blocks,
+proof lines and whatever the summary heuristics catch — and earns its own answer line through the
+training loop. A noisy run ends with a `[quiet:train]` line naming the run's log; the session reads
+the log and says which line is the answer (`/machinery:train-tool`); the matcher is the longest
+common prefix of the lines identified across runs, a prefix by construction and never a regex; and
+after two consecutive runs on which that prefix picks exactly the line the session picked, it
+graduates into a learned entry in `.claude/machinery/tool-catalog.json` (tracked, a team artifact
+like the rest of the project catalog) with a frozen fixture in `.claude/machinery/fixtures/<id>.json`
+as its regression test. A learned matcher can only add a line to what is shown, never hide one. It
+goes back into training on its own when it matches nothing in a run, when a run fails with no error
+block, or when the output's shape moves; the state of that training lives in `observations.json`
+and is per-machine like the rest of it.
+
 ## Dependency
 
 The commit gate assumes invariants are enforced the way `cant-break-by-design`

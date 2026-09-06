@@ -39,9 +39,10 @@ test('reload prints every universal rule file as a delimited block', () => {
   for (const f of fs.readdirSync(path.join(PLUGIN, 'rules'))) assert.ok(res.stdout.includes(`===== rules/${f} =====`));
 });
 
-test('RED CHECK: seven skills exist', () => {
+test('RED CHECK: eight skills exist', () => {
   const routed = JSON.parse(fs.readFileSync(path.join(REPO, 'skills.manifest.json'), 'utf8')).targets['claude-plugin'].routes.machinery.skills;
-  assert.equal(routed.length, 7);
+  assert.equal(routed.length, 8);
+  assert.ok(routed.includes('train-tool'), 'the training loop’s skill is routed');
   for (const name of routed) assert.ok(fs.existsSync(path.join(BUCKET, name, 'SKILL.md')), `${name} has no SKILL.md`);
 });
 
