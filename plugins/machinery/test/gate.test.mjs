@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import v8 from 'node:v8';
+import vm from 'node:vm';
 import { makeRepo } from './helpers/repo.mjs';
 import { runScript } from './helpers/run.mjs';
+import { addedHunks, collectCitations } from '../scripts/gate/citation-target.mjs';
 
 const g = (root, ...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const write = (root, rel, text) => { const f = path.join(root, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text); };
@@ -214,6 +217,96 @@ test('--universal runs the register check over the plugin layout', () => {
     g(r.root, 'add', '-A');
     assert.equal(runScript('scripts/gate/gate.mjs', { args: ['--root', r.root, '--universal'], cwd: r.root }).code, 0);
   } finally { r.cleanup(); }
+});
+
+// Ticket #19 (Gabe, 2026-09-05): the merge gate's citation check could not run on a
+// 1.42 MB merge diff — the sync spawn's 1 MiB buffer killed git (ENOBUFS, SIGTERM) and
+// the wrapper reported a bare `git diff failed:`. The diff is streamed hunk by hunk now
+// (owner: "can't we operate on a stream?"), so a diff of any size passes through, and a
+// git that dies part-way is named and fails the leg rather than passing on what arrived.
+const FILLER_BYTES = 1.3 * 1024 * 1024;
+function filler(bytes) { const line = 'filler line of no particular interest, padding the diff past the buffer\n'; return line.repeat(Math.ceil(bytes / line.length)); }
+
+test('RED CHECK: a staged diff over 1 MiB passes through the citation check with every citation in it found, at both ends (#19)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root); write(r.root, 'src/x.js', 'line1\n\nline3\n'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'src');
+    // A good citation at the top of the diff and a bad one (blank line) past the 1 MiB mark:
+    // "1 of 2" proves the scan reached the far end, not merely that it survived.
+    write(r.root, 'docs/big.md', 'see `src/x.js:3`\n' + filler(FILLER_BYTES) + 'and `src/x.js:2`\n'); g(r.root, 'add', '-A');
+    assert.ok(fs.statSync(path.join(r.root, 'docs/big.md')).size > 1024 * 1024, 'fixture is not over 1 MiB');
+    let res = gate(r.root);
+    assert.doesNotMatch(res.stdout, /could not run/, res.stdout);
+    assert.equal(res.code, 1, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 1 of 2 new citations failed/);
+    write(r.root, 'docs/big.md', 'see `src/x.js:3`\n' + filler(FILLER_BYTES) + 'and `src/x.js:1`\n'); g(r.root, 'add', '-A');
+    res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 0 of 2 new citations failed/);
+  } finally { r.cleanup(); }
+});
+
+test('a git that dies mid-stream fails the citation check by name (exit code and git\'s own words), never passes on the hunks that arrived (#19)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root); write(r.root, 'src/x.js', 'line1\n\nline3\n'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'src');
+    write(r.root, 'docs/n.md', 'plain'); g(r.root, 'add', '-A');
+    // GIT_EXTERNAL_DIFF makes real git emit this script's output as the diff, then die on its
+    // non-zero exit ("fatal: external diff died") — a hunk carrying a VALID citation reaches
+    // the gate before the death, so a leg that trusted what arrived would report 0 of 1.
+    const script = path.join(r.root, '..', 'dying-diff');
+    fs.writeFileSync(script, ['#!/bin/sh', 'echo "+++ b/docs/n.md"', 'echo "@@ -0,0 +1 @@"', "echo '+see `src/x.js:3`'", 'exit 1', ''].join('\n'));
+    fs.chmodSync(script, 0o755);
+    // git hands the value to `sh -c`, so a temp path with a space in it needs the quotes.
+    const res = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root, env: { GIT_EXTERNAL_DIFF: `'${script.replaceAll(path.sep, '/')}'` } });
+    assert.equal(res.code, 1, res.stdout + res.stderr);
+    assert.doesNotMatch(res.stdout, /citation_target: \d+ of \d+/, 'a truncated diff must not produce a proof line');
+    assert.match(res.stdout, /gate: a check could not run — git diff failed: .*\S/, res.stdout);
+    assert.match(res.stdout, /128/, res.stdout);
+    assert.match(res.stdout, /external diff died/, res.stdout);
+  } finally { r.cleanup(); }
+});
+
+// The stream's consumer, driven by a fake line source so what it holds can be probed.
+const fakeDiff = (hunks) => (async function* () { for (const h of hunks) { yield `+++ b/${h.file}`; yield `@@ -0,0 +1,${h.lines.length} @@`; for (const l of h.lines) yield `+${l}`; } })();
+
+test('memory is bounded to the current hunk: every earlier hunk the parser yielded is collectable once the consumer moves on (#19)', async () => {
+  // What this can see: the hunk-yielding stage itself retains nothing past the hunk it is on.
+  // What it cannot see: the citations list (bounded by citation count, not diff size), the
+  // child's pipe buffers, and V8's own slack. The positive control is hunk 0, held strongly.
+  v8.setFlagsFromString('--expose-gc');
+  const gc = vm.runInNewContext('gc');
+  const N = 300; const K = 50;
+  const src = fakeDiff(Array.from({ length: N }, (_, i) => ({ file: `docs/h${i}.md`, lines: Array.from({ length: K }, (_, j) => `hunk ${i} line ${j}`) })));
+  const refs = []; let control = null; let seen = 0;
+  for await (const h of addedHunks(src)) { seen += 1; assert.equal(h.lines.length, K); refs.push(new WeakRef(h)); if (!control) control = h; }
+  assert.equal(seen, N);
+  await new Promise((res) => setImmediate(res)); // leave the job that last touched the WeakRefs
+  gc();
+  assert.ok(refs[0].deref() !== undefined, 'positive control: a strongly held hunk must survive the gc, or the probe sees nothing');
+  const retained = refs.slice(1, N - 1).map((w, i) => (w.deref() === undefined ? null : i + 1)).filter((i) => i !== null);
+  assert.deepEqual(retained, [], `hunks still retained after the consumer moved on: ${retained.join(', ')}`);
+  assert.ok(control);
+});
+
+test('a wrapped `file § Section` is joined across added lines within one hunk, never across hunks (final review A4, through the stream)', async () => {
+  const cites = await collectCitations(fakeDiff([
+    { file: 'docs/n.md', lines: ['see `rules/t.md` § Merging and', 'tearing down'] },
+    { file: 'docs/n.md', lines: ['and `src/x.js:3`'] },
+    { file: 'docs/n.md', lines: ['`rules/t.md` § Other'] },
+    { file: 'docs/n.md', lines: ['heading continued'] },
+    { file: 'test/gate.test.mjs', lines: ['`rules/t.md` § Excluded'] },
+  ]));
+  assert.deepEqual(cites.map((c) => (c.kind === 'line' ? `${c.from}: ${c.path}:${c.line}` : `${c.from}: ${c.path} § ${c.section}`)), [
+    'docs/n.md: rules/t.md § Merging and tearing down',
+    'docs/n.md: src/x.js:3',
+    'docs/n.md: rules/t.md § Other',
+  ]);
+});
+
+test('a line source that fails part-way fails the collection — the citations that arrived are never reported (#19)', async () => {
+  const dying = (async function* () { yield '+++ b/docs/n.md'; yield '@@ -0,0 +1 @@'; yield '+see `src/x.js:3`'; throw new Error('git diff -U0: killed by SIGTERM'); })();
+  await assert.rejects(collectCitations(dying), /killed by SIGTERM/);
 });
 
 test('RED CHECK: the gate is not a no-op — a pending entry really fails it', () => {
