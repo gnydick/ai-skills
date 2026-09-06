@@ -85,6 +85,73 @@ test('refusals are diagnostics, not stack traces: a missing log, a line that is 
   assert.equal(usage.code, 2); assert.match(usage.stderr, /^usage: /);
 });
 
+// Fix round 1: the one path in the CLI that deliberately half-writes. When graduate() refuses,
+// identifyCmd still saves the session's pick (the streak the agreement earned is real and should
+// not be re-earned) before dying — a write followed by a die, unlike every other refusal above,
+// which is refused before any write is reachable. Reaching it needs graduate() itself to say no,
+// AFTER identify() has already agreed to graduate.
+//
+// lib-graduate.test.mjs's own V11 ("a fixture that cannot prove the matcher refuses graduation")
+// reaches graduate()'s refusal by calling it directly with an `index` that disagrees with the
+// matcher `identify()` already built — something only a library-level caller can do. The CLI
+// cannot: identifyCmd passes the SAME `lines` and the SAME `index` to both identify() and
+// graduate() (train-tool.mjs:~65-73), and identify()'s own agreement rule (training.mjs, "on an
+// agreement it [the matcher] equals the one that agreed, because a line the prefix matched cannot
+// shorten it") makes that a mathematical guarantee, not a convention: agreement requires the
+// picked line to already start with the PRE-pick matcher, so the POST-pick matcher — the only one
+// graduate() ever sees — cannot become shorter, and so cannot newly match some other line in the
+// same run that the shadow check (over those identical lines) did not already rule on. Checked
+// empirically too: every attempt to smuggle in a stray matching line (in the graduating run itself,
+// or via a PICK_WINDOW-truncation trick) broke the shadow agreement first, before graduate() was
+// ever reached — never once produced a survival-provable-false, agreed-true combination.
+// survivalProblems() is consequently unreachable through this CLI's own honest, index-consistent
+// call sequence; a request to reach it that way cannot be honoured. What is genuinely reachable —
+// and reaches the exact same untested branch — is graduate()'s OTHER refusal: a hand-written
+// catalog entry sitting at the SANITIZED id learnedId(key) produces, which identifyCmd's own
+// pre-check cannot see because that check looks up the catalog by the RAW key, not by the id
+// graduate() computes and looks up internally. That gap is real and this test drives it.
+test('graduation refused by a collision at the sanitized id: the pick still counts, but nothing crosses into the catalog or the fixture', () => {
+  const root = repo('train-tool-collision-');
+  // A hand-written entry filed directly under the id "bash scripts/battery.sh" would sanitize to
+  // (learnedId), for an unrelated command — identifyCmd's pre-check looks up catalog[key] with the
+  // RAW key "bash scripts/battery.sh" and finds nothing there, so it never sees this entry; only
+  // graduate()'s own internal catalog[id] lookup does.
+  const ID = 'bash-scripts-battery.sh';
+  // The bespoke KEY is CMD with its flags stripped (bespokeKey) — the same key train-tool.mjs
+  // itself derives at runtime from the log's own `$ command` header, which still carries `--quick`.
+  const KEY = 'bash scripts/battery.sh';
+  fs.mkdirSync(machinery(root), { recursive: true });
+  const handWritten = { [ID]: { match: { type: 'prefix', value: 'unrelated command' }, outcome: '^nope', candidates: [] } };
+  fs.writeFileSync(machinery(root, 'tool-catalog.json'), JSON.stringify(handWritten, null, 2) + '\n');
+  // One prior agreement already on record (as two real identify() calls would have left it), so
+  // this run's identify() call is the graduating (2nd consecutive) one.
+  const priorPicks = ['3', '4', '5'].map((s, i) => ({ text: `test result: ok. ${s} passed; 0 failed`, log: `seed${i}`, at: '2026-09-05T11:00:00.000Z' }));
+  fs.writeFileSync(machinery(root, 'observations.json'), JSON.stringify({
+    [KEY]: { ledger: {}, training: { picks: priorPicks, streak: 1, history: [] } },
+  }, null, 2) + '\n');
+  const log = writeLog('test result: ok. 60 passed; 0 failed');
+  const r = train(root, 'identify', '--log', log, '--line', '4');
+  assert.notEqual(r.code, 0);
+  assert.match(r.stdout, /shadow: agreed — 2 of 2 consecutive agreements/, 'identify() itself agreed and would have graduated');
+  assert.match(r.stderr, /graduation refused — the fixture does not prove the matcher:/);
+  assert.match(r.stderr, /hand-written catalog entry/);
+  // Half 1: the pick still counted. The training record moved forward exactly as identify()
+  // computed it — four picks now on file, the streak at 2 — under the ORIGINAL key: graduation
+  // never reached the point of moving the record to the learned id.
+  const obs = read(machinery(root, 'observations.json'));
+  assert.ok(!(ID in obs), 'the record was never moved: graduation refused before that step');
+  const training = obs[KEY].training;
+  assert.equal(training.streak, 2);
+  assert.deepEqual(training.picks.map((p) => p.text), [
+    'test result: ok. 3 passed; 0 failed', 'test result: ok. 4 passed; 0 failed',
+    'test result: ok. 5 passed; 0 failed', 'test result: ok. 60 passed; 0 failed',
+  ]);
+  // Half 2: nothing crossed into the catalog or the fixture. The hand-written entry is exactly the
+  // bytes it was seeded with, and no fixture file exists for the id that was refused.
+  assert.deepEqual(read(machinery(root, 'tool-catalog.json')), handWritten);
+  assert.ok(!fs.existsSync(machinery(root, 'fixtures', `${ID}.json`)), 'RED CHECK: a refused graduation writes no fixture');
+});
+
 test('logs lists stored run logs newest first with the key the runner would use, filtered by --key, with a proof line', () => {
   const root = repo('train-tool-logs-');
   const a = writeLog('x', 'python scripts/oracle_compare.py --base HEAD~1');
