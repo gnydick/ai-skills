@@ -163,3 +163,45 @@ test('V13: a learned matcher that matches a line ADDS it and can subtract nothin
   const withIt = sorted(select(outcomeCorpus(), matcher));
   assert.deepEqual(withIt, [0, ...without]);
 });
+
+// I1 of the final whole-branch review, and the reason V13 no longer stops at select(). The floor is
+// a property of select(); render()'s display cap sits ABOVE it. Once more than MAX_SHOWN lines are
+// kept, render() shows a head and a tail with an explicit elision line between them, so at exactly
+// the cap promoting one more line pushes a previously shown line into the elided middle. Ruled
+// 2026-09-06: the cap is a pre-existing display limit that applies to all output whether a matcher
+// is involved or not, so the DOCUMENTATION changes (README, and the spec's § The floor stays
+// underneath) and render() does not — and the boundary is pinned by this test rather than by prose.
+const proof = (i) => `my_tool: line ${i}`; // a PROOF_LINE: kept on its own account, never by the tail rule
+// n proof lines, then chatter long enough that the tail window holds nothing but chatter: select()
+// keeps every proof line plus the unconditionally kept last line, and nothing else.
+const capCorpus = (proofs) => [...Array.from({ length: proofs }, (_, i) => proof(i)), ...Array.from({ length: 12 }, (_, i) => `   Compiling c${i}`)];
+const promoteBuriedChatter = { test: (line) => line === '   Compiling c0' };
+// render() interleaves its own scaffolding — `... [n lines omitted] ...` between non-adjacent kept
+// lines, and the elision line at the cap. The question here is which of the tool's OWN lines a
+// reader can still see, so the scaffolding is separated out rather than compared as content.
+const MARKER = /^\.\.\. \[.+\] \.\.\.$/;
+const body = (ls, keep) => shown(ls, keep).filter((l) => !MARKER.test(l));
+const scaffolding = (ls, keep) => shown(ls, keep).filter((l) => MARKER.test(l));
+
+test('V13 through render(): under the display cap a matcher hides nothing; AT the cap it can, and the elision line says how many', () => {
+  const under = capCorpus(MAX_SHOWN - 2);
+  assert.equal(select(under).size, MAX_SHOWN - 1, 'the corpus sits one under the cap');
+  assert.equal(select(under, promoteBuriedChatter).size, MAX_SHOWN, 'and promotion puts it exactly on the cap');
+  const underAfter = body(under, select(under, promoteBuriedChatter));
+  assert.deepEqual(body(under, select(under)).filter((l) => !underAfter.includes(l)), [], 'nothing shown before is missing after');
+  assert.ok(underAfter.includes('   Compiling c0'), 'and the promoted line is shown');
+  assert.ok(!scaffolding(under, select(under, promoteBuriedChatter)).some((l) => /elided/.test(l)), 'no elision at or under the cap');
+
+  // One line further on, the promotion crosses the cap. This is the boundary, and it is the whole
+  // of it: what a matcher can cost is one line moved into an elision that names itself.
+  const at = capCorpus(MAX_SHOWN - 1);
+  assert.equal(select(at).size, MAX_SHOWN, 'the corpus sits exactly on the cap');
+  assert.equal(select(at, promoteBuriedChatter).size, MAX_SHOWN + 1);
+  const before = body(at, select(at)), after = body(at, select(at, promoteBuriedChatter));
+  assert.ok(!scaffolding(at, select(at)).some((l) => /elided/.test(l)), 'a keep set exactly at the cap renders whole');
+  assert.ok(scaffolding(at, select(at, promoteBuriedChatter)).includes('... [1 kept lines elided between head and tail] ...'),
+    `the elision names its own count: ${scaffolding(at, select(at, promoteBuriedChatter)).join(' | ')}`);
+  const hidden = before.filter((l) => !after.includes(l));
+  assert.equal(hidden.length, 1, `exactly the one line the crossing cost: ${hidden.join(' | ')}`);
+  assert.match(hidden[0], /^my_tool: line \d+$/, 'RED CHECK: what it hid is an ordinary kept line, not the elision marker itself');
+});

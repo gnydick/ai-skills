@@ -3,9 +3,12 @@
 // Story: specs/2026-09-04-tool-assimilation-design.md ("Declared outcome patterns, per off-the-shelf
 // tool" and "The ledger"). Loading and matching only — deciding what to keep is filter.mjs's job.
 //
-// The universal half is human-reviewed data and may use regex; the project half is machine-derived
-// and the design restricts it to prefix/literal. Nothing here enforces that split — the project
-// record's own writer does — so this file reads both the same way.
+// Hand-written data may use regex; a machine-derived entry may not. That restriction is enforced
+// HERE, at load, by entryProblem() below, and it keys on an entry's `learned` MARK rather than on
+// which half of the catalog it came from: a learned entry carrying a regex `outcome` is dropped and
+// named wherever it sits, while a hand-written entry in the PROJECT half may still carry one.
+// lib/graduate.mjs calls the same entryProblem() before it writes, so the writer and the reader
+// cannot disagree about what a usable entry is (rules/design-invariants.md § Never re-derive a fact).
 import fs from 'node:fs';
 import path from 'node:path';
 import { pluginRoot } from './config.mjs';
