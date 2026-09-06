@@ -89,8 +89,11 @@ function installProject() {
     fs.writeFileSync(path.join(gateDir, f), src);
   }
   // The gate's read-side lib, copied so the project never points at the plugin cache (spec I6).
+  // This list mirrors the gate's imports; test/install.test.mjs walks the installed copy's
+  // imports and fails on any that does not resolve, so a lib added to git.mjs (lines.mjs, #19
+  // fix round 1) and forgotten here is caught mechanically rather than at a project's next commit.
   fs.mkdirSync(path.join(gateDir, 'lib'), { recursive: true });
-  for (const f of ['git.mjs', 'root.mjs', 'inbox.mjs', 'frontmatter.mjs', 'index.mjs', 'report.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'frontmatter.mjs', 'index.mjs', 'report.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   fs.writeFileSync(path.join(gateDir, 'VERSION'), version() + '\n');
   fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install. Runs the machinery commit gate on every commit.\nexec node .githooks/machinery/gate.mjs\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755); } catch {}

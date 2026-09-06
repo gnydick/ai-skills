@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -85,54 +85,80 @@ function bigRepo() {
   const text = Array.from({ length: BIG_LINES }, (_, i) => bigLine(i)).join('\n') + '\n';
   fs.writeFileSync(path.join(r.root, 'big.txt'), text);
   if (fs.statSync(path.join(r.root, 'big.txt')).size <= 1024 * 1024) throw new Error('fixture is not over 1 MiB');
-  execFileSync('git', ['add', 'big.txt'], { cwd: r.root });
+  // A second blob of 1-, 2-, 3- and 4-byte characters, small enough to be quick but spanning
+  // several 64 KiB pipe chunks, so chunk boundaries fall inside characters and inside lines.
+  fs.writeFileSync(path.join(r.root, 'multi.txt'), (MULTI + '\n').repeat(MULTI_LINES));
+  execFileSync('git', ['add', 'big.txt', 'multi.txt'], { cwd: r.root });
   execFileSync('git', ['commit', '-q', '-m', 'big'], { cwd: r.root });
   return r;
 }
+const MULTI = 'x§é✓😀y';
+const MULTI_LINES = 20_000;
+// Built once (fix round 1): every test below only reads it, so they share one copy.
+const big = bigRepo();
+after(() => big.cleanup());
 
 test('RED CHECK: the sync git() on an output over 1 MiB names ENOBUFS and the signal in stderr — never an empty string (#19)', () => {
-  const r = bigRepo();
-  try {
-    const res = git(['show', 'HEAD:big.txt'], r.root);
-    assert.notEqual(res.code, 0, 'the sync wrapper has no business succeeding here: a bigger buffer was rejected, streaming is the fix');
-    assert.match(res.stderr, /ENOBUFS/, `stderr was ${JSON.stringify(res.stderr)}`);
-    assert.match(res.stderr, /SIGTERM/, `stderr was ${JSON.stringify(res.stderr)}`);
-    const raw = gitRaw(['show', 'HEAD:big.txt'], r.root);
-    assert.match(raw.stderr, /ENOBUFS/, `gitRaw stderr was ${JSON.stringify(raw.stderr)}`);
-  } finally { r.cleanup(); }
+  const res = git(['show', 'HEAD:big.txt'], big.root);
+  assert.notEqual(res.code, 0, 'the sync wrapper has no business succeeding here: a bigger buffer was rejected, streaming is the fix');
+  assert.match(res.stderr, /ENOBUFS/, `stderr was ${JSON.stringify(res.stderr)}`);
+  assert.match(res.stderr, /SIGTERM/, `stderr was ${JSON.stringify(res.stderr)}`);
+  const raw = gitRaw(['show', 'HEAD:big.txt'], big.root);
+  assert.match(raw.stderr, /ENOBUFS/, `gitRaw stderr was ${JSON.stringify(raw.stderr)}`);
 });
 
 test('gitLines() streams that same >1 MiB blob whole, line by line, where the sync wrapper died (#19)', async () => {
-  const r = bigRepo();
-  try {
-    let count = 0; let first = null; let last = null;
-    for await (const line of gitLines(['show', 'HEAD:big.txt'], r.root)) { if (count === 0) first = line; last = line; count += 1; }
-    assert.equal(count, BIG_LINES, 'every line, and no phantom empty line after the final newline');
-    assert.equal(first, bigLine(0));
-    assert.equal(last, bigLine(BIG_LINES - 1));
-  } finally { r.cleanup(); }
+  let count = 0; let first = null; let last = null;
+  for await (const line of gitLines(['show', 'HEAD:big.txt'], big.root)) { if (count === 0) first = line; last = line; count += 1; }
+  assert.equal(count, BIG_LINES, 'every line, and no phantom empty line after the final newline');
+  assert.equal(first, bigLine(0));
+  assert.equal(last, bigLine(BIG_LINES - 1));
+});
+
+test('pin: lines and multi-byte characters straddling the pipe\'s chunk boundaries arrive intact through gitLines (fix round 1)', async () => {
+  // A pin, not coverage of the splitter's rule — lib-lines.test.mjs cuts at every byte. This
+  // only shows the real pipe path goes through that one splitter; it passed before the move too.
+  let count = 0; let bad = 0;
+  for await (const line of gitLines(['show', 'HEAD:multi.txt'], big.root)) { count += 1; if (line !== MULTI) bad += 1; }
+  assert.equal(count, MULTI_LINES);
+  assert.equal(bad, 0);
+});
+
+test('gitLines() spawns nothing until the first next(): a handle made and never iterated leaves no git blocked on a pipe (fix round 1)', async () => {
+  const stream = gitLines(['show', 'HEAD:big.txt'], big.root);
+  assert.equal(stream.pid, undefined, 'pid before iteration');
+  const iter = stream[Symbol.asyncIterator]();
+  assert.equal(stream.pid, undefined, 'getting the iterator is not iterating');
+  assert.equal((await iter.next()).value, bigLine(0));
+  assert.equal(typeof stream.pid, 'number', 'pid after the first next()');
+  await iter.return();
+});
+
+test('gitLines(): a second iteration of one handle throws naming it as consumed — never zero lines that read as an empty diff (fix round 1)', async () => {
+  const stream = gitLines(['show', 'HEAD:big.txt'], big.root);
+  let count = 0;
+  for await (const _ of stream) count += 1;
+  assert.equal(count, BIG_LINES, 'positive control: the first iteration saw every line');
+  assert.throws(() => stream[Symbol.asyncIterator](), /already consumed/);
 });
 
 test('gitLines(): a child killed mid-stream rejects — naming the signal when killed through its handle, the exit code when killed from outside — so a truncated output can never read as a complete one (#19)', async () => {
-  const r = bigRepo();
-  try {
-    // After the first line the child is blocked on a full pipe with most of its 1.3 MiB still
-    // unwritten, so the kill lands mid-stream by construction.
-    const drain = async (iter) => { for (let n = await iter.next(); !n.done; n = await iter.next()); };
-    let stream = gitLines(['show', 'HEAD:big.txt'], r.root);
-    let iter = stream[Symbol.asyncIterator]();
-    assert.equal((await iter.next()).value, bigLine(0));
-    stream.kill();
-    await assert.rejects(drain(iter), /killed by SIGTERM/);
-    // Killed from outside (what a timeout or an operator does). Measured 2026-09-05: on Windows
-    // this is a TerminateProcess Node reports as exit 1 with no signal; on POSIX it is a signal.
-    // Either way it must reject. Observer alive: process.kill throws ESRCH if the pid is gone.
-    stream = gitLines(['show', 'HEAD:big.txt'], r.root);
-    iter = stream[Symbol.asyncIterator]();
-    assert.equal((await iter.next()).value, bigLine(0));
-    process.kill(stream.pid);
-    await assert.rejects(drain(iter), /killed by SIG|exit [1-9]/);
-  } finally { r.cleanup(); }
+  // After the first line the child is blocked on a full pipe with most of its 1.3 MiB still
+  // unwritten, so the kill lands mid-stream by construction.
+  const drain = async (iter) => { for (let n = await iter.next(); !n.done; n = await iter.next()); };
+  let stream = gitLines(['show', 'HEAD:big.txt'], big.root);
+  let iter = stream[Symbol.asyncIterator]();
+  assert.equal((await iter.next()).value, bigLine(0));
+  stream.kill();
+  await assert.rejects(drain(iter), /killed by SIGTERM/);
+  // Killed from outside (what a timeout or an operator does). Measured 2026-09-05: on Windows
+  // this is a TerminateProcess Node reports as exit 1 with no signal; on POSIX it is a signal.
+  // Either way it must reject. Observer alive: process.kill throws ESRCH if the pid is gone.
+  stream = gitLines(['show', 'HEAD:big.txt'], big.root);
+  iter = stream[Symbol.asyncIterator]();
+  assert.equal((await iter.next()).value, bigLine(0));
+  process.kill(stream.pid);
+  await assert.rejects(drain(iter), /killed by SIG|exit [1-9]/);
 });
 
 test('gitLines(): a git that exits non-zero rejects naming the exit code and git\'s own words', async () => {

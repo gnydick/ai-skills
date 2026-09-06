@@ -7,19 +7,10 @@
 // from ONE start time read once here (rules/design-invariants.md § One
 // authority per switch; § Never re-derive a fact — nobody downstream restamps).
 import { spawn } from 'node:child_process';
-import { StringDecoder } from 'node:string_decoder';
-
-// Splits what has arrived so far into whole lines plus the unterminated
-// remainder. split('\n') always yields at least one element and the last one is
-// exactly the part with no newline after it yet — '' when the text ended on a
-// newline — so popping it is the entire rule. The remainder is carried into the
-// next chunk rather than emitted, or a line straddling a chunk boundary would
-// be recorded as two half-lines.
-function linesOf(text) {
-  const parts = text.split('\n');
-  const leftover = parts.pop();
-  return { complete: parts, leftover };
-}
+// The chunk-to-lines rule (carry the unterminated remainder, decode multi-byte
+// characters across chunk boundaries) lives in lib/lines.mjs, shared with
+// lib/git.mjs's streamed diff (#19 fix round 1) — one splitter per stream here.
+import { lineSplitter } from './lines.mjs';
 
 export function captureRun(exe, args, { input, env } = {}) {
   return new Promise((resolve, reject) => {
@@ -30,11 +21,7 @@ export function captureRun(exe, args, { input, env } = {}) {
       env: env ?? process.env,
     });
     const records = [];
-    const leftover = { stdout: '', stderr: '' };
-    // One decoder per stream: a chunk boundary can fall inside a multi-byte
-    // character, and toString('utf8') on either half yields a replacement
-    // character. The decoder holds the partial bytes back instead.
-    const decoder = { stdout: new StringDecoder('utf8'), stderr: new StringDecoder('utf8') };
+    const splitter = { stdout: lineSplitter(), stderr: lineSplitter() };
     let settled = false;
 
     // A spawn failure (binary not found, and the like) arrives here, never as an
@@ -43,9 +30,7 @@ export function captureRun(exe, args, { input, env } = {}) {
 
     const onData = (stream) => (chunk) => {
       const t = elapsed();
-      const { complete, leftover: rest } = linesOf(leftover[stream] + decoder[stream].write(chunk));
-      leftover[stream] = rest;
-      for (const text of complete) records.push({ t, stream, text });
+      for (const text of splitter[stream].push(chunk)) records.push({ t, stream, text });
     };
     child.stdout.on('data', onData('stdout'));
     child.stderr.on('data', onData('stderr'));
@@ -66,7 +51,7 @@ export function captureRun(exe, args, { input, env } = {}) {
       settled = true;
       const t = elapsed();
       for (const stream of ['stdout', 'stderr']) {
-        const text = leftover[stream] + decoder[stream].end();
+        const text = splitter[stream].end();
         if (text) records.push({ t, stream, text });
       }
       resolve({ code: code ?? 1, records });

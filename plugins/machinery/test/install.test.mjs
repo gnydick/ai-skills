@@ -35,6 +35,29 @@ test('the installed gate runs standalone from the project (no plugin path baked 
   } finally { r.cleanup(); }
 });
 
+// #19 fix round 1: install.mjs copies a hand-kept list of lib files beside the gate. A lib import
+// added to git.mjs (lines.mjs) and not to that list installs a gate that dies at import — this
+// walks every relative import reachable from the installed gate and names the first that does
+// not resolve, so the list is checked mechanically rather than remembered.
+test('every relative import reachable from the installed gate resolves inside .githooks/machinery', () => {
+  const r = makeRepo();
+  try {
+    install(r.root);
+    const dir = path.join(r.root, '.githooks', 'machinery');
+    const seen = new Set(); const missing = [];
+    const walk = (file) => {
+      if (seen.has(file)) return; seen.add(file);
+      for (const m of fs.readFileSync(file, 'utf8').matchAll(/from '(\.[^']+)'/g)) {
+        const dep = path.resolve(path.dirname(file), m[1]);
+        if (fs.existsSync(dep)) walk(dep); else missing.push(`${path.relative(dir, file)} → ${m[1]}`);
+      }
+    };
+    walk(path.join(dir, 'gate.mjs'));
+    assert.ok(seen.size >= 5, `the walk saw ${seen.size} files — the observer must see the gate's own imports`);
+    assert.deepEqual(missing, []);
+  } finally { r.cleanup(); }
+});
+
 test('install is idempotent and refreshes the stamp', () => {
   const r = makeRepo();
   try {
