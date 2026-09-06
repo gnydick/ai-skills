@@ -29,11 +29,26 @@ function readProjectCatalog(file) {
 }
 
 export function graduate(root, { key, catalog, observations, training, matcher, lines, index, log, at }) {
-  const id = learnedId(key);
-  const existing = catalog[id];
-  if (existing && !isLearned(existing)) return { ok: false, problems: [`'${id}' is a hand-written catalog entry; training never overwrites one`] };
-  if (existing && existing.match?.value !== key) return { ok: false, problems: [`'${id}' is already the learned entry for '${existing.match?.value}', not '${key}'`] };
-  const entry = learnedEntry(key, matcher, at, training.picks.length);
+  // A tool has TWO identities and the loop has to close under both: the bespoke key
+  // (`bash scripts/battery.sh`) before graduation, and the sanitized catalog id
+  // (`bash-scripts-battery.sh`) after. From the first run after graduation matchTool() answers with
+  // the id, so the runner and train-tool.mjs both key on the id from then on, and a re-graduation
+  // after drift arrives with `key` ALREADY EQUAL to the id. catalog[key] being a learned entry is
+  // the only way that can happen — a bespoke key is a command shape and never names an entry — so
+  // it is the fact that identifies a re-graduation, read once, here. The entry's own `match` is then
+  // PRESERVED rather than rebuilt from `key`: rebuilt, it would carry the id, which no command
+  // starts with, leaving a dead entry that matches nothing forever (final whole-branch review, C1).
+  const retrained = isLearned(catalog[key]) ? catalog[key] : null;
+  const id = retrained ? key : learnedId(key);
+  if (!retrained) {
+    // A first graduation, so nothing at this id may already belong to another tool. Both refusals
+    // stand exactly as they were; a genuine collision — a different tool's entry sitting at the id
+    // this key sanitizes to — is still refused, hand-written or learned.
+    const existing = catalog[id];
+    if (existing && !isLearned(existing)) return { ok: false, problems: [`'${id}' is a hand-written catalog entry; training never overwrites one`] };
+    if (existing && existing.match?.value !== key) return { ok: false, problems: [`'${id}' is already the learned entry for '${existing.match?.value}', not '${key}'`] };
+  }
+  const entry = learnedEntry(retrained ? retrained.match : { type: 'prefix', value: key }, matcher, at, training.picks.length);
   const unloadable = entryProblem(entry);
   if (unloadable) return { ok: false, problems: [`'${id}': ${unloadable}`] };
   // The last pick is this run's; the earlier ones are appended to the fixture as further answers.

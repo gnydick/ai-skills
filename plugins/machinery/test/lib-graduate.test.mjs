@@ -100,6 +100,14 @@ test('re-graduation overwrites the learned entry and its fixture, and leaves the
   assert.ok(cat.keeper, 'untouched');
   assert.equal(cat[ID].learned.at, '2026-09-06T00:00:00.000Z');
   assert.match(read(projectFixtureFile(dir, ID)).source, /2026-09-06/);
+  // C1: how a re-graduation ACTUALLY arrives. Once the entry exists matchTool() answers with the
+  // id, so the runner and train-tool.mjs both key on the id and hand THAT in. The entry's own match
+  // has to survive it: rebuilt from the id it would read `bash-scripts-battery.sh`, which no
+  // command starts with, and the entry would match nothing for ever.
+  const byId = graduate(dir, args(r, { key: ID, catalog: { [ID]: read(projectCatalogFile(dir))[ID] }, at: '2026-09-07T00:00:00.000Z' }));
+  assert.equal(byId.ok, true, byId.problems && byId.problems.join('\n'));
+  assert.equal(byId.id, ID);
+  assert.deepEqual(read(projectCatalogFile(dir))[ID].match, { type: 'prefix', value: KEY }, 'the bespoke command shape is preserved, never replaced by the id');
 });
 
 test('a project catalog that is not valid JSON is external input: graduation refuses rather than replacing it', () => {

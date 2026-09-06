@@ -136,11 +136,13 @@ export function learnedId(key) {
   return id;
 }
 
-// The entry graduation writes: matched by the same leading tokens the bespoke key was, the learned
-// prefix as its outcome, no candidates (a bespoke tool has no documented quiet flags), and the
-// `learned` mark that says a machine wrote it and drift may re-open it.
-export const learnedEntry = (key, matcher, at, picks) => ({
-  match: { type: 'prefix', value: key },
+// The entry graduation writes: the `match` it was handed, the learned prefix as its outcome, no
+// candidates (a bespoke tool has no documented quiet flags), and the `learned` mark that says a
+// machine wrote it and drift may re-open it. The match is a PARAMETER, not built from the key here:
+// on a re-graduation the key is already the learned id, and an entry matching its own id would
+// match no command at all (graduate.mjs owns that choice, and says why).
+export const learnedEntry = (match, matcher, at, picks) => ({
+  match,
   outcome: matcher,
   candidates: [],
   learned: { at, picks },

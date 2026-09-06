@@ -7,7 +7,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 import { formatRunLog } from '../scripts/lib/runlog.mjs';
-import { loadCatalogReport } from '../scripts/lib/catalog.mjs';
+import { loadCatalogReport, matchTool } from '../scripts/lib/catalog.mjs';
 import { survivalProblems } from '../scripts/lib/survival.mjs';
 
 process.env.CLAUDE_PLUGIN_ROOT = PLUGIN;
@@ -32,6 +32,10 @@ function writeLog(summary, command = CMD) {
 const train = (root, ...args) => runScript('scripts/train-tool.mjs', { cwd: root, args, env: { CLAUDE_JOB_DIR: JOB } });
 const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 const machinery = (root, ...p) => path.join(root, '.claude', 'machinery', ...p);
+// One case below drives the REAL runner, because only the runner can produce drift; it is the one
+// bash spawn in this file and it is guarded the way quiet-run-training.test.mjs guards its own.
+const bash = fs.existsSync('C:/Program Files/Git/bin/bash.exe') || process.platform !== 'win32';
+const runner = (root, cmd) => runScript('scripts/quiet-run.mjs', { cwd: root, args: ['--shell', 'bash', '--mode', 'filter', '-c', cmd], env: { CLAUDE_JOB_DIR: JOB } });
 
 test('the loop, end to end: two picks form the prefix, two agreements graduate it, and the files land where the catalog reads them', () => {
   const root = repo('train-tool-loop-');
@@ -65,6 +69,57 @@ test('the loop, end to end: two picks form the prefix, two agreements graduate i
   // Graduated and not re-opened: a further identification is refused, and says why.
   const r5 = train(root, 'identify', '--log', writeLog('test result: ok. 9 passed; 0 failed'), '--line', '4');
   assert.notEqual(r5.code, 0); assert.match(r5.stderr, /already graduated/);
+});
+
+// Final whole-branch review, C1: the loop has to close BACKWARD as well as forward. A tool has two
+// identities — the bespoke key (`bash scripts/battery.sh`) before graduation, and the sanitized
+// catalog id (`bash-scripts-battery.sh`) after — and from the first run after graduation
+// matchTool() answers with the id, so the runner and this CLI both key on the id from then on. A
+// re-graduation after drift therefore arrives with `key` ALREADY EQUAL to the id, while the entry
+// it must not break still carries the bespoke command shape in `match.value`; rebuilding that
+// `match` from the key would write the id, which no command starts with, and the entry would match
+// nothing forever. Every other learned-entry case in this suite uses a key where
+// learnedId(key) === key (`node`), which is exactly why this stayed invisible: it can only break on
+// a key carrying a space or a slash — that is, on every bespoke tool the design names.
+//
+// Driven end to end: four identifications graduate it, the REAL runner drifts it (only the runner
+// can), four more identifications re-graduate it. The key is never handed in by the test.
+test('the loop closes backward: drift re-opens a graduated tool and re-identifying to agreement re-graduates it', { skip: !bash }, () => {
+  const root = repo('train-tool-reclose-');
+  const ID = 'bash-scripts-battery.sh', KEY = 'bash scripts/battery.sh';
+  let r;
+  for (const s of ['3', '4', '5', '60']) r = train(root, 'identify', '--log', writeLog(`test result: ok. ${s} passed; 0 failed`), '--line', '4');
+  assert.equal(r.code, 0, r.stderr);
+  assert.ok(r.stdout.includes(`graduated: '${ID}'`), r.stdout);
+
+  // Drift, through the real runner. The tool prints nothing starting with the learned prefix, which
+  // is the design's first trigger ("the matcher matched nothing in a run"). That this re-opens the
+  // record under ID rather than KEY is the whole mechanism of the defect, and it is asserted here.
+  fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'scripts', 'battery.sh'),
+    'i=0\nwhile [ $i -lt 100 ]; do echo "   Compiling c$i"; i=$((i+1)); done\necho "PASS: 99 checks ok"\n');
+  const drift = runner(root, KEY);
+  assert.equal(drift.code, 0, drift.stderr);
+  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh: learned answer line re-opened for training \(matched-nothing\)/);
+  assert.equal(read(machinery(root, 'observations.json'))[ID].training.open.reason, 'matched-nothing');
+  assert.ok(!(KEY in read(machinery(root, 'observations.json'))), 'the runner keys on the id once the tool has graduated');
+
+  // Round two, to agreement on a DIFFERENT answer shape, so a re-graduation that merely re-wrote
+  // the old entry unchanged could not pass this.
+  for (const s of ['3', '4', '5', '60']) r = train(root, 'identify', '--log', writeLog(`PASS: ${s} checks ok`), '--line', '4');
+  assert.match(r.stdout, /shadow: agreed — 2 of 2 consecutive agreements/);
+  assert.equal(r.code, 0, `re-graduation refused:\n${r.stderr}`);
+  assert.ok(r.stdout.includes(`graduated: '${ID}' now keeps lines starting with \`PASS: \``), r.stdout);
+
+  const { catalog, dropped } = loadCatalogReport(root);
+  assert.deepEqual(dropped, []);
+  assert.deepEqual(catalog[ID].match, { type: 'prefix', value: KEY }, 'the entry still matches the command the tool is really run as');
+  assert.deepEqual(catalog[ID].outcome, { type: 'prefix', value: 'PASS: ' }, 'and it learned the new answer line');
+  assert.equal(matchTool(CMD, catalog), ID, 'RED CHECK: a re-graduated entry that matched nothing would be a dead entry');
+  assert.deepEqual(survivalProblems(ID, catalog[ID], read(machinery(root, 'fixtures', `${ID}.json`))), []);
+  const obs = read(machinery(root, 'observations.json'));
+  assert.ok(!(KEY in obs), 'the record is not orphaned back under the bespoke key');
+  assert.ok(!('open' in obs[ID].training), 'the re-open is answered, so the next run is not nudged again');
 });
 
 test('refusals are diagnostics, not stack traces: a missing log, a line that is not a record, a hand-written entry, no arguments', () => {

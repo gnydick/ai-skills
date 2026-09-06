@@ -150,8 +150,11 @@ test('learnedId is a filename-safe slug that satisfies promote-tool.mjs’s own 
 
 test('learnedEntry and frozenFixture have the shapes catalog.mjs and survival.mjs read', () => {
   const m = { type: 'prefix', value: 'test result: ok. ' };
-  assert.deepEqual(learnedEntry('bash scripts/battery.sh', m, AT, 4),
-    { match: { type: 'prefix', value: 'bash scripts/battery.sh' }, outcome: m, candidates: [], learned: { at: AT, picks: 4 } });
+  // The match is handed in whole (C1): what a re-graduation preserves is the entry's own match, so
+  // this function never builds one from a key it cannot tell apart from an id.
+  const match = { type: 'prefix', value: 'bash scripts/battery.sh' };
+  assert.deepEqual(learnedEntry(match, m, AT, 4),
+    { match, outcome: m, candidates: [], learned: { at: AT, picks: 4 } });
   const lines = RUN('test result: ok. 60 passed; 0 failed');
   const f = frozenFixture({ lines, index: 2, picks: [pickOf('test result: ok. 3 passed; 0 failed', 'l1')], log: 'l4', at: AT, key: 'bash scripts/battery.sh' });
   assert.deepEqual(f.lines, [...lines, 'test result: ok. 3 passed; 0 failed']);
