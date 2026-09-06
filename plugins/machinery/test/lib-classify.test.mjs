@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classify } from '../scripts/lib/classify.mjs';
+import { classify, classifySegments, isSimpleCommand, isSimpleCompound } from '../scripts/lib/classify.mjs';
 
 const cases = [
   // ported from quiet_hook_test.py: test_noisy_commands_wrap / test_quiet_commands_pass
@@ -175,4 +175,234 @@ test('R4: a catalog thunk is called exactly once for a command that reaches the 
 test('RED CHECK: the read exemption is not the identity either — a byte-mover with an output producer behind it is still wrapped', () => {
   assert.equal(classify('cat big.txt'), 'read');
   assert.notEqual(classify('cat big.txt && cargo build'), 'read');
+});
+
+// Issue #13 (owner, 2026-09-05: "i would apply the rules to inside the compound. so each outputter
+// gets wrapped. since it's && and not a pipe, it theoretically should be no problem"). classify()
+// gives ONE kind to a whole command, and the final review measured what that costs a compound: a
+// catalog prefix on the first segment claimed `pytest tests/ && cargo build` as 'plain', so the
+// cargo build ran unfiltered where alone it was 'noisy → filter'. classifySegments() applies the
+// same precedence chain — never → piped → redirected → read → catalog → infra → noisy → plain — to
+// each `;`/`&&`/`||`/`&`/newline-joined segment on its own, and hands back the separator that
+// follows each so the hook can rebuild the command around the segments it wraps. classify() itself
+// keeps its meaning for every case above.
+// `lead` (fix round 3) is the blank or comment folded in FRONT of a segment — re-emitted verbatim by
+// the hook, never part of the text that is judged. Empty for every segment but a leading one.
+const seg = (text, sep, kind, lead = '') => ({ lead, text, sep, kind });
+test('#13: classifySegments classifies each segment on its own, with the separator that follows it', () => {
+  assert.deepEqual(classifySegments('pytest tests/ && cargo build', { catalog: CATALOG }), [seg('pytest tests/', ' && ', 'plain'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cat a && cargo build'), [seg('cat a', ' && ', 'read'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build; echo done'), [seg('cargo build', '; ', 'noisy'), seg('echo done', '', 'read')]);
+  assert.deepEqual(classifySegments('cat a && ls'), [seg('cat a', ' && ', 'read'), seg('ls', '', 'read')]);
+  assert.deepEqual(classifySegments('git push || cargo build'), [seg('git push', ' || ', 'infra'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build\ncargo test'), [seg('cargo build', '\n', 'noisy'), seg('cargo test', '', 'noisy')]);
+  // The kind is reported for a backgrounded segment like any other; whether to wrap one is the
+  // hook's decision (quiet.mjs), and it never does — two runners would race on the record.
+  assert.deepEqual(classifySegments('cargo build & cat x'), [seg('cargo build', ' & ', 'noisy'), seg('cat x', '', 'read')]);
+});
+
+test('#13: a pipe is one unit — the segment is piped or redirected exactly as the whole command would be', () => {
+  assert.deepEqual(classifySegments('cargo test | tail -5 && cargo build'), [seg('cargo test | tail -5', ' && ', 'piped'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build > log; cargo test'), [seg('cargo build > log', '; ', 'redirected'), seg('cargo test', '', 'noisy')]);
+});
+
+test('#13: the NEVER exemption is per segment: an exempt segment no longer exempts its neighbours', () => {
+  assert.equal(classify('cargo --version && cargo build'), 'plain', 'whole-command: NEVER anywhere exempts everything');
+  assert.deepEqual(classifySegments('cargo --version && cargo build'), [seg('cargo --version', ' && ', 'plain'), seg('cargo build', '', 'noisy')]);
+});
+
+test('#13: a whitespace-only segment names no command — it is folded into the neighbouring separator, never classified', () => {
+  assert.deepEqual(classifySegments('cargo build;'), [seg('cargo build', ';', 'noisy')]);
+  assert.deepEqual(classifySegments('cat a\n'), [seg('cat a', '\n', 'read')]);
+  assert.deepEqual(classifySegments('cat a; \n'), [seg('cat a', '; \n', 'read')]);
+  assert.deepEqual(classifySegments('\ncargo build'), [seg('cargo build', '', 'noisy', '\n')], 'a leading blank has no predecessor: it is the lead of the segment after it');
+  assert.deepEqual(classifySegments(''), []);
+  assert.deepEqual(classifySegments('  '), []);
+  assert.deepEqual(classifySegments(';'), []);
+});
+
+test('#13: the rejoin is the identity — the segments and separators carry every byte of a command that names one', () => {
+  for (const c of ['pytest tests/ && cargo build', 'cargo build;', 'cat a; \n', '\ncargo build', 'echo "a; b" && cargo build', 'cargo build 2>&1 & ls', 'a || b && c; d\ne', '  cargo build  ']) {
+    assert.equal(classifySegments(c).map((s) => s.lead + s.text + s.sep).join(''), c, JSON.stringify(c));
+  }
+});
+
+test('#13: a single segment classifies exactly as classify() does', () => {
+  for (const c of ['cargo build', 'cat a', 'git push', 'gh issue view 1', 'cargo test | tail', 'cargo build > log', '--help', 'bash x.sh', 'echo "a && b"']) {
+    const s = classifySegments(c, { catalog: CATALOG });
+    assert.equal(s.length, 1, c);
+    assert.equal(s[0].kind, classify(c, { catalog: CATALOG }), c);
+  }
+});
+
+test('#13: the catalog thunk is resolved at most once for the whole compound, and only if a segment reaches the catalog step (R4 holds per segment)', () => {
+  let calls = 0;
+  const thunk = () => { calls += 1; return CATALOG; };
+  assert.deepEqual(classifySegments('git commit -m x && pytest -q && bash x.sh', { catalog: thunk }).map((s) => s.kind), ['plain', 'plain', 'plain']);
+  assert.equal(calls, 1, `three segments reached the catalog step and the thunk was called ${calls} times`);
+  assert.doesNotThrow(() => classifySegments('cat a && ls | wc -l && cargo build > log', { catalog: explode }));
+});
+
+test('RED CHECK: classifySegments is not classify() over the whole command — the compound the issue measured comes apart', () => {
+  assert.equal(classify('pytest tests/ && cargo build', { catalog: CATALOG }), 'plain');
+  assert.deepEqual(classifySegments('pytest tests/ && cargo build', { catalog: CATALOG }).map((s) => s.kind), ['plain', 'noisy']);
+});
+
+// Fix round 1 for #13 (controller's amendment after review, 2026-09-05). A separator outside quotes
+// is not always a command boundary: the reviewer measured `if cargo build; then echo ok; fi` cut
+// into three runners (`if cargo build`, `then echo ok`, `fi`) and bash refusing the result, and a
+// heredoc whose body lines each became a runner — the file received runner invocations. Per-segment
+// wrapping is therefore for compounds of SIMPLE commands only: no heredoc operator, no unbalanced
+// `(` `{` `[[` or backtick, no reserved word at the lead, no trailing `\`. One predicate answers it,
+// per segment and over the whole list; the hook falls back to the whole-command path otherwise.
+const notSimple = [
+  ['if cargo build; then echo ok; fi', 'if/then/fi'],
+  ['for f in a b; do cargo build; done', 'for/do/done'],
+  ['while true; do cargo build; done', 'while'],
+  ['until false; do cargo build; done', 'until'],
+  ['case x in a) cargo build;; esac', 'case/esac'],
+  ['(node -e "process.exit(3)" || echo fell-through); echo "exit=$?"', 'a subshell split across segments'],
+  ['{ cargo build && cargo test; }', 'a brace group split across segments'],
+  ['X=$(cargo build && cargo test); echo $X', 'a command substitution split across segments'],
+  ['X=`cargo build && cargo test`; echo $X', 'a backtick substitution split across segments'],
+  ['[[ -f a && -f b ]] && cargo build', 'a [[ ]] conditional split across segments'],
+  ['[[ -f a ]] && cargo build', 'a [[ ]] conditional at a lead is a compound command, not a simple one'],
+  ['cargo build \\\n--release && cargo test', 'a line continuation'],
+  ["cat > notes.md <<'EOF'\n# Title\nsome text\nEOF", 'a heredoc'],
+  ["python3 - <<'EOF'\nprint(1)\nEOF", 'a heredoc feeding a tool'],
+  ['cat <<-EOF\n\tx\nEOF', 'a tab-stripping heredoc'],
+  ['function f { cargo build; }; f', 'a function definition'],
+  ['! cargo build && echo failed', 'a negated pipeline'],
+  ['time cargo build && cargo test', 'the time keyword'],
+  ['coproc cargo build; cargo test', 'coproc'],
+  ['select x in a b; do cargo build; done', 'select'],
+];
+for (const [cmd, why] of notSimple) test(`#13 fix 1: not a simple compound — ${why}: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), false);
+});
+const simple = [
+  'cargo build && cargo test', 'cat a; cargo build', 'cargo build || echo failed', 'cargo build\ncargo test', 'cargo build & cargo test',
+  'echo "(" && cargo build', "echo '{ if then' ; ls", 'echo "$(x" && ls', 'echo $((1+2)) && ls', 'echo ${HOME} && ls',
+  'cat <<< "here string" && ls', '(cargo build) && cargo test', '[ -f a ] && cargo build',
+  'cargo build "a\\" && ls', 'echo "<<" && ls', 'cargo build', '',
+];
+for (const cmd of simple) test(`#13 fix 1: a simple compound: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), true);
+});
+test('#13 fix 1: isSimpleCommand answers per segment, and isSimpleCompound is every segment — one predicate, one place', () => {
+  assert.equal(isSimpleCommand('if cargo build'), false);
+  assert.equal(isSimpleCommand('then echo ok'), false);
+  assert.equal(isSimpleCommand('cargo build'), true);
+  assert.equal(isSimpleCommand("cat > x <<'EOF'"), false);
+  assert.equal(isSimpleCommand('cat <<< x'), true, 'a herestring is one token: allowed');
+  assert.equal(isSimpleCommand('cargo build \\'), false, 'a trailing continuation');
+  assert.equal(isSimpleCommand('echo "if" x'), true, 'a reserved word inside quotes is data');
+  assert.equal(isSimpleCommand('ifconfig && ls'), true, 'a word that merely starts like a reserved word');
+  assert.equal(isSimpleCommand('done-tool --run'), true);
+  assert.equal(isSimpleCompound([]), true, 'no segments: nothing violates the rule, and the hook has nothing to wrap either way');
+});
+test('RED CHECK: the predicate is not a constant — the same shape flips on the one construct', () => {
+  assert.notEqual(isSimpleCompound(classifySegments('cargo build && cargo test')), isSimpleCompound(classifySegments('if cargo build; then cargo test; fi')));
+  assert.notEqual(isSimpleCommand('(cargo build)'), isSimpleCommand('(cargo build'));
+});
+
+// Fix round 1, B: a state-mutating builtin changes the shell it runs in, so a runner of its own
+// would run it in a shell nobody else sees — the reviewer measured `export PROBE_VAR=set && node -e
+// …` printing `var=undefined` with both segments wrapped. These are part of `read`: the hook's
+// treatment (untouched, unobserved, no record) is the same, and a second kind for one treatment
+// would be a second name for one bucket. The list is its own named thing, STATE, beside READ.
+const stateCases = [
+  ['export X=1', 'read'], ['export X="a b" Y=2', 'read'], ['source .venv/bin/activate', 'read'], ['source ./vars.sh', 'read'],
+  ['. ./env.sh', 'read'], ['set -e', 'read'], ['set -o pipefail', 'read'], ['unset X', 'read'], ['alias ll="ls -la"', 'read'],
+  ['unalias ll', 'read'], ['eval "$(ssh-agent)"', 'read'], ['exec true', 'read'], ['trap cleanup EXIT', 'read'], ['shopt -s globstar', 'read'],
+  // Precedence, not the list: a redirect answers at the step BEFORE read, and both are untouched.
+  ['exec 3>&1', 'redirected'],
+  ['ulimit -n 4096', 'read'], ['umask 022', 'read'], ['pushd src', 'read'], ['popd', 'read'], ['readonly X=1', 'read'],
+  ['declare -a arr', 'read'], ['typeset -i n', 'read'], ['local x=1', 'read'],
+  ['X=1', 'read'], ['X=1 Y=2', 'read'], ['X="a && b"', 'read'], ["X='a; b' Y=c", 'read'], ['CARGO_TARGET_DIR=/tmp/t', 'read'],
+  ['cd x && export Y=1', 'read'], ['export A=1; X=2', 'read'],
+  // Not state-mutators: a name that merely starts the same way, and an assignment that PREFIXES a command.
+  ['exporter --run', 'plain'], ['setup.sh', 'plain'], ['sourcery --check', 'plain'], ['X=1 cargo build', 'noisy'], ['CARGO_TARGET_DIR=/tmp/t cargo build', 'noisy'],
+  ['export X=1 && cargo build', 'noisy'], ['set -e; cargo build', 'noisy'],
+];
+for (const [cmd, want] of stateCases) test(`#13 fix 1 (B): classify(${JSON.stringify(cmd)}) = ${want}`, () => assert.equal(classify(cmd), want));
+test('#13 fix 1 (B): per segment, the state-mutator is read and its neighbour keeps its own kind', () => {
+  assert.deepEqual(classifySegments('export PROBE_VAR=set && node x.js').map((s) => s.kind), ['read', 'plain']);
+  assert.deepEqual(classifySegments('source .venv/bin/activate && pytest -q', { catalog: CATALOG }).map((s) => s.kind), ['read', 'plain']);
+  assert.deepEqual(classifySegments('X=1; cargo build').map((s) => s.kind), ['read', 'noisy']);
+});
+test('RED CHECK (B): the state list is load-bearing — an assignment prefix on a work-doer is still the work-doer', () => {
+  assert.equal(classify('X=1'), 'read');
+  assert.notEqual(classify('X=1 cargo build'), 'read');
+});
+
+// Fix round 2 for #13 (controller's amendment after re-review, 2026-09-05), B: leaving a state
+// segment verbatim is necessary, not sufficient. Only exported env, cwd, umask and ulimit cross
+// into the runner's fresh `bash -lc`; the reviewer measured `PROBE3=assigned; node -e … "$PROBE3"`
+// printing `bare=` where main printed `bare=assigned`, and `shopt -s nullglob; node … *.nomatch`
+// giving `argc=1` where main gave `argc=0`. So the list splits by whether the effect crosses a
+// process boundary: `export cd pushd popd umask ulimit` cross and stay per-segment; a bare
+// assignment, `source . set unset shopt alias unalias declare typeset readonly local eval exec
+// trap` do not, and any segment leading with one makes the compound NOT simple — the whole thing
+// takes the whole-command path, in one shell, as before #13. classify()'s single-command answer
+// for all of them stays 'read'.
+const crossing = ['export X=1 && cargo build', 'cd src && cargo build', 'pushd src && cargo build', 'popd && cargo build', 'umask 022 && cargo build', 'ulimit -n 4096 && cargo build'];
+for (const cmd of crossing) test(`#13 fix 2 (B): a crossing state segment keeps the compound simple: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), true);
+});
+const local = [
+  'PROBE3=assigned; node x.js "$PROBE3"', 'PROBE4=$(node y.js) && node x.js "$PROBE4"', 'VER=$(git describe); cargo build --features "$VER"', 'X=1 Y=2; cargo build',
+  'source .venv/bin/activate && pytest -q', '. ./env.sh && cargo build', 'set -e; cargo build', 'unset X && cargo build', 'shopt -s nullglob; node x.js *.nomatch',
+  'alias b="cargo build"; b', 'unalias b; cargo build', 'declare -a arr; cargo build', 'typeset -i n; cargo build', 'readonly X=1; cargo build', 'local x=1; cargo build',
+  'eval "$(ssh-agent)" && cargo build', 'exec cargo build', 'trap cleanup EXIT; cargo build',
+];
+for (const cmd of local) test(`#13 fix 2 (B): a non-crossing state segment makes the compound NOT simple: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), false);
+});
+test('#13 fix 2 (B): the single-command answer is unchanged — every state word is still read on its own', () => {
+  for (const c of ['export X=1', 'X=1', 'PROBE4=$(node y.js)', 'source x', 'set -e', 'shopt -s nullglob', 'exec cargo build', 'eval "$(x)"']) assert.equal(classify(c), 'read', c);
+});
+test('RED CHECK (fix 2, B): the split is load-bearing — the same shape flips between export and a bare assignment', () => {
+  assert.notEqual(isSimpleCompound(classifySegments('export X=1 && cargo build')), isSimpleCompound(classifySegments('X=1 && cargo build')));
+});
+
+// Fix round 2, A: a `#` comment is a span like a quote (quotes.mjs), so a separator inside it is
+// data, and a comment-only segment names no command: it rides on a neighbour's separator like a
+// blank one — never classified, never wrapped, never observed.
+test('#13 fix 2 (A): a comment-only segment is folded away; a comment after a command stays with it', () => {
+  assert.deepEqual(classifySegments('echo "a" ; # comment && node x.js'), [seg('echo "a"', ' ; # comment && node x.js', 'read')]);
+  assert.deepEqual(classifySegments('# skip: cargo clean && rm -rf target'), []);
+  assert.deepEqual(classifySegments('cargo build\n# note\ncargo test'), [seg('cargo build', '\n# note\n', 'noisy'), seg('cargo test', '', 'noisy')]);
+  assert.deepEqual(classifySegments('# build first\ncargo build'), [seg('cargo build', '', 'noisy', '# build first\n')], 'a leading comment is the lead of the segment after it, and the kind is that segment\'s');
+  assert.deepEqual(classifySegments('cargo build # && cargo test'), [seg('cargo build # && cargo test', '', 'noisy')], 'the && is inside the comment: one segment');
+  assert.deepEqual(classifySegments('echo "#not a comment" && cargo build').map((s) => s.kind), ['read', 'noisy']);
+  assert.deepEqual(classifySegments('echo a#b && cargo build').map((s) => s.kind), ['read', 'noisy']);
+  // The rejoin is the identity for a command that names one; a comment-only command names none and
+  // yields no segments, exactly like a blank one (asserted above).
+  for (const c of ['echo "a" ; # comment && node x.js', 'cargo build\n# note\ncargo test', '# lead\ncargo build', 'cargo build # && cargo test\n']) {
+    assert.equal(classifySegments(c).map((s) => s.lead + s.text + s.sep).join(''), c, `rejoin identity: ${JSON.stringify(c)}`);
+  }
+});
+
+// Fix round 3 for #13 (controller's ruling after re-review of round 2, 2026-09-05): a leading comment
+// hid a local-state segment from the predicate. The fold prefixed the comment onto the first real
+// segment's text, and isSimpleCommand() judged THAT: the comment masks to FILL, which `\s` does not
+// match, so the `^\s*` anchors of STATE_LOCAL and RESERVED_LEAD never reached the real lead.
+// Measured: `# first\nX=1; node … "$X"` went per-segment and bash printed `x=`; main prints `x=1`.
+// The predicate is evaluated on the segment's OWN text, and the lead is a field of its own.
+test('#13 fix 3: a leading comment or blank never hides the lead from the predicate', () => {
+  for (const c of ['# c\nX=1', '# c\ntime node x', '# c\n! node x', '# c\nfor f in a; do node x; done', '\nX=1', '\n# c\n\nX=1']) {
+    assert.equal(isSimpleCommand(c), false, c);
+  }
+  assert.equal(isSimpleCommand('\ncargo build'), true, 'the blank-lead control: a simple command behind a blank is still simple');
+  assert.equal(isSimpleCommand('# c\ncargo build'), true, 'and behind a comment');
+  assert.equal(isSimpleCompound(classifySegments('# first\nX=1; node x.js "$X"')), false);
+  assert.equal(isSimpleCompound(classifySegments('# first\ncargo build && cargo test')), true);
+  assert.deepEqual(classifySegments('# first\nX=1; node x.js "$X"'), [seg('X=1', '; ', 'read', '# first\n'), seg('node x.js "$X"', '', 'plain')]);
+});
+test('RED CHECK (fix 3): the lead is a field, not a prefix — the judged text of a led segment is the bare command', () => {
+  const [s] = classifySegments('# c\nX=1');
+  assert.equal(s.text, 'X=1');
+  assert.equal(s.lead, '# c\n');
+  assert.notEqual(isSimpleCommand(s.lead + s.text), isSimpleCommand('cargo build'), 'positive control: the prefixed form is what used to be judged');
 });

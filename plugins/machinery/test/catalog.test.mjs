@@ -78,6 +78,15 @@ test('matchedCandidate treats a quote attached to a flag as opening a quoted spa
   assert.equal(matchedCandidate('git commit -m"unterminated --quiet', ['--quiet']), null, 'an unterminated quote is data: the span runs to the end');
 });
 
+// Fix round 2 for #13: a `#` comment is a span in quotes.mjs, and a word inside it is no token —
+// a flag named in a trailing comment was never applied.
+test('matchedCandidate sees no token inside a # comment (#13 fix round 2)', () => {
+  assert.equal(matchedCandidate('git commit -m x # --quiet', ['--quiet']), null);
+  assert.equal(matchedCandidate('git commit -m x --quiet # note', ['--quiet']), '--quiet', 'the flag before the comment still counts');
+  assert.equal(matchedCandidate('git commit -m "#--quiet"', ['--quiet']), null, 'RED CHECK partner: inside quotes it is data, not a token of its own either way');
+  assert.equal(matchedCandidate('git commit -m x#--quiet', ['--quiet']), null, 'a # inside a word opens no comment, and the token is x#--quiet');
+});
+
 // Issue #11: the quote rule has ONE home, scripts/lib/quotes.mjs (rules/design-invariants.md §
 // Never re-derive a fact). tokens() above and classify.mjs's segment splitter both read it. Field
 // privacy cannot keep a second scanner out — one more `ch === '"'` loop compiles perfectly — so

@@ -7,7 +7,7 @@
 // the regex chain after it is the fallback for tools nobody has characterised. Read runs before
 // the catalog on purpose: a byte-mover is exempt even if someone catalogs it.
 import { matchTool } from './catalog.mjs';
-import { splitOutside } from './quotes.mjs';
+import { splitOutside, segmentsOutside, maskOutside } from './quotes.mjs';
 
 const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)*`;
 // The token ends here: `cat` is a byte-mover, `catalog-tool` is not, and `\b` alone would admit
@@ -16,30 +16,65 @@ const LEAD = String.raw`(?:^|[;&|(]\s*|\bthen\s+|\bdo\s+|&&\s*)\s*(?:\w+=\S*\s+)
 const END = String.raw`(?=\s|$|[;&|)])`;
 const READ = new RegExp(LEAD + String.raw`(?:` +
   String.raw`(?:cat|grep|rg|sed|awk|head|tail|sort|uniq|cut|tr|wc|jq|find|diff|ls|pwd|echo|printf|less|more|tee|xargs` +
-  String.raw`|basename|dirname|realpath|stat|file|which|type|printenv|date|test|true|false` +
+  String.raw`|basename|dirname|realpath|stat|file|which|type|printenv|date|test|\[|true|false` +
   String.raw`|cd|mkdir|rmdir|rm|cp|mv|touch|ln|chmod)` + END +
   String.raw`|env(?:\s+-\S+)*\s*(?:$|[;&|)])` +
   String.raw`|git\s+(?:-C\s+\S+\s+)?(?:log|diff|show|status|blame|ls-files|rev-parse|worktree\s+list)` + END +
   String.raw`|git\s+(?:-C\s+\S+\s+)?branch(?:\s+-\S+)*\s*(?:$|[;&|)])` +
   String.raw`)`);
-// A command is a byte-mover only if every segment of it is. Recognised at LEAD like the other
-// regexes — but tested per segment, because LEAD matching ANYWHERE would make `cargo build && echo
-// done` a read and unwrap the build; the exemption is by kind, and a compound with an output producer
-// in it is not of that kind. Pipes are not split here: a `|` was already 'piped' at the step above.
-// A trailing separator or newline (`cat a;`, `ls\n`) leaves a whitespace-only segment that names no
-// command; it is not counted, or `READ.test('')` fails the `every` and the byte-mover is observed
-// (re-review R1). A command with no segment left at all is not a read: `every` over nothing is true.
-// A single `&` is a boundary too, as LEAD already says it is (re-review R2: `cargo build & cat x`
-// was one segment, and its LEAD-anchored `cat` made the backgrounded build a read) — but not the
-// `&` of `&&`, and not the one inside a redirect (`2>&1`, `>&2`), which would leave a `1` segment.
-// A separator inside a quoted span is data, not a boundary (issue #11: `echo "a && b"` split into
-// `echo "a` and `b"`, neither a byte-mover, and an echo was observed unfiltered). What a span IS is
-// not decided here: splitOutside() reads the one definition in quotes.mjs, the same one
-// catalog.mjs's tokens() reads, so an unterminated quote runs to the end for both of them.
+// Fix round 1 for #13 (controller's amendment after review, 2026-09-05), B: a state-mutating builtin
+// changes the shell it runs in — the reviewer measured `export PROBE_VAR=set && node -e …` printing
+// `var=undefined` once each segment had a runner of its own, because the export happened in a shell
+// nobody else saw. These are 'read' too: the hook's treatment is the same (untouched, unobserved, no
+// record), and a second kind for one treatment would be a second name for one bucket; the list is
+// its own named thing so it can be read as one. Tested over the outside-quotes mask, so `X="a && b"`
+// is one assignment and `echo "export"` is not one. A bare assignment is one or more `NAME=value`
+// with NO command after them; a substitution in the value — `X=$(git rev-parse HEAD)`, backticks,
+// `${…}` — is folded to one token first, innermost first, so its spaces do not read as a command.
+// An assignment that PREFIXES a command (`X=1 cargo build`) is that command, exactly as LEAD says.
+//
+// Fix round 2 (controller's amendment after re-review, 2026-09-05), B: leaving the segment verbatim
+// is necessary, not sufficient. Only exported env, the cwd, umask and ulimit cross into the
+// runner's fresh `bash -lc`; the reviewer measured `PROBE3=assigned; node -e … "$PROBE3"` printing
+// `bare=` where main printed `bare=assigned`, and `shopt -s nullglob; node … *.nomatch` giving
+// `argc=1` where main gave `argc=0`. So the list is split by whether the effect crosses a process
+// boundary. CROSSING stays per-segment, verbatim. LOCAL — and a bare assignment, whose variable
+// lives in this shell only — makes the compound NOT simple (isSimpleCommand below, the one decision
+// point), so the whole compound takes the whole-command path and runs in one shell, as before #13.
+// To classify() on its own, every one of them is still 'read'.
+const CROSSING = String.raw`export|cd|pushd|popd|umask|ulimit`;
+const LOCAL = String.raw`source|\.|set|unset|shopt|alias|unalias|declare|typeset|readonly|local|eval|exec|trap`;
+const STATE_CROSSING = new RegExp(String.raw`^\s*(?:${CROSSING})(?=\s|$)`);
+const STATE_LOCAL = new RegExp(String.raw`^\s*(?:(?:${LOCAL})(?=\s|$)|(?:\w+=\S*\s*)+$)`);
+const SUBSTITUTION = /\$\([^()]*\)|\$\{[^{}]*\}|`[^`]*`/g;
+const folded = (segment) => {
+  let mask = maskOutside(segment), next;
+  while ((next = mask.replace(SUBSTITUTION, '_')) !== mask) mask = next;
+  return mask;
+};
+const isLocalState = (segment) => STATE_LOCAL.test(folded(segment));
+const isState = (segment) => STATE_CROSSING.test(folded(segment)) || isLocalState(segment);
+// A whole command is a byte-mover only if every segment of it is. This is classify()'s answer for
+// the command as ONE unit: the hook asks it for PowerShell and for a compound it cannot take apart
+// (isSimpleCompound below), and asks classifySegments() for each segment of a bash compound it can
+// (#13). Recognised at LEAD like the other regexes — but tested per segment, because LEAD matching
+// ANYWHERE would make `cargo build && echo done` a read and unwrap the build; the exemption is by
+// kind, and a compound with an output producer in it is not of that kind. Pipes are not split here:
+// a `|` was already 'piped' at the step above. A trailing separator or newline (`cat a;`, `ls\n`)
+// leaves a whitespace-only segment that names no command; it is not counted, or `READ.test('')`
+// fails the `every` and the byte-mover is observed (re-review R1). A command with no segment left
+// at all is not a read: `every` over nothing is true. A single `&` is a boundary too, as LEAD
+// already says it is (re-review R2: `cargo build & cat x` was one segment, and its LEAD-anchored
+// `cat` made the backgrounded build a read) — but not the `&` of `&&`, and not the one inside a
+// redirect (`2>&1`, `>&2`), which would leave a `1` segment. A separator inside a quoted span is
+// data, not a boundary (issue #11: `echo "a && b"` split into `echo "a` and `b"`, neither a
+// byte-mover, and an echo was observed unfiltered). What a span IS is not decided here:
+// splitOutside() reads the one definition in quotes.mjs, the same one catalog.mjs's tokens() reads,
+// so an unterminated quote runs to the end for both of them.
 const SEGMENT = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
 const isRead = (command) => {
   const segments = splitOutside(command, SEGMENT).filter((s) => s.trim() !== '');
-  return segments.length > 0 && segments.every((s) => READ.test(s));
+  return segments.length > 0 && segments.every((s) => READ.test(s) || isState(s));
 };
 
 const NOISY = new RegExp(LEAD + String.raw`(?:` +
@@ -98,3 +133,79 @@ export function classify(command, { catalog } = {}) {
   if (NOISY.test(command)) return 'noisy';
   return 'plain';
 }
+
+// Issue #13 (owner, 2026-09-05: "i would apply the rules to inside the compound. so each outputter
+// gets wrapped. since it's && and not a pipe, it theoretically should be no problem"). classify()
+// gives a whole command one kind, and the final review measured what that costs a compound: the
+// catalog's `pytest` prefix on the first segment made `pytest tests/ && cargo build` 'plain', so
+// the build ran unfiltered on its observe pass where alone it was 'noisy → filter'; and the read
+// exemption above had to demand that EVERY segment be a byte-mover, because one verdict was all the
+// compound could receive. This applies the same chain to each segment on its own. Segments are the
+// SEGMENT boundaries above — `;`, `&&`, `||`, a single `&`, a newline, outside quotes — and a pipe is
+// never one: `a | b` stays one unit and classifies 'piped' exactly as the whole command would.
+// Each entry carries the separator that FOLLOWS its text, as matched, so the hook can rebuild the
+// command around the segments it wraps with `text + sep` and get every byte back; the shell then
+// runs its own `&&`/`||`/`;` over the runners. A whitespace-only segment names no command
+// (re-review R1), and so does a comment-only one — a `#` comment is a span in quotes.mjs (#13 fix
+// round 2), so the separators inside it never split, and what is left is a segment whose text
+// starts with `#`; neither is ever classified, wrapped or observed. Each rides on a neighbour so
+// the rejoin `lead + text + sep` stays the identity — on the separator of the entry before it, or,
+// for a leading one, as the `lead` field of the entry after it, which is a field of its own and
+// never a prefix on the text (fix round 3): every judgment, classify() here and isSimpleCommand()
+// below, sees the bare command, and the hook re-emits the lead verbatim in front. The catalog is
+// resolved at most once for the whole compound and only when a segment reaches the catalog step
+// (re-review R4, held per compound rather than per segment). Whether a backgrounded segment
+// (`sep` a lone `&`) may be wrapped is the hook's question, answered there, not here.
+const NAMES_NOTHING = /^\s*(?:#|$)/;
+export function classifySegments(command, { catalog } = {}) {
+  let loaded = false, table;
+  const once = () => { if (!loaded) { loaded = true; table = typeof catalog === 'function' ? catalog() : catalog; } return table; };
+  const out = [];
+  let lead = '';
+  for (const { text, sep } of segmentsOutside(command, SEGMENT)) {
+    if (NAMES_NOTHING.test(text)) {
+      if (out.length) out[out.length - 1].sep += text + sep; else lead += text + sep;
+      continue;
+    }
+    // Fix round 3: the lead is a field of its own, never a prefix on the text. Prefixed, it hid the
+    // real lead from every `^\s*`-anchored judgment — a comment masks to FILL, which `\s` does not
+    // match — and `# first\nX=1; node … "$X"` went per-segment (measured: `x=` where main prints
+    // `x=1`). One bare text for every judgment; the hook re-emits the lead verbatim in front.
+    out.push({ lead, text, sep, kind: classify(text, { catalog: once }) });
+    lead = '';
+  }
+  return out;
+}
+
+// Fix round 1 for #13 (controller's amendment after review, 2026-09-05), A: a separator outside
+// quotes is not always a command boundary. The reviewer measured `if cargo build; then echo ok; fi`
+// cut into three runners and bash refusing the result, and a heredoc whose body lines each became
+// a runner — the file received runner invocations. So per-segment wrapping is for a compound of
+// SIMPLE commands only, and this is the one predicate that says which. A segment is simple when it
+// has no heredoc operator (`<<` or `<<-`; the herestring `<<<` is one token and allowed), balanced
+// `(` `{` `[[` and an even number of backticks — all counted outside quotes — no reserved word at
+// its lead, and no trailing continuation backslash. The lead list is bash's reserved words plus
+// the openers and closers whose other half would be in another segment (`{` `}` `[[` `]]` `((`
+// `))`): a `[[ … ]]` that is balanced within a segment is still a compound command in bash's
+// grammar, and it takes the whole-command path with the rest. Fix round 2 (B): a segment leading
+// with a state word whose effect does not cross a process boundary, or a bare assignment, is not
+// simple either (STATE_LOCAL above) — its effect has to reach the segments after it, and only one
+// shell can carry it. What the hook does with a compound that fails this test is its own decision
+// (quiet.mjs): it wraps the whole command once, as it did before #13, so learning still happens on
+// the compound as a unit.
+const RESERVED_LEAD = /^\s*(?:if|then|elif|else|fi|for|while|until|do|done|case|esac|in|function|select|time|coproc|!|\{|\}|\[\[|\]\]|\(\(|\)\))(?=\s|$)/;
+const HEREDOC = /(?<!<)<<(?!<)/;
+const count = (mask, re) => (mask.match(re) ?? []).length;
+// Leading blank or comment lines, which the shell ignores and which classifySegments() already
+// keeps out of the text it hands over; stripped here as well (fix round 3), so the lead the
+// anchors below look at is the command's own even when a caller passes a led text directly.
+const LEADING_NOTHING = /^(?:[ \t]*(?:#[^\n]*)?\r?\n)*/;
+export function isSimpleCommand(led) {
+  const text = led.replace(LEADING_NOTHING, '');
+  const mask = maskOutside(text);
+  if (RESERVED_LEAD.test(mask) || HEREDOC.test(mask) || mask.endsWith('\\') || isLocalState(text)) return false;
+  if (count(mask, /\(/g) !== count(mask, /\)/g) || count(mask, /\{/g) !== count(mask, /\}/g)) return false;
+  if (count(mask, /\[\[/g) !== count(mask, /\]\]/g)) return false;
+  return count(mask, /`/g) % 2 === 0;
+}
+export const isSimpleCompound = (segments) => segments.every((s) => isSimpleCommand(s.text));

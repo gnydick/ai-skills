@@ -534,7 +534,12 @@ Declared standard: **structural**. This changes behaviour deliberately.
   `rev-parse`, `branch` when listing, `worktree list`) — and routes them to the existing `read`
   bucket, which the hook already skips, so they never reach `decide()` and generate no
   observation record. A compound command is a byte-mover only if every segment of it is:
-  `cargo build && echo done` stays wrapped. Segments are split outside quotes: a `;`, `&&`,
+  `cargo build && echo done` stays wrapped. [Superseded by #13, 2026-09-05, next bullet but
+  one: the every-segment rule existed because the whole compound could receive only one
+  verdict. Classification is per segment now, so the exemption is simply a property of each
+  segment; `cargo build && echo done` still wraps the build, and now leaves the echo alone.
+  The mechanism of the exemption itself — by name, at the leading position, into `read` —
+  is unchanged.] Segments are split outside quotes: a `;`, `&&`,
   `||`, single `&` or newline inside a single- or double-quoted span is data, not a boundary,
   and an unterminated quote runs to the end of the command — the span rule is the one both
   readers, `classify.mjs`'s splitter and `catalog.mjs`'s tokeniser, take from
@@ -560,6 +565,79 @@ Declared standard: **structural**. This changes behaviour deliberately.
   invocation shapes the catalog's `match` does not cover). A named consequence: `git commit`
   in a project is now observed once and, being quiet, left alone thereafter, where before it
   was always filtered as infra.
+- **A compound is classified and wrapped per segment.** #13, owner 2026-09-05, verbatim: "i
+  would apply the rules to inside the compound. so each outputter gets wrapped. since it's &&
+  and not a pipe, it theoretically should be no problem." The final re-review had measured the
+  whole-command rule's cost: the catalog's `pytest` prefix on the first segment claimed
+  `pytest tests/ && cargo build` as one `plain` command, so the build ran unfiltered on its
+  observe pass where alone it was `noisy → filter`. Now `classifySegments()` applies the
+  precedence chain above to each `;`/`&&`/`||`/newline-joined segment on its own (a pipe is
+  one unit, exactly as before), and the hook gives every segment that earns a mode its own
+  cmdfile and its own runner — `pytest tests/ && cargo build` becomes
+  `node … --mode suggest "f1" && node … --mode filter "f2"` — while the other segments stay
+  verbatim and the separators are rejoined as written. The shell owns the control flow: each
+  runner exits with its child's real code, so `&&` and `||` short-circuit on it and `;` runs
+  on, unchanged from bash's own behaviour. Each runner records under its own segment's key,
+  which fell out of `bespokeKey`/`matchTool` being string-in with no change. Two scope
+  rules, stated in the hook's own comments: a segment followed by a lone `&` is never wrapped,
+  because two concurrent runners would race on the observation record (a plain
+  read-modify-write, no lock) and a backgrounded segment's output is detached anyway; and the
+  PowerShell shell keeps whole-command behaviour, because 5.1 has no `&&` or `||`. This
+  supersedes the "which segment owns a compound" question and the every-segment byte-mover
+  rule recorded under C1 above; C1's exemption by kind and I1's precedence both hold
+  unchanged, applied per segment.
+  *Amended by the controller after review, 2026-09-05 (#13, fix round 1).* The ruling stands
+  and is narrowed to where it is safe, because a separator outside quotes is not always a
+  command boundary: the review measured `if cargo build; then echo ok; fi` cut into three
+  runners and refused by bash, and a heredoc whose body lines each became a runner, so the
+  file received runner invocations. (A) Per-segment applies only to a compound of simple
+  commands — `classify.mjs`'s `isSimpleCommand()`/`isSimpleCompound()`, the one predicate:
+  no heredoc operator (`<<`, `<<-`; the herestring `<<<` is one token and allowed), balanced
+  `(` `{` `[[` and an even number of backticks counted outside quotes, no reserved word at the
+  lead (`if then elif else fi for while until do done case esac in function select time
+  coproc !` and the openers/closers `{ } [[ ]] (( ))`), no trailing `\`. Any segment failing
+  it sends the whole compound down the whole-command path exactly as before #13 — one kind
+  from `classify(command)`, one cmdfile, one runner — which is not a degradation of the
+  ruling but where learning happens on the compound as a unit; pinned in the hook's tests
+  against the pre-#13 hook taken from history. (B) A state-mutating segment is never wrapped:
+  `export source . set unset alias unalias eval exec trap shopt ulimit umask pushd popd
+  readonly declare typeset local`, and a bare assignment `NAME=value` (one or more, no command
+  after them; a `$( )`, backtick or `${ }` in the value is folded to one token first). They
+  are part of `read` — a second named list, `STATE`, beside `READ` in `classify.mjs`, OR-ed
+  into the same every-segment test — because the hook's treatment (untouched, unobserved, no
+  record) is the same and a second kind for one treatment would be a second name for one
+  bucket. Measured: `export PROBE_VAR=set && node -e …` had printed `var=undefined` with both
+  segments wrapped; it prints `var=set` now, and a `source`d export reaches the wrapped
+  segment after it. (C) `&` backgrounds the whole AND-OR list that ends at it, not the last
+  segment: a segment is backgrounded if walking forward from it over `&&`/`||` reaches a
+  lone `&` before `;`, a newline or the end, and nothing in a backgrounded list is wrapped —
+  `cargo build && cargo test & cargo bench` wraps only the bench, and
+  `cargo build && cargo test &` is untouched entirely. Measured before the amendment: the
+  build's runner ran alongside the bench's, the exact record race the rule exists to prevent.
+  *Amended again by the controller after re-review, 2026-09-05 (#13, fix round 2).* Two
+  regressions from `main`, both measured through real bash. (A) A `#` comment is a span, like a
+  quote, in the one scanner (`quotes.mjs`): a `#` that begins a word — at the start, or after
+  whitespace or a separator character, outside quotes — opens a span to the next newline, and
+  nothing inside it is outside, so a separator there never splits and a word there is no token.
+  Measured before: `echo "a" ; # comment && node -e …` was split inside the comment and the
+  commented-out node ran; `# skip: cargo clean && rm -rf target` would have run the `rm`. Now
+  the first is `echo "a"` plus a comment-only remainder, and a comment-only segment (text
+  starting with `#`) is folded onto a neighbour's separator — never wrapped, never observed, no
+  record keyed `#`; `echo "#not a comment" && cargo build` and `echo a#b && cargo build` still
+  split, and a full-line `# note` between two real segments keeps both per-segment. (B) Leaving
+  a state segment verbatim is necessary, not sufficient: only exported env, the cwd, umask and
+  ulimit cross into a runner's fresh shell. Measured before: `PROBE3=assigned; node -e …
+  "$PROBE3"` printed `bare=` (main: `bare=assigned`), a `$(…)` assignment printed `sub=`
+  (main: `sub=sub`), `shopt -s nullglob; node … *.nomatch` gave `argc=1` (main: `argc=0`). The
+  list is split by whether the effect crosses a process boundary. Crossing — `export cd pushd
+  popd umask ulimit` — stays per-segment, verbatim. Not crossing — a bare `NAME=value`
+  (including `$(…)` values), `source . set unset shopt alias unalias declare typeset readonly
+  local eval exec trap` — makes the compound not simple, inside the same `isSimpleCommand()`
+  predicate so there is still one decision point, and the whole compound takes the
+  whole-command path in one shell; `VER=$(git describe); cargo build --features "$VER"` is one
+  runner holding all of it, pinned against main's hook. `classify()`'s single-command answer for
+  every state word is unchanged: `read`. `exec cargo build` and `eval "$(…)"` classify `read`
+  alone and, in a compound, now fall back under (B).
 
 ## Open questions
 
