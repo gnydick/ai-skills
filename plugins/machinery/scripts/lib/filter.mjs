@@ -42,6 +42,11 @@ export function select(lines, outcomePattern) {
   return keep;
 }
 
+// The one authority on "an error block starts here", exported for the training loop's drift trigger
+// ("the exit code was non-zero and no error block was found"). It reads BLOCK_START, the regex
+// select() opens a block on, so the wrapper and the filter cannot disagree about what a block is.
+export const hasErrorBlock = (lines) => lines.some((l) => BLOCK_START.test(l));
+
 export function selectInfra(lines, code) {
   if (code !== 0) return select(lines);
   const keep = new Set();

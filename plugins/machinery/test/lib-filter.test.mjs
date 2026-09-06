@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalise, select, selectInfra, render, MAX_SHOWN, PASS_THROUGH_LINES } from '../scripts/lib/filter.mjs';
+import { normalise, select, selectInfra, render, hasErrorBlock, MAX_SHOWN, PASS_THROUGH_LINES } from '../scripts/lib/filter.mjs';
 
 const lines = (...l) => l;
 const shown = (ls, keep) => render(ls, keep, 'H').split('\n').slice(1);
@@ -133,4 +133,33 @@ test('omitting the outcome pattern leaves select() behaviour unchanged (regressi
 
 test('passing the outcome pattern as undefined is the same as omitting it (regression)', () => {
   assert.deepEqual(sorted(select(outcomeCorpus(), undefined)), OUTCOME_CORPUS_BASELINE);
+});
+
+// ---- The training loop: the drift trigger's error-block fact, and the floor (design Verification 13) ----
+
+test('hasErrorBlock reads the same rule select() opens a block on', () => {
+  assert.equal(hasErrorBlock(['   Compiling a', 'error[E0599]: no method', '  --> x']), true);
+  assert.equal(hasErrorBlock(['   Compiling a', 'test result: ok. 3 passed; 0 failed']), false);
+  assert.equal(hasErrorBlock([]), false);
+});
+
+// A deliberately WRONG learned matcher — a prefix nothing in the corpus starts with — leaves the floor
+// exactly as it was: the final line, the error block and the proof lines survive, and nothing kept
+// without the matcher is lost. This is the bound that makes model-trained matching acceptable, so it
+// is tested rather than argued.
+test('V13: a wrong learned matcher promotes nothing and removes nothing — the floor stands', () => {
+  const wrong = { test: (line) => line.startsWith('NOTHING STARTS WITH THIS') };
+  const without = sorted(select(outcomeCorpus()));
+  const withWrong = sorted(select(outcomeCorpus(), wrong));
+  assert.deepEqual(withWrong, without);
+  assert.ok(withWrong.includes(17), 'the final line survives');
+  assert.ok(withWrong.includes(2) && withWrong.includes(3), 'the error block survives');
+  assert.ok(withWrong.includes(6) && withWrong.includes(7), 'the proof lines survive');
+});
+
+test('V13: a learned matcher that matches a line ADDS it and can subtract nothing — the kept set only grows', () => {
+  const matcher = { test: (line) => line.startsWith('   Compiling a') }; // index 0: a chatter line, outside the tail
+  const without = sorted(select(outcomeCorpus()));
+  const withIt = sorted(select(outcomeCorpus(), matcher));
+  assert.deepEqual(withIt, [0, ...without]);
 });
