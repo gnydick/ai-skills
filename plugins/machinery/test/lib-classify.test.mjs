@@ -186,7 +186,9 @@ test('RED CHECK: the read exemption is not the identity either — a byte-mover 
 // each `;`/`&&`/`||`/`&`/newline-joined segment on its own, and hands back the separator that
 // follows each so the hook can rebuild the command around the segments it wraps. classify() itself
 // keeps its meaning for every case above.
-const seg = (text, sep, kind) => ({ text, sep, kind });
+// `lead` (fix round 3) is the blank or comment folded in FRONT of a segment — re-emitted verbatim by
+// the hook, never part of the text that is judged. Empty for every segment but a leading one.
+const seg = (text, sep, kind, lead = '') => ({ lead, text, sep, kind });
 test('#13: classifySegments classifies each segment on its own, with the separator that follows it', () => {
   assert.deepEqual(classifySegments('pytest tests/ && cargo build', { catalog: CATALOG }), [seg('pytest tests/', ' && ', 'plain'), seg('cargo build', '', 'noisy')]);
   assert.deepEqual(classifySegments('cat a && cargo build'), [seg('cat a', ' && ', 'read'), seg('cargo build', '', 'noisy')]);
@@ -213,7 +215,7 @@ test('#13: a whitespace-only segment names no command — it is folded into the 
   assert.deepEqual(classifySegments('cargo build;'), [seg('cargo build', ';', 'noisy')]);
   assert.deepEqual(classifySegments('cat a\n'), [seg('cat a', '\n', 'read')]);
   assert.deepEqual(classifySegments('cat a; \n'), [seg('cat a', '; \n', 'read')]);
-  assert.deepEqual(classifySegments('\ncargo build'), [seg('\ncargo build', '', 'noisy')], 'a leading blank has no predecessor: it rides on the segment after it');
+  assert.deepEqual(classifySegments('\ncargo build'), [seg('cargo build', '', 'noisy', '\n')], 'a leading blank has no predecessor: it is the lead of the segment after it');
   assert.deepEqual(classifySegments(''), []);
   assert.deepEqual(classifySegments('  '), []);
   assert.deepEqual(classifySegments(';'), []);
@@ -221,7 +223,7 @@ test('#13: a whitespace-only segment names no command — it is folded into the 
 
 test('#13: the rejoin is the identity — the segments and separators carry every byte of a command that names one', () => {
   for (const c of ['pytest tests/ && cargo build', 'cargo build;', 'cat a; \n', '\ncargo build', 'echo "a; b" && cargo build', 'cargo build 2>&1 & ls', 'a || b && c; d\ne', '  cargo build  ']) {
-    assert.equal(classifySegments(c).map((s) => s.text + s.sep).join(''), c, JSON.stringify(c));
+    assert.equal(classifySegments(c).map((s) => s.lead + s.text + s.sep).join(''), c, JSON.stringify(c));
   }
 });
 
@@ -371,13 +373,36 @@ test('#13 fix 2 (A): a comment-only segment is folded away; a comment after a co
   assert.deepEqual(classifySegments('echo "a" ; # comment && node x.js'), [seg('echo "a"', ' ; # comment && node x.js', 'read')]);
   assert.deepEqual(classifySegments('# skip: cargo clean && rm -rf target'), []);
   assert.deepEqual(classifySegments('cargo build\n# note\ncargo test'), [seg('cargo build', '\n# note\n', 'noisy'), seg('cargo test', '', 'noisy')]);
-  assert.deepEqual(classifySegments('# build first\ncargo build'), [seg('# build first\ncargo build', '', 'noisy')], 'a leading comment rides on the segment after it, and the kind is that segment\'s');
+  assert.deepEqual(classifySegments('# build first\ncargo build'), [seg('cargo build', '', 'noisy', '# build first\n')], 'a leading comment is the lead of the segment after it, and the kind is that segment\'s');
   assert.deepEqual(classifySegments('cargo build # && cargo test'), [seg('cargo build # && cargo test', '', 'noisy')], 'the && is inside the comment: one segment');
   assert.deepEqual(classifySegments('echo "#not a comment" && cargo build').map((s) => s.kind), ['read', 'noisy']);
   assert.deepEqual(classifySegments('echo a#b && cargo build').map((s) => s.kind), ['read', 'noisy']);
   // The rejoin is the identity for a command that names one; a comment-only command names none and
   // yields no segments, exactly like a blank one (asserted above).
   for (const c of ['echo "a" ; # comment && node x.js', 'cargo build\n# note\ncargo test', '# lead\ncargo build', 'cargo build # && cargo test\n']) {
-    assert.equal(classifySegments(c).map((s) => s.text + s.sep).join(''), c, `rejoin identity: ${JSON.stringify(c)}`);
+    assert.equal(classifySegments(c).map((s) => s.lead + s.text + s.sep).join(''), c, `rejoin identity: ${JSON.stringify(c)}`);
   }
+});
+
+// Fix round 3 for #13 (controller's ruling after re-review of round 2, 2026-09-05): a leading comment
+// hid a local-state segment from the predicate. The fold prefixed the comment onto the first real
+// segment's text, and isSimpleCommand() judged THAT: the comment masks to FILL, which `\s` does not
+// match, so the `^\s*` anchors of STATE_LOCAL and RESERVED_LEAD never reached the real lead.
+// Measured: `# first\nX=1; node … "$X"` went per-segment and bash printed `x=`; main prints `x=1`.
+// The predicate is evaluated on the segment's OWN text, and the lead is a field of its own.
+test('#13 fix 3: a leading comment or blank never hides the lead from the predicate', () => {
+  for (const c of ['# c\nX=1', '# c\ntime node x', '# c\n! node x', '# c\nfor f in a; do node x; done', '\nX=1', '\n# c\n\nX=1']) {
+    assert.equal(isSimpleCommand(c), false, c);
+  }
+  assert.equal(isSimpleCommand('\ncargo build'), true, 'the blank-lead control: a simple command behind a blank is still simple');
+  assert.equal(isSimpleCommand('# c\ncargo build'), true, 'and behind a comment');
+  assert.equal(isSimpleCompound(classifySegments('# first\nX=1; node x.js "$X"')), false);
+  assert.equal(isSimpleCompound(classifySegments('# first\ncargo build && cargo test')), true);
+  assert.deepEqual(classifySegments('# first\nX=1; node x.js "$X"'), [seg('X=1', '; ', 'read', '# first\n'), seg('node x.js "$X"', '', 'plain')]);
+});
+test('RED CHECK (fix 3): the lead is a field, not a prefix — the judged text of a led segment is the bare command', () => {
+  const [s] = classifySegments('# c\nX=1');
+  assert.equal(s.text, 'X=1');
+  assert.equal(s.lead, '# c\n');
+  assert.notEqual(isSimpleCommand(s.lead + s.text), isSimpleCommand('cargo build'), 'positive control: the prefixed form is what used to be judged');
 });

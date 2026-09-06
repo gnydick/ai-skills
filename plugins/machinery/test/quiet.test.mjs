@@ -435,6 +435,28 @@ test(unproven('#13 fix 2 (B): through real bash, a bare assignment, a substituti
   assert.equal(r, 'bare=assigned\nsub=sub\nargc=0\n');
 });
 
+// ---- Fix round 3 for #13 (controller's ruling after re-review of round 2, 2026-09-05) ----
+// A leading comment was folded onto the first segment's text, and the predicate judged the
+// prefixed text: the comment masks to FILL, `\s` does not match it, and the local-state lead was
+// never seen. Measured: `# first\nX=1; node … "$X"` went per-segment and printed `x=`.
+const LED_LOCAL = '# first\nX=1; node -e "console.log(\'x=\' + process.argv[1])" "$X"';
+test('#13 fix 3: a leading comment does not hide a local-state lead — the compound takes main\'s path, pinned', () => {
+  const root = project(NOISY_NODE);
+  const want = hookShape(MAIN_HOOK, root, LED_LOCAL);
+  assert.equal(hookShape(LIVE_HOOK, root, LED_LOCAL), want);
+  assert.match(want, /^node <RUNNER> --shell bash --mode \w+ <CMDFILE:"# first\\nX=1; /, 'one runner, the comment and the assignment inside its cmdfile');
+});
+test(unproven('#13 fix 3: through real bash, the led assignment reaches the node after it'), { skip: !BASH }, () => {
+  const root = project(NOISY_NODE);
+  const r = execFileSync(BASH, ['-c', rewriteIn(root, LED_LOCAL)], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(r, 'x=1\n');
+});
+test('#13 fix 3: the lead is preserved where it was — a leading comment line is emitted verbatim before the first runner', () => {
+  const u = out(runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', '# first\ncargo build && cargo test') }).stdout).updatedInput;
+  assert.equal(skeleton(u.command), '# first\n<filter> && <filter>');
+  assert.deepEqual(runners(u.command).map((x) => x.text), ['cargo build', 'cargo test'], 'neither cmdfile carries the comment');
+});
+
 test('RED CHECK: the NEVER exemption survives plain no longer meaning untouched', () => {
   // classify() returns 'plain' for a NEVER-listed command exactly as it does for an unrecognised
   // one, so routing every 'plain' to the assimilator would put `--version` in the observation

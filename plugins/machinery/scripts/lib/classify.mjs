@@ -148,10 +148,11 @@ export function classify(command, { catalog } = {}) {
 // runs its own `&&`/`||`/`;` over the runners. A whitespace-only segment names no command
 // (re-review R1), and so does a comment-only one — a `#` comment is a span in quotes.mjs (#13 fix
 // round 2), so the separators inside it never split, and what is left is a segment whose text
-// starts with `#`; neither is ever classified, wrapped or observed. Each rides on a neighbour's
-// separator so the rejoin stays the identity — the entry before it, or, for a leading one, the
-// text of the entry after it, whose kind is then the kind of that entry's own command (bash
-// ignores the comment or blank in front of it, and so does the classifier). The catalog is
+// starts with `#`; neither is ever classified, wrapped or observed. Each rides on a neighbour so
+// the rejoin `lead + text + sep` stays the identity — on the separator of the entry before it, or,
+// for a leading one, as the `lead` field of the entry after it, which is a field of its own and
+// never a prefix on the text (fix round 3): every judgment, classify() here and isSimpleCommand()
+// below, sees the bare command, and the hook re-emits the lead verbatim in front. The catalog is
 // resolved at most once for the whole compound and only when a segment reaches the catalog step
 // (re-review R4, held per compound rather than per segment). Whether a backgrounded segment
 // (`sep` a lone `&`) may be wrapped is the hook's question, answered there, not here.
@@ -166,7 +167,11 @@ export function classifySegments(command, { catalog } = {}) {
       if (out.length) out[out.length - 1].sep += text + sep; else lead += text + sep;
       continue;
     }
-    out.push({ text: lead + text, sep, kind: classify(text, { catalog: once }) });
+    // Fix round 3: the lead is a field of its own, never a prefix on the text. Prefixed, it hid the
+    // real lead from every `^\s*`-anchored judgment — a comment masks to FILL, which `\s` does not
+    // match — and `# first\nX=1; node … "$X"` went per-segment (measured: `x=` where main prints
+    // `x=1`). One bare text for every judgment; the hook re-emits the lead verbatim in front.
+    out.push({ lead, text, sep, kind: classify(text, { catalog: once }) });
     lead = '';
   }
   return out;
@@ -191,7 +196,12 @@ export function classifySegments(command, { catalog } = {}) {
 const RESERVED_LEAD = /^\s*(?:if|then|elif|else|fi|for|while|until|do|done|case|esac|in|function|select|time|coproc|!|\{|\}|\[\[|\]\]|\(\(|\)\))(?=\s|$)/;
 const HEREDOC = /(?<!<)<<(?!<)/;
 const count = (mask, re) => (mask.match(re) ?? []).length;
-export function isSimpleCommand(text) {
+// Leading blank or comment lines, which the shell ignores and which classifySegments() already
+// keeps out of the text it hands over; stripped here as well (fix round 3), so the lead the
+// anchors below look at is the command's own even when a caller passes a led text directly.
+const LEADING_NOTHING = /^(?:[ \t]*(?:#[^\n]*)?\r?\n)*/;
+export function isSimpleCommand(led) {
+  const text = led.replace(LEADING_NOTHING, '');
   const mask = maskOutside(text);
   if (RESERVED_LEAD.test(mask) || HEREDOC.test(mask) || mask.endsWith('\\') || isLocalState(text)) return false;
   if (count(mask, /\(/g) !== count(mask, /\)/g) || count(mask, /\{/g) !== count(mask, /\}/g)) return false;

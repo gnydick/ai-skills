@@ -133,7 +133,9 @@ function main() {
   const modes = segments.map((s, i) => (backgrounded(i) ? null : modeFor(s.kind, s.text, load)));
   if (!modes.some(Boolean)) return;
   const write = cmdfileWriter();
-  const rebuilt = segments.map((s, i) => (modes[i]
+  // `lead` is the blank or comment folded in front of a segment (fix round 3): re-emitted verbatim
+  // where it was, never inside a cmdfile, so the judged text and the wrapped text are one text.
+  const rebuilt = segments.map((s, i) => s.lead + (modes[i]
     ? `node "${bash(runner)}" --shell bash --mode ${modes[i]} "${bash(write(s.text, i))}"${s.sep}`
     : s.text + s.sep)).join('');
   updatedInput({ ...input, command: rebuilt, description: tag(modes.filter(Boolean)) });
