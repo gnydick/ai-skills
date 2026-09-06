@@ -1,8 +1,20 @@
 # Commit gate
 
+**Amended 2026-09-05 (#29):** the citation-target check (item 4 below, with
+items 5–8 that describe its behaviour) is unwired from the gate by owner ruling
+— citations are to anchor on a symbol name, never a line number, so a
+line-and-heading validator is the wrong mechanism, and the owner chose to
+unwire it rather than repair it ("i'd rather not worry about gating citations
+at all right now, we can do big sweeps later"). The gate now executes **one**
+blocking check, the register check, plus the advisory warning; nothing
+validates citations at commit or merge time. The checker module still ships
+beside the gate, imported by nothing, for a future sweep tool. The items below
+are kept as written so the design of the check survives for that tool, each
+marked where it no longer describes what runs.
+
 Four cheap checks and one advisory warning, run on every commit — two checks
-the gate executes and rejects the commit on, and two that its header states and
-a person applies. It is cheap on purpose. Anything heavier belongs to the merge
+the gate executes and rejects the commit on (one since 2026-09-05, see above),
+and two that its header states and a person applies. It is cheap on purpose. Anything heavier belongs to the merge
 gate: the every-commit gate in one project had grown past an hour because
 different kinds of check had bled together, and separating them by cost is the
 only thing that keeps a gate this frequent affordable enough for people to
@@ -44,12 +56,12 @@ clone that never activated the hooks is still caught.
    `register/INDEX.md`, not restated here. The cheap mode's one blind spot is
    the whole-register group-and-status scan; the full form runs before a filing
    is called done and at the merge gate, never on every commit.
-4. **Check two, the citation-target check. Blocks.** For every citation of the
-   form `path:line` appearing on a line this commit *adds*, resolved against the
-   content being committed: the cited file exists; the cited line number is
-   within that file; that line is not blank; and for a range, the end line is
-   also within the file.
-5. Validate once, at authoring time. A citation this commit did not touch is
+4. **Check two, the citation-target check. Unwired 2026-09-05 (#29); does not
+   run.** As designed: for every citation of the form `path:line` appearing on
+   a line this commit *adds*, resolved against the content being committed:
+   the cited file exists; the cited line number is within that file; that line
+   is not blank; and for a range, the end line is also within the file.
+5. (Design of the unwired check, items 5–8.) Validate once, at authoring time. A citation this commit did not touch is
    never re-audited, and drift afterwards is accepted rather than reported:
    line numbers moving is normal, and a check that goes red on ordinary drift
    is noise somebody eventually turns off. The commit gate is the natural home
@@ -110,14 +122,16 @@ clone that never activated the hooks is still caught.
 
 **What the user sees:**
 
-- Each of the two executed checks prints its own count line, zero included, in
-  the declared proof-line format so it survives the output filter and any log
+- Each executed check prints its own count line, zero included, in the
+  declared proof-line format so it survives the output filter and any log
   redirect. The other two checks print nothing, because they are properties the
-  header states rather than steps the gate runs:
+  header states rather than steps the gate runs. Since 2026-09-05 (#29) only
+  the first line below is printed; the second was the unwired check's, and a
+  proof line for a check that did not run would be a false claim:
 
 ```
 <check name>: <n> citation files, <m> groups, 0 errors (fast)
-<check name>: validated <n> new citation(s) (staged)
+<check name>: validated <n> new citation(s) (staged)   ← not printed since #29
 ```
 
 - On a blocking failure, one line per finding, then the closing line and a
@@ -142,13 +156,15 @@ ADVISORY: docs commit stages a newly-tracked non-doc file: <path> — confirm no
 **Acceptance checks:**
 
 - Given a commit touching nothing the gate checks — one source file, say — when
-  it is made in an activated clone, then both executed checks still run and each
-  prints its own count line, zero included.
-- Given a commit adding a citation of the form `path:line` that resolves to a
-  blank line, then the gate blocks and names that citation; given the same
-  citation resolving to a line with content, then it passes; given a citation
-  this commit did not touch whose target line has since drifted, then nothing
-  about it is reported.
+  it is made in an activated clone, then every executed check still runs and
+  each prints its own count line, zero included.
+- (Unwired 2026-09-05, #29 — this now holds of the checker module driven
+  directly, not of the gate; through the gate, a blank-line citation passes and
+  no citation line is printed.) Given a commit adding a citation of the form
+  `path:line` that resolves to a blank line, then the check blocks and names
+  that citation; given the same citation resolving to a line with content, then
+  it passes; given a citation this commit did not touch whose target line has
+  since drifted, then nothing about it is reported.
 - Given any inbox entry still marked pending, then the register check fails and
   the commit is rejected, whatever else the commit touches.
 - Given a file staged only in part, then the checks read the staged content and

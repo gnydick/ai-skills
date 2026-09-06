@@ -19,6 +19,10 @@ function project(root) {
   g(root, 'add', '-A'); g(root, 'commit', '-q', '-m', 'install');
 }
 const gate = (root) => runScript('scripts/gate/gate.mjs', { args: ['--root', root], cwd: root });
+// Ticket #29 (Gabe, 2026-09-05: "let's unwire citation audit and gating"): the gate no longer
+// runs citation-target.mjs, but the module still ships for a future sweep, so its behaviour is
+// measured through a test-only driver with the gate's old `--root` / `--merge` surface.
+const cite = (root, ...extra) => runScript('test/helpers/citation-target-driver.mjs', { args: ['--root', root, ...extra], cwd: root });
 
 test('clean commit passes and every executed check prints its denominator, zero included (spec I25)', () => {
   const r = makeRepo();
@@ -27,7 +31,26 @@ test('clean commit passes and every executed check prints its denominator, zero 
     const res = gate(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /^register_check: 0 of 0 pending/m);
-    assert.match(res.stdout, /^citation_target: 0 of 0 new citations/m);
+    // The citation leg is unwired (#29): no proof line for a check that did not run, because a
+    // `0 of 0` here would claim a validation nothing performed.
+    assert.doesNotMatch(res.stdout, /citation_target/);
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: the gate no longer runs the citation check — a staged citation to a blank line passes, and no citation_target line is printed (#29)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root); write(r.root, 'src/x.js', 'line1\n\nline3\n'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'src');
+    write(r.root, 'docs/n.md', 'see `src/x.js:2`'); g(r.root, 'add', '-A');
+    // Positive control: the module itself still rejects this citation, so the gate passing it is
+    // the unwiring and not a citation that was never bad.
+    const direct = cite(r.root);
+    assert.equal(direct.code, 1, direct.stdout + direct.stderr);
+    assert.match(direct.stdout, /citation_target: 1 of 1 new citations failed/);
+    const res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.doesNotMatch(res.stdout, /citation_target/, 'the gate must not print a proof line for a leg it does not run');
+    assert.match(res.stdout, /^register_check: 0 of 0 pending/m, 'the register leg still runs');
   } finally { r.cleanup(); }
 });
 
@@ -119,14 +142,17 @@ test('register check works when --root is a subdirectory of the repo (staged pat
   } finally { r.cleanup(); }
 });
 
+// From here to the sweep-guard case: citation-target.mjs's own behaviour, driven directly (#29).
+// These fixtures stay in this file on purpose — the module excludes test/gate.test.mjs from its
+// own scan (SELF_EXCLUDE), so a future sweep will not read them as real citations.
 test('a new path:line citation to a blank line blocks; a real one passes (spec I26)', () => {
   const r = makeRepo();
   try {
     project(r.root); write(r.root, 'src/x.js', 'line1\n\nline3\n'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'src');
     write(r.root, 'docs/n.md', 'see `src/x.js:2` and `src/x.js:3`'); g(r.root, 'add', '-A');
-    const res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /citation_target: 1 of 2 new citations failed/);
+    const res = cite(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /citation_target: 1 of 2 new citations failed/);
     write(r.root, 'docs/n.md', 'see `src/x.js:3`'); g(r.root, 'add', '-A');
-    assert.equal(gate(r.root).code, 0);
+    assert.equal(cite(r.root).code, 0);
   } finally { r.cleanup(); }
 });
 
@@ -135,11 +161,11 @@ test('a blob with leading blank lines is cited by its real line numbers, untrimm
   try {
     project(r.root); write(r.root, 'src/x.js', '\n\nline3\nline4\n'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'src');
     write(r.root, 'docs/n.md', 'see `src/x.js:3`'); g(r.root, 'add', '-A');
-    let res = gate(r.root);
+    let res = cite(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 0 of 1/);
     write(r.root, 'docs/n.md', 'see `src/x.js:1`'); g(r.root, 'add', '-A');
-    res = gate(r.root);
+    res = cite(r.root);
     assert.equal(res.code, 1);
     assert.match(res.stdout, /citation_target: 1 of 1/);
   } finally { r.cleanup(); }
@@ -155,7 +181,7 @@ test('citation paths resolve against --root first, then the repo top level (fina
     runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'sub install');
     write(sub, 'docs/n.md', 'see `rules/w.md:2`'); g(r.root, 'add', '-A');
-    const res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
+    const res = cite(sub);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 0 of 1/);
   } finally { r.cleanup(); }
@@ -169,11 +195,11 @@ test('a wrapped `file § Section` citation spanning two added lines is not trunc
     runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'add section');
     write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § Merging and\ntearing down\n'); g(r.root, 'add', '-A');
-    let res = gate(r.root);
+    let res = cite(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 0 of 1/);
     write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § Merging and\ntorn down\n'); g(r.root, 'add', '-A');
-    res = gate(r.root);
+    res = cite(r.root);
     assert.equal(res.code, 1);
     assert.match(res.stdout, /citation_target: 1 of 1/);
   } finally { r.cleanup(); }
@@ -183,18 +209,20 @@ test('a file § Section citation to a missing heading blocks; an existing one pa
   const r = makeRepo();
   try {
     project(r.root); write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § Nope'); g(r.root, 'add', '-A');
-    assert.equal(gate(r.root).code, 1);
+    assert.equal(cite(r.root).code, 1);
     write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § S'); g(r.root, 'add', '-A');
-    assert.equal(gate(r.root).code, 0);
+    assert.equal(cite(r.root).code, 0);
   } finally { r.cleanup(); }
 });
 
-test('old citations are never re-audited: a pre-existing bad citation does not block a new commit', () => {
+test('old citations are never re-audited: a pre-existing bad citation does not fail a new commit\'s check', () => {
   const r = makeRepo();
   try {
     project(r.root); write(r.root, 'docs/old.md', 'see `src/nothere.js:9`'); g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '--no-verify', '-m', 'old');
     write(r.root, 'docs/new.md', 'plain'); g(r.root, 'add', '-A');
-    assert.equal(gate(r.root).code, 0);
+    const res = cite(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 0 of 0/, 'the old citation was not even counted');
   } finally { r.cleanup(); }
 });
 
@@ -235,12 +263,12 @@ test('RED CHECK: a staged diff over 1 MiB passes through the citation check with
     // "1 of 2" proves the scan reached the far end, not merely that it survived.
     write(r.root, 'docs/big.md', 'see `src/x.js:3`\n' + filler(FILLER_BYTES) + 'and `src/x.js:2`\n'); g(r.root, 'add', '-A');
     assert.ok(fs.statSync(path.join(r.root, 'docs/big.md')).size > 1024 * 1024, 'fixture is not over 1 MiB');
-    let res = gate(r.root);
+    let res = cite(r.root);
     assert.doesNotMatch(res.stdout, /could not run/, res.stdout);
     assert.equal(res.code, 1, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 1 of 2 new citations failed/);
     write(r.root, 'docs/big.md', 'see `src/x.js:3`\n' + filler(FILLER_BYTES) + 'and `src/x.js:1`\n'); g(r.root, 'add', '-A');
-    res = gate(r.root);
+    res = cite(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 0 of 2 new citations failed/);
   } finally { r.cleanup(); }
@@ -258,10 +286,10 @@ test('a git that dies mid-stream fails the citation check by name (exit code and
     fs.writeFileSync(script, ['#!/bin/sh', 'echo "+++ b/docs/n.md"', 'echo "@@ -0,0 +1 @@"', "echo '+see `src/x.js:3`'", 'exit 1', ''].join('\n'));
     fs.chmodSync(script, 0o755);
     // git hands the value to `sh -c`, so a temp path with a space in it needs the quotes.
-    const res = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root, env: { GIT_EXTERNAL_DIFF: `'${script.replaceAll(path.sep, '/')}'` } });
+    const res = runScript('test/helpers/citation-target-driver.mjs', { args: ['--root', r.root], cwd: r.root, env: { GIT_EXTERNAL_DIFF: `'${script.replaceAll(path.sep, '/')}'` } });
     assert.equal(res.code, 1, res.stdout + res.stderr);
     assert.doesNotMatch(res.stdout, /citation_target: \d+ of \d+/, 'a truncated diff must not produce a proof line');
-    assert.match(res.stdout, /gate: a check could not run — git diff failed: .*\S/, res.stdout);
+    assert.match(res.stdout, /citation-target driver: the check could not run — git diff failed: .*\S/, res.stdout);
     assert.match(res.stdout, /128/, res.stdout);
     assert.match(res.stdout, /external diff died/, res.stdout);
   } finally { r.cleanup(); }
@@ -331,13 +359,13 @@ test('through real git: a CRLF-authored wrapped citation matches a CRLF-authored
     // The line citation goes first: a `§ Heading` capture runs to the next punctuation or the end
     // of the hunk (the A4 grammar, LF and CRLF alike), so the wrapped citation ends the file.
     write(r.root, 'docs/n.md', 'and `src/x.js:3`\r\nsee `.claude/rules/t.md` § Merging and\r\ntearing down\r\n'); g(r.root, 'add', '-A');
-    let res = gate(r.root);
+    let res = cite(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 0 of 2 new citations failed/);
     // The same two facts, each made false: the heading is truncated one word early, and line 2 of
     // the CRLF file is `\r` alone — blank, not a one-character line.
     write(r.root, 'docs/n.md', 'and `src/x.js:2`\r\nsee `.claude/rules/t.md` § Merging and\r\ntorn down\r\n'); g(r.root, 'add', '-A');
-    res = gate(r.root);
+    res = cite(r.root);
     assert.equal(res.code, 1, res.stdout + res.stderr);
     assert.match(res.stdout, /citation_target: 2 of 2 new citations failed/);
     assert.match(res.stdout, /§ Merging and torn down → no such heading/);
