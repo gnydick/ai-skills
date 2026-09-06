@@ -304,6 +304,47 @@ test('a wrapped `file § Section` is joined across added lines within one hunk, 
   ]);
 });
 
+// Ticket #23 (measured by the #19 task reviewer, 2026-09-05): in a CRLF-authored file every added
+// diff line carries a trailing `\r`, so the A4 join produced `… § Merging and\r tearing down\r` and
+// the heading capture stopped at the `\r`. Pre-existing on every version of the gate. The two
+// lines below are the reviewer's exact two; the LF control is the same pair without the `\r`.
+const REVIEWER_LINES = ['see `rules/t.md` § Merging and\r', 'tearing down\r'];
+
+test('RED CHECK: a wrapped `file § Section` joins whole from CRLF-authored added lines, exactly as from LF ones (#23)', async () => {
+  assert.ok(REVIEWER_LINES.every((l) => l.endsWith('\r')), 'the CRLF fixture really carries a \\r on every line, or this proves nothing');
+  const section = async (lines) => (await collectCitations(fakeDiff([{ file: 'docs/n.md', lines }]))).map((c) => `${c.kind}:${c.path} § ${c.section}`);
+  assert.deepEqual(await section(REVIEWER_LINES.map((l) => l.replace(/\r$/, ''))), ['section:rules/t.md § Merging and tearing down'], 'LF control');
+  assert.deepEqual(await section(REVIEWER_LINES), ['section:rules/t.md § Merging and tearing down'], 'CRLF twin');
+});
+
+test('through real git: a CRLF-authored wrapped citation matches a CRLF-authored heading, and a `path:N` citation into a CRLF file lands on the same line with a blank line still blank (#23)', () => {
+  const r = makeRepo();
+  try {
+    project(r.root);
+    // Every fixture file is CRLF, written without the platform's own conversion in the way.
+    g(r.root, 'config', 'core.autocrlf', 'false');
+    write(r.root, '.claude/rules/t.md', '# T\r\n\r\n## S\r\n\r\n- a rule\r\n\r\n## Merging and tearing down\r\n\r\n- another\r\n');
+    write(r.root, 'src/x.js', 'line1\r\n\r\nline3\r\n');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'crlf fixtures');
+    assert.match(g(r.root, 'show', 'HEAD:src/x.js'), /\r\n/, 'the committed blob really is CRLF, or the pin sees an LF file');
+    // The line citation goes first: a `§ Heading` capture runs to the next punctuation or the end
+    // of the hunk (the A4 grammar, LF and CRLF alike), so the wrapped citation ends the file.
+    write(r.root, 'docs/n.md', 'and `src/x.js:3`\r\nsee `.claude/rules/t.md` § Merging and\r\ntearing down\r\n'); g(r.root, 'add', '-A');
+    let res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 0 of 2 new citations failed/);
+    // The same two facts, each made false: the heading is truncated one word early, and line 2 of
+    // the CRLF file is `\r` alone — blank, not a one-character line.
+    write(r.root, 'docs/n.md', 'and `src/x.js:2`\r\nsee `.claude/rules/t.md` § Merging and\r\ntorn down\r\n'); g(r.root, 'add', '-A');
+    res = gate(r.root);
+    assert.equal(res.code, 1, res.stdout + res.stderr);
+    assert.match(res.stdout, /citation_target: 2 of 2 new citations failed/);
+    assert.match(res.stdout, /§ Merging and torn down → no such heading/);
+    assert.match(res.stdout, /`src\/x\.js:2` → blank line/);
+  } finally { r.cleanup(); }
+});
+
 test('a line source that fails part-way fails the collection — the citations that arrived are never reported (#19)', async () => {
   const dying = (async function* () { yield '+++ b/docs/n.md'; yield '@@ -0,0 +1 @@'; yield '+see `src/x.js:3`'; throw new Error('git diff -U0: killed by SIGTERM'); })();
   await assert.rejects(collectCitations(dying), /killed by SIGTERM/);
