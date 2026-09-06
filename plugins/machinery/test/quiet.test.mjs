@@ -355,15 +355,19 @@ test('RED CHECK (A): the pin is live — main and the per-segment hook disagree 
   assert.equal(hookShape(LIVE_HOOK, root, c), 'cat a && node <RUNNER> --shell bash --mode filter <CMDFILE:"cargo build"> :: d [quiet:filter]');
 });
 
-// B. A state-mutating segment is left verbatim, so its effect lands in the shell that runs the
-// segment after it. Measured by the reviewer with both wrapped: `var=undefined`.
-test(unproven('#13 fix 1 (B): export and source stay verbatim and their effect reaches the wrapped segment after them'), { skip: !BASH }, () => {
+// B. A state-mutating segment whose effect crosses a process boundary (`export`) is left verbatim,
+// so its effect lands in the shell that runs the segment after it. Measured by the reviewer with
+// both wrapped: `var=undefined`. Fix round 2 narrowed this: `source` does NOT cross (the sourced
+// file's exports only reach a child of the shell that sourced it), so a compound carrying it takes
+// the whole-command path — one runner, one shell — and the effect still arrives, as on main.
+test(unproven('#13 fix 1 (B): export stays verbatim per segment, source sends the compound down the whole-command path; both effects reach the node after them'), { skip: !BASH }, () => {
   const root = project(NOISY_NODE);
   fs.writeFileSync(path.join(root, 'vars.sh'), 'export PROBE2=fromfile\n');
   const a = rewriteIn(root, 'export PROBE_VAR=set && node -e "console.log(\'var=\' + process.env.PROBE_VAR)"');
   const b = rewriteIn(root, 'source ./vars.sh && node -e "console.log(\'file=\' + process.env.PROBE2)"');
   assert.equal(skeleton(a), 'export PROBE_VAR=set && <filter>');
-  assert.equal(skeleton(b), 'source ./vars.sh && <filter>');
+  assert.equal(skeleton(b), '<observe>', 'fix round 2: one runner for the whole compound');
+  assert.deepEqual(runners(b).map((x) => x.text), ['source ./vars.sh && node -e "console.log(\'file=\' + process.env.PROBE2)"'], 'holding all of it');
   const r = execFileSync(BASH, ['-c', `${a}; ${b}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   assert.equal(r, 'var=set\nfile=fromfile\n');
 });
@@ -383,6 +387,52 @@ test('#13 fix 1 (C): nothing in a backgrounded AND-OR list is wrapped; the list 
   }
   const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo build && cargo test &') });
   assert.equal(r.stdout, '', 'a whole list backgrounded: untouched entirely');
+});
+
+// ---- Fix round 2 for #13 (controller's amendment after re-review, 2026-09-05) ----
+
+// A. A `#` comment is a span: separators inside it are data. Measured by the reviewer:
+// `echo "a" ; # comment && node -e …` printed `a` and then ran the node from inside the comment.
+test('#13 fix 2 (A): a comment-only remainder is never wrapped, and a separator inside a comment never splits', () => {
+  const root = project(NOISY_NODE);
+  for (const c of ['echo "a" ; # comment && node -e "console.log(\'ran-from-comment\')"', '# skip: cargo clean && rm -rf target']) {
+    const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) });
+    assert.equal(r.stdout, '', c); assert.equal(r.code, 0, c);
+  }
+  for (const [c, want] of [
+    ['echo "#not a comment" && cargo build', 'echo "#not a comment" && <filter>'],
+    ['echo a#b && cargo build', 'echo a#b && <filter>'],
+    ['cargo build\n# note\ncargo test', '<filter>\n# note\n<filter>'],
+  ]) {
+    const u = out(runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) }).stdout).updatedInput;
+    assert.equal(skeleton(u.command), want, c);
+  }
+});
+
+// B. Only exported env, cwd, umask and ulimit cross into a runner's fresh shell. A bare assignment,
+// `source`, `set`, `shopt`, … do not, so a compound carrying one takes the whole-command path — one
+// runner, one shell — pinned against main's hook like the constructs above. Measured by the
+// reviewer with the segments apart: `bare=`, `sub=`, `argc=1` where main gives `bare=assigned`,
+// `sub=sub`, `argc=0`.
+const LOCAL_STATE = [
+  'PROBE3=assigned; node -e "console.log(\'bare=\' + process.argv[1])" "$PROBE3"',
+  'PROBE4=$(node -e "process.stdout.write(\'sub\')") && node -e "console.log(\'sub=\' + process.argv[1])" "$PROBE4"',
+  'shopt -s nullglob; node -e "console.log(\'argc=\' + (process.argv.length - 1))" *.nomatch',
+  'VER=$(git describe); cargo build --features "$VER"',
+];
+test('#13 fix 2 (B): a non-crossing state segment sends the whole compound down main\'s path — one runner holding all of it', () => {
+  const root = project(NOISY_NODE);
+  for (const c of LOCAL_STATE) {
+    const want = hookShape(MAIN_HOOK, root, c);
+    assert.equal(hookShape(LIVE_HOOK, root, c), want, c);
+    assert.match(want, /^node <RUNNER> --shell bash --mode \w+ <CMDFILE:"[^]*"> :: d \[quiet:\w+\]$/, `${c}: one runner, the whole compound in its cmdfile`);
+  }
+});
+test(unproven('#13 fix 2 (B): through real bash, a bare assignment, a substitution and shopt reach the command after them, as on main'), { skip: !BASH }, () => {
+  const root = project(NOISY_NODE);
+  const cmds = LOCAL_STATE.slice(0, 3).map((c) => rewriteIn(root, c));
+  const r = execFileSync(BASH, ['-c', cmds.join('; ')], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.equal(r, 'bare=assigned\nsub=sub\nargc=0\n');
 });
 
 test('RED CHECK: the NEVER exemption survives plain no longer meaning untouched', () => {

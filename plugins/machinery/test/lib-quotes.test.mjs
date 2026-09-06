@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quoteStates, splitOutside, segmentsOutside, OUTSIDE, DELIM, INSIDE } from '../scripts/lib/quotes.mjs';
+import { quoteStates, splitOutside, segmentsOutside, OUTSIDE, DELIM, INSIDE, COMMENT } from '../scripts/lib/quotes.mjs';
 
 // Issue #11: the one definition of a quoted span (rules/design-invariants.md § Never re-derive a
 // fact). catalog.mjs's tokens() and classify.mjs's segment splitter both read this; neither keeps
@@ -88,6 +88,31 @@ test('#13: splitOutside is segmentsOutside without the separators — one defini
   for (const c of ['a && b; c', 'echo "a && b" && ls', 'cat a;', 'plain', '', 'cat a 2>&1 & ls']) {
     assert.deepEqual(splitOutside(c, SEP), segmentsOutside(c, SEP).map((s) => s.text), JSON.stringify(c));
   }
+});
+
+// Fix round 2 for #13 (controller's amendment after re-review, 2026-09-05): a `#` comment is a span
+// like a quote. The reviewer measured `echo "a" ; # comment && node -e …` split inside the comment,
+// and the commented-out node ran. A `#` that begins a word — at the start, or after whitespace or
+// a separator character, outside quotes — opens a span to the next newline (or the end); nothing
+// inside it is OUTSIDE, so a separator there is data to the splitter and a word there is no token.
+const C = COMMENT;
+test('#13 fix 2: a # that begins a word opens a comment span to the newline; one that does not is data', () => {
+  assert.deepEqual(quoteStates('a # b'), [O, O, C, C, C]);
+  assert.deepEqual(quoteStates('# b'), [C, C, C]);
+  assert.deepEqual(quoteStates('a#b'), [O, O, O], 'inside a word: not a comment');
+  assert.deepEqual(quoteStates('$#'), [O, O], 'the parameter count: not a comment');
+  assert.deepEqual(quoteStates('"#"'), [D, I, D], 'inside quotes: data');
+  assert.deepEqual(quoteStates('a;# b'), [O, O, C, C, C], 'after a separator character');
+  assert.deepEqual(quoteStates('a # b\nc'), [O, O, C, C, C, O, O], 'the newline ends it and is itself outside');
+  assert.deepEqual(quoteStates('a # "b\nc'), [O, O, C, C, C, C, O, O], 'a quote inside a comment opens nothing');
+});
+test('#13 fix 2: the splitter sees no separator inside a comment, and the mask hides the comment from every reader', () => {
+  const SEP2 = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
+  assert.deepEqual(segmentsOutside('echo a ; # c && d', SEP2), [{ text: 'echo a', sep: ' ; ' }, { text: '# c && d', sep: '' }]);
+  assert.deepEqual(segmentsOutside('# skip: x && y', SEP2), [{ text: '# skip: x && y', sep: '' }]);
+  assert.deepEqual(segmentsOutside('a\n# note && b\nc', SEP2), [{ text: 'a', sep: '\n' }, { text: '# note && b', sep: '\n' }, { text: 'c', sep: '' }]);
+  assert.deepEqual(splitOutside('echo "#x" && b', SEP2), ['echo "#x"', 'b'], 'a quoted # is not a comment: the && still splits');
+  assert.deepEqual(splitOutside('echo a#b && c', SEP2), ['echo a#b', 'c']);
 });
 
 test('RED CHECK: the separator handed back is the real one, not a constant — different separators in one command come back different', () => {

@@ -614,6 +614,30 @@ Declared standard: **structural**. This changes behaviour deliberately.
   `cargo build && cargo test & cargo bench` wraps only the bench, and
   `cargo build && cargo test &` is untouched entirely. Measured before the amendment: the
   build's runner ran alongside the bench's, the exact record race the rule exists to prevent.
+  *Amended again by the controller after re-review, 2026-09-05 (#13, fix round 2).* Two
+  regressions from `main`, both measured through real bash. (A) A `#` comment is a span, like a
+  quote, in the one scanner (`quotes.mjs`): a `#` that begins a word — at the start, or after
+  whitespace or a separator character, outside quotes — opens a span to the next newline, and
+  nothing inside it is outside, so a separator there never splits and a word there is no token.
+  Measured before: `echo "a" ; # comment && node -e …` was split inside the comment and the
+  commented-out node ran; `# skip: cargo clean && rm -rf target` would have run the `rm`. Now
+  the first is `echo "a"` plus a comment-only remainder, and a comment-only segment (text
+  starting with `#`) is folded onto a neighbour's separator — never wrapped, never observed, no
+  record keyed `#`; `echo "#not a comment" && cargo build` and `echo a#b && cargo build` still
+  split, and a full-line `# note` between two real segments keeps both per-segment. (B) Leaving
+  a state segment verbatim is necessary, not sufficient: only exported env, the cwd, umask and
+  ulimit cross into a runner's fresh shell. Measured before: `PROBE3=assigned; node -e …
+  "$PROBE3"` printed `bare=` (main: `bare=assigned`), a `$(…)` assignment printed `sub=`
+  (main: `sub=sub`), `shopt -s nullglob; node … *.nomatch` gave `argc=1` (main: `argc=0`). The
+  list is split by whether the effect crosses a process boundary. Crossing — `export cd pushd
+  popd umask ulimit` — stays per-segment, verbatim. Not crossing — a bare `NAME=value`
+  (including `$(…)` values), `source . set unset shopt alias unalias declare typeset readonly
+  local eval exec trap` — makes the compound not simple, inside the same `isSimpleCommand()`
+  predicate so there is still one decision point, and the whole compound takes the
+  whole-command path in one shell; `VER=$(git describe); cargo build --features "$VER"` is one
+  runner holding all of it, pinned against main's hook. `classify()`'s single-command answer for
+  every state word is unchanged: `read`. `exec cargo build` and `eval "$(…)"` classify `read`
+  alone and, in a compound, now fall back under (B).
 
 ## Open questions
 

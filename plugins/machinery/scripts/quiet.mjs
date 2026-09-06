@@ -113,9 +113,13 @@ function main() {
   // and `||`, reaching `&` before `;`, a newline or the end means backgrounded. A backgrounded
   // runner's output is detached from the tool result anyway, and two runners alive at once would
   // race on observations.json — quiet-run.mjs reads it, records, and writes it back with no lock,
-  // so the second writer would silently drop the first one's record. B lives in classify.mjs: a
-  // state-mutating segment (`export`, `source`, `X=1`, …) comes back 'read' and is left verbatim,
-  // so its effect lands in the shell that runs the segments after it.
+  // so the second writer would silently drop the first one's record. B lives in classify.mjs, as
+  // amended in round 2: a state-mutating segment whose effect crosses a process boundary
+  // (`export`, `cd`, `umask`, …) comes back 'read' and is left verbatim, so its effect reaches the
+  // runners after it; one whose effect stays in its own shell (`X=1`, `source`, `set`, `shopt`, …)
+  // makes the compound not simple, so the whole of it runs in one shell above. Round 2 also made a
+  // `#` comment a span in the one scanner: a separator inside one never splits, and a
+  // comment-only segment is folded away by classifySegments() — never wrapped, never recorded.
   const segments = classifySegments(command, { catalog });
   if (!isSimpleCompound(segments)) return whole('bash');
   const backgrounded = (i) => {

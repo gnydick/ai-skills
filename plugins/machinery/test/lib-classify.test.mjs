@@ -281,7 +281,7 @@ for (const [cmd, why] of notSimple) test(`#13 fix 1: not a simple compound — $
 const simple = [
   'cargo build && cargo test', 'cat a; cargo build', 'cargo build || echo failed', 'cargo build\ncargo test', 'cargo build & cargo test',
   'echo "(" && cargo build', "echo '{ if then' ; ls", 'echo "$(x" && ls', 'echo $((1+2)) && ls', 'echo ${HOME} && ls',
-  'cat <<< "here string" && ls', '(cargo build) && cargo test', 'X=$(git rev-parse HEAD) && cargo build', '[ -f a ] && cargo build',
+  'cat <<< "here string" && ls', '(cargo build) && cargo test', '[ -f a ] && cargo build',
   'cargo build "a\\" && ls', 'echo "<<" && ls', 'cargo build', '',
 ];
 for (const cmd of simple) test(`#13 fix 1: a simple compound: ${JSON.stringify(cmd)}`, () => {
@@ -332,4 +332,52 @@ test('#13 fix 1 (B): per segment, the state-mutator is read and its neighbour ke
 test('RED CHECK (B): the state list is load-bearing — an assignment prefix on a work-doer is still the work-doer', () => {
   assert.equal(classify('X=1'), 'read');
   assert.notEqual(classify('X=1 cargo build'), 'read');
+});
+
+// Fix round 2 for #13 (controller's amendment after re-review, 2026-09-05), B: leaving a state
+// segment verbatim is necessary, not sufficient. Only exported env, cwd, umask and ulimit cross
+// into the runner's fresh `bash -lc`; the reviewer measured `PROBE3=assigned; node -e … "$PROBE3"`
+// printing `bare=` where main printed `bare=assigned`, and `shopt -s nullglob; node … *.nomatch`
+// giving `argc=1` where main gave `argc=0`. So the list splits by whether the effect crosses a
+// process boundary: `export cd pushd popd umask ulimit` cross and stay per-segment; a bare
+// assignment, `source . set unset shopt alias unalias declare typeset readonly local eval exec
+// trap` do not, and any segment leading with one makes the compound NOT simple — the whole thing
+// takes the whole-command path, in one shell, as before #13. classify()'s single-command answer
+// for all of them stays 'read'.
+const crossing = ['export X=1 && cargo build', 'cd src && cargo build', 'pushd src && cargo build', 'popd && cargo build', 'umask 022 && cargo build', 'ulimit -n 4096 && cargo build'];
+for (const cmd of crossing) test(`#13 fix 2 (B): a crossing state segment keeps the compound simple: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), true);
+});
+const local = [
+  'PROBE3=assigned; node x.js "$PROBE3"', 'PROBE4=$(node y.js) && node x.js "$PROBE4"', 'VER=$(git describe); cargo build --features "$VER"', 'X=1 Y=2; cargo build',
+  'source .venv/bin/activate && pytest -q', '. ./env.sh && cargo build', 'set -e; cargo build', 'unset X && cargo build', 'shopt -s nullglob; node x.js *.nomatch',
+  'alias b="cargo build"; b', 'unalias b; cargo build', 'declare -a arr; cargo build', 'typeset -i n; cargo build', 'readonly X=1; cargo build', 'local x=1; cargo build',
+  'eval "$(ssh-agent)" && cargo build', 'exec cargo build', 'trap cleanup EXIT; cargo build',
+];
+for (const cmd of local) test(`#13 fix 2 (B): a non-crossing state segment makes the compound NOT simple: ${JSON.stringify(cmd)}`, () => {
+  assert.equal(isSimpleCompound(classifySegments(cmd)), false);
+});
+test('#13 fix 2 (B): the single-command answer is unchanged — every state word is still read on its own', () => {
+  for (const c of ['export X=1', 'X=1', 'PROBE4=$(node y.js)', 'source x', 'set -e', 'shopt -s nullglob', 'exec cargo build', 'eval "$(x)"']) assert.equal(classify(c), 'read', c);
+});
+test('RED CHECK (fix 2, B): the split is load-bearing — the same shape flips between export and a bare assignment', () => {
+  assert.notEqual(isSimpleCompound(classifySegments('export X=1 && cargo build')), isSimpleCompound(classifySegments('X=1 && cargo build')));
+});
+
+// Fix round 2, A: a `#` comment is a span like a quote (quotes.mjs), so a separator inside it is
+// data, and a comment-only segment names no command: it rides on a neighbour's separator like a
+// blank one — never classified, never wrapped, never observed.
+test('#13 fix 2 (A): a comment-only segment is folded away; a comment after a command stays with it', () => {
+  assert.deepEqual(classifySegments('echo "a" ; # comment && node x.js'), [seg('echo "a"', ' ; # comment && node x.js', 'read')]);
+  assert.deepEqual(classifySegments('# skip: cargo clean && rm -rf target'), []);
+  assert.deepEqual(classifySegments('cargo build\n# note\ncargo test'), [seg('cargo build', '\n# note\n', 'noisy'), seg('cargo test', '', 'noisy')]);
+  assert.deepEqual(classifySegments('# build first\ncargo build'), [seg('# build first\ncargo build', '', 'noisy')], 'a leading comment rides on the segment after it, and the kind is that segment\'s');
+  assert.deepEqual(classifySegments('cargo build # && cargo test'), [seg('cargo build # && cargo test', '', 'noisy')], 'the && is inside the comment: one segment');
+  assert.deepEqual(classifySegments('echo "#not a comment" && cargo build').map((s) => s.kind), ['read', 'noisy']);
+  assert.deepEqual(classifySegments('echo a#b && cargo build').map((s) => s.kind), ['read', 'noisy']);
+  // The rejoin is the identity for a command that names one; a comment-only command names none and
+  // yields no segments, exactly like a blank one (asserted above).
+  for (const c of ['echo "a" ; # comment && node x.js', 'cargo build\n# note\ncargo test', '# lead\ncargo build', 'cargo build # && cargo test\n']) {
+    assert.equal(classifySegments(c).map((s) => s.text + s.sep).join(''), c, `rejoin identity: ${JSON.stringify(c)}`);
+  }
 });

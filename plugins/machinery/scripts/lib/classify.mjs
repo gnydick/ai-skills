@@ -32,16 +32,28 @@ const READ = new RegExp(LEAD + String.raw`(?:` +
 // with NO command after them; a substitution in the value — `X=$(git rev-parse HEAD)`, backticks,
 // `${…}` — is folded to one token first, innermost first, so its spaces do not read as a command.
 // An assignment that PREFIXES a command (`X=1 cargo build`) is that command, exactly as LEAD says.
-const STATE = new RegExp(String.raw`^\s*(?:` +
-  String.raw`(?:export|source|\.|set|unset|alias|unalias|eval|exec|trap|shopt|ulimit|umask|pushd|popd|readonly|declare|typeset|local)(?=\s|$)` +
-  String.raw`|(?:\w+=\S*\s*)+$` +
-  String.raw`)`);
+//
+// Fix round 2 (controller's amendment after re-review, 2026-09-05), B: leaving the segment verbatim
+// is necessary, not sufficient. Only exported env, the cwd, umask and ulimit cross into the
+// runner's fresh `bash -lc`; the reviewer measured `PROBE3=assigned; node -e … "$PROBE3"` printing
+// `bare=` where main printed `bare=assigned`, and `shopt -s nullglob; node … *.nomatch` giving
+// `argc=1` where main gave `argc=0`. So the list is split by whether the effect crosses a process
+// boundary. CROSSING stays per-segment, verbatim. LOCAL — and a bare assignment, whose variable
+// lives in this shell only — makes the compound NOT simple (isSimpleCommand below, the one decision
+// point), so the whole compound takes the whole-command path and runs in one shell, as before #13.
+// To classify() on its own, every one of them is still 'read'.
+const CROSSING = String.raw`export|cd|pushd|popd|umask|ulimit`;
+const LOCAL = String.raw`source|\.|set|unset|shopt|alias|unalias|declare|typeset|readonly|local|eval|exec|trap`;
+const STATE_CROSSING = new RegExp(String.raw`^\s*(?:${CROSSING})(?=\s|$)`);
+const STATE_LOCAL = new RegExp(String.raw`^\s*(?:(?:${LOCAL})(?=\s|$)|(?:\w+=\S*\s*)+$)`);
 const SUBSTITUTION = /\$\([^()]*\)|\$\{[^{}]*\}|`[^`]*`/g;
-const isState = (segment) => {
-  let mask = maskOutside(segment), folded;
-  while ((folded = mask.replace(SUBSTITUTION, '_')) !== mask) mask = folded;
-  return STATE.test(mask);
+const folded = (segment) => {
+  let mask = maskOutside(segment), next;
+  while ((next = mask.replace(SUBSTITUTION, '_')) !== mask) mask = next;
+  return mask;
 };
+const isLocalState = (segment) => STATE_LOCAL.test(folded(segment));
+const isState = (segment) => STATE_CROSSING.test(folded(segment)) || isLocalState(segment);
 // A whole command is a byte-mover only if every segment of it is. This is classify()'s answer for
 // the command as ONE unit: the hook asks it for PowerShell and for a compound it cannot take apart
 // (isSimpleCompound below), and asks classifySegments() for each segment of a bash compound it can
@@ -134,23 +146,27 @@ export function classify(command, { catalog } = {}) {
 // Each entry carries the separator that FOLLOWS its text, as matched, so the hook can rebuild the
 // command around the segments it wraps with `text + sep` and get every byte back; the shell then
 // runs its own `&&`/`||`/`;` over the runners. A whitespace-only segment names no command
-// (re-review R1) and is never classified; it rides on a neighbour's separator so the rejoin stays
-// the identity — the entry before it, or, for a leading blank, the text of the one after it. The
-// catalog is resolved at most once for the whole compound and only when a segment reaches the
-// catalog step (re-review R4, held per compound rather than per segment). Whether a backgrounded
-// segment (`sep` a lone `&`) may be wrapped is the hook's question, answered there, not here.
+// (re-review R1), and so does a comment-only one — a `#` comment is a span in quotes.mjs (#13 fix
+// round 2), so the separators inside it never split, and what is left is a segment whose text
+// starts with `#`; neither is ever classified, wrapped or observed. Each rides on a neighbour's
+// separator so the rejoin stays the identity — the entry before it, or, for a leading one, the
+// text of the entry after it, whose kind is then the kind of that entry's own command (bash
+// ignores the comment or blank in front of it, and so does the classifier). The catalog is
+// resolved at most once for the whole compound and only when a segment reaches the catalog step
+// (re-review R4, held per compound rather than per segment). Whether a backgrounded segment
+// (`sep` a lone `&`) may be wrapped is the hook's question, answered there, not here.
+const NAMES_NOTHING = /^\s*(?:#|$)/;
 export function classifySegments(command, { catalog } = {}) {
   let loaded = false, table;
   const once = () => { if (!loaded) { loaded = true; table = typeof catalog === 'function' ? catalog() : catalog; } return table; };
   const out = [];
   let lead = '';
   for (const { text, sep } of segmentsOutside(command, SEGMENT)) {
-    if (text.trim() === '') {
+    if (NAMES_NOTHING.test(text)) {
       if (out.length) out[out.length - 1].sep += text + sep; else lead += text + sep;
       continue;
     }
-    const whole = lead + text;
-    out.push({ text: whole, sep, kind: classify(whole, { catalog: once }) });
+    out.push({ text: lead + text, sep, kind: classify(text, { catalog: once }) });
     lead = '';
   }
   return out;
@@ -166,15 +182,18 @@ export function classifySegments(command, { catalog } = {}) {
 // its lead, and no trailing continuation backslash. The lead list is bash's reserved words plus
 // the openers and closers whose other half would be in another segment (`{` `}` `[[` `]]` `((`
 // `))`): a `[[ … ]]` that is balanced within a segment is still a compound command in bash's
-// grammar, and it takes the whole-command path with the rest. What the hook does with a compound
-// that fails this test is its own decision (quiet.mjs): it wraps the whole command once, as it did
-// before #13, so learning still happens on the compound as a unit.
+// grammar, and it takes the whole-command path with the rest. Fix round 2 (B): a segment leading
+// with a state word whose effect does not cross a process boundary, or a bare assignment, is not
+// simple either (STATE_LOCAL above) — its effect has to reach the segments after it, and only one
+// shell can carry it. What the hook does with a compound that fails this test is its own decision
+// (quiet.mjs): it wraps the whole command once, as it did before #13, so learning still happens on
+// the compound as a unit.
 const RESERVED_LEAD = /^\s*(?:if|then|elif|else|fi|for|while|until|do|done|case|esac|in|function|select|time|coproc|!|\{|\}|\[\[|\]\]|\(\(|\)\))(?=\s|$)/;
 const HEREDOC = /(?<!<)<<(?!<)/;
 const count = (mask, re) => (mask.match(re) ?? []).length;
 export function isSimpleCommand(text) {
   const mask = maskOutside(text);
-  if (RESERVED_LEAD.test(mask) || HEREDOC.test(mask) || mask.endsWith('\\')) return false;
+  if (RESERVED_LEAD.test(mask) || HEREDOC.test(mask) || mask.endsWith('\\') || isLocalState(text)) return false;
   if (count(mask, /\(/g) !== count(mask, /\)/g) || count(mask, /\{/g) !== count(mask, /\}/g)) return false;
   if (count(mask, /\[\[/g) !== count(mask, /\]\]/g)) return false;
   return count(mask, /`/g) % 2 === 0;
