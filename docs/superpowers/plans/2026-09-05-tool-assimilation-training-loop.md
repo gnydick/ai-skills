@@ -1540,7 +1540,9 @@ git commit -m "machinery: quiet-run.mjs notes each training-eligible run, re-ope
   - `node scripts/train-tool.mjs logs [--key <key>]` — one line `<file>\t<key>` per stored run log, newest first, then a proof line `train_tool_logs: <n> of <total> run logs …`.
   - The key is derived exactly as the runner derives it: `matchTool(command, catalog) ?? bespokeKey(command)` over the log's own `$ command` header. There is no `--key` on `identify`, so the session cannot file a pick under the wrong tool.
 
-**Test cost:** 12 CLI spawns (node only, no bash, no tool run — the logs are synthetic, written with `formatRunLog`), two `git init`s, in a new file.
+**Test cost:** CLI spawns only (node, over synthetic logs written with `formatRunLog`), one `git init` per case, in a new file.
+
+*Corrected after the final whole-branch review (ledger #12): this line read "12 CLI spawns … two `git init`s" and was wrong on the second count as landed — the file has four `repo()` calls, not two. The C1 fix then added a fifth case, `the loop closes backward`, which is the one exception to "no bash, no tool run": it drives the real runner once, because only the runner can produce drift. As it stands the file costs 21 node spawns, one of which wraps a real bash run, and five `git init`s, and runs in ~1.1 s well inside the pre-commit budget whose pole is `gate.test.mjs`.*
 
 - [ ] **Step 1: Write the failing tests**
 

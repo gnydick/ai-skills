@@ -330,7 +330,13 @@ test('RED CHECK — V9 at the compiler: regex metacharacters in a prefix are cha
   const p = outcomeMatcher({ outcome: { type: 'prefix', value: '[main (root-commit)' } });
   assert.equal(p.test('[main (root-commit) a1b2c3d] x'), true);
   assert.equal(p.test('main root-commit a1b2c3d'), false);
-  assert.throws(() => outcomeMatcher({ outcome: '[main (root-commit)' }), 'the same text as a regex is unusable, which is exactly why a machine never writes one');
+  // A RegExp, not a bare string: assert.throws() reads a string second argument as the assertion's
+  // own MESSAGE, so the seeded text would have proved only that something threw (final review M3).
+  // `[main (root-commit)` opens a character class it never closes, so what comes back is the engine
+  // refusing to compile it — which is the point: the same text a prefix takes literally is not a
+  // usable regex at all, and that is why a machine never writes one.
+  assert.throws(() => outcomeMatcher({ outcome: '[main (root-commit)' }), /Invalid regular expression/,
+    'the same text as a regex is unusable, which is exactly why a machine never writes one');
 });
 
 test('outcomeMatcher throws, naming the outcome, on every other shape', () => {

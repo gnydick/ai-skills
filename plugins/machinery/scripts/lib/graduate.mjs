@@ -6,6 +6,17 @@
 // would reject (rules/design-invariants.md § Never re-derive a fact). The entry's own loadability is
 // read from catalog.mjs's entryProblem() the same way — a machine-derived outcome that is not a
 // prefix or literal is refused here, at the writer, not only dropped later at the reader.
+//
+// One property worth knowing rather than assuming, because a reader would otherwise expect the CLI
+// to exercise it: the survivalProblems() refusal below is UNREACHABLE from train-tool.mjs's own
+// honest call sequence. That CLI hands identify() and graduate() the same `lines` and the same
+// `index`, and agreement requires the pre-pick prefix to select exactly the identified line, so the
+// post-pick matcher is always an extension of the prefix that agreed — even across PICK_WINDOW
+// truncation, since dropping a pick can only lengthen a common prefix — and can never newly match a
+// line the shadow check did not already rule on. So the survival gate guards hand-corrupted state:
+// a training/matcher pair assembled by a caller that disagrees with itself, which is what
+// test/lib-graduate.test.mjs's V11 case builds deliberately. It is defence in depth, not a path the
+// loop can produce. (Recorded here rather than only in the effort's ledger, which does not survive.)
 import fs from 'node:fs';
 import path from 'node:path';
 import { isLearned, entryProblem } from './catalog.mjs';

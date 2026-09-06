@@ -38,8 +38,18 @@ test('a text ending on a newline leaves no phantom empty line; end() returns the
 });
 
 // The carry rule's own spelling: split on '\n' with the remainder popped off within a few
-// characters. Scoped to scripts/lib so a one-off `text.split('\n')` over a whole blob (a
-// different fact: lines of a finished string) is not mistaken for a second stream splitter.
+// characters, anywhere under scripts/lib.
+//
+// The check is purely SYNTACTIC and excludes nothing — final review M4, which corrected a comment
+// here claiming it exempted a one-off split of a finished blob. It does not: it matches that shape
+// too, because no pattern over source text can see the thing that actually separates the two,
+// namely whether the popped remainder is carried on state into the next chunk. Narrowing it to look
+// for the carry would be a guess that goes stale silently, which is the exact failure the RED CHECK
+// below exists to catch. So the rule this really enforces is the stronger, checkable one: inside
+// scripts/lib, only lines.mjs writes that shape AT ALL. A file with a genuine one-off blob split
+// writes it another way — lib/runlog.mjs drops the trailing empty entry with `.slice(0, -1)` and
+// says at the site why it is not the carry rule — and that cost is the price of a check that cannot
+// quietly stop meaning what it says.
 const CARRY_RULE = /split\('\\n'\)[\s\S]{0,80}\.pop\(\)/;
 const libFiles = () => fs.readdirSync(path.join(PLUGIN, 'scripts', 'lib')).filter((f) => f.endsWith('.mjs'));
 

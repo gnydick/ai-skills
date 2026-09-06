@@ -65,9 +65,12 @@ function identifyCmd() {
   if (!r.graduates) { saveObservations(root, withTraining(observations, key, r.training)); return; }
   const g = graduate(root, { key, catalog, observations, training: r.training, matcher: r.matcher, lines, index, log: file, at });
   if (!g.ok) {
-    // The pick still counts; the gate is what said no, and it says why.
+    // The pick still counts; the gate is what said no, and it says why. The header is NEUTRAL:
+    // graduate() also refuses for reasons the fixture has nothing to do with — a collision at the
+    // sanitized id, a project catalog that is not readable JSON — and a header naming the fixture
+    // sent the session looking in the wrong place for all of them (final review M1).
     saveObservations(root, withTraining(observations, key, r.training));
-    return die(`graduation refused — the fixture does not prove the matcher:\n  ${g.problems.join('\n  ')}`);
+    return die(`graduation refused:\n  ${g.problems.join('\n  ')}`);
   }
   saveObservations(root, g.observations);
   say(`graduated: '${g.id}' now keeps lines starting with \`${r.matcher.value}\` when '${key}' is filtered`);

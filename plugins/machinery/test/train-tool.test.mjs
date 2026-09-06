@@ -188,7 +188,9 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
   const r = train(root, 'identify', '--log', log, '--line', '4');
   assert.notEqual(r.code, 0);
   assert.match(r.stdout, /shadow: agreed — 2 of 2 consecutive agreements/, 'identify() itself agreed and would have graduated');
-  assert.match(r.stderr, /graduation refused — the fixture does not prove the matcher:/);
+  // The header is neutral (M1): this refusal is a collision, and the fixture is not in question.
+  assert.match(r.stderr, /graduation refused:\n/);
+  assert.doesNotMatch(r.stderr, /the fixture does not prove/, 'the header does not name the fixture on a refusal that is not about it');
   assert.match(r.stderr, /hand-written catalog entry/);
   // Half 1: the pick still counted. The training record moved forward exactly as identify()
   // computed it — four picks now on file, the streak at 2 — under the ORIGINAL key: graduation
@@ -201,8 +203,9 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
     'test result: ok. 3 passed; 0 failed', 'test result: ok. 4 passed; 0 failed',
     'test result: ok. 5 passed; 0 failed', 'test result: ok. 60 passed; 0 failed',
   ]);
-  // Half 2: nothing crossed into the catalog or the fixture. The hand-written entry is exactly the
-  // bytes it was seeded with, and no fixture file exists for the id that was refused.
+  // Half 2: nothing crossed into the catalog or the fixture. The hand-written entry is the same
+  // VALUE it was seeded with — read() is JSON.parse plus deepEqual, so this is a value comparison
+  // and says nothing about formatting — and no fixture file exists for the id that was refused.
   assert.deepEqual(read(machinery(root, 'tool-catalog.json')), handWritten);
   assert.ok(!fs.existsSync(machinery(root, 'fixtures', `${ID}.json`)), 'RED CHECK: a refused graduation writes no fixture');
 });
