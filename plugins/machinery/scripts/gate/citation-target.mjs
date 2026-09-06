@@ -12,13 +12,26 @@ const stemHasLetter = (p) => /[A-Za-z]/.test(p.split(/[\\/]/).at(-1).replace(/\.
 // diff was held as one string and died at 1 MiB; the owner ruled "operate on a stream"). Held
 // at any moment: the hunk being assembled — a `§ Heading` that wraps across two added lines
 // must be joined before it's matched (final review A4), so a hunk is the unit, never a line.
+//
+// An added line's CONTENT is the diff line with its framing removed: the diff's own `+` marker
+// off the front, and — in a CRLF-authored file, whose `\r` git prints verbatim — the file's line
+// terminator off the end (#23, measured 2026-09-05: joined with the `\r` kept, `… § Merging and\r
+// tearing down\r` captured the heading as `Merging and`). This is the one site that derives the
+// content, so the one spelling of both removals is here, and every consumer of `h.lines` reads the
+// fact rather than re-deriving it (rules/design-invariants.md § Never re-derive a fact). Not in
+// lib/lines.mjs: the shared splitter is byte-faithful on purpose, because the quiet runner reads a
+// bare `\r` as a progress-bar frame boundary (lib/filter.mjs normalise). Not in lib/git.mjs
+// gitLines: it yields git's bytes as lines, and a trailing `\r` is known to be a line terminator
+// only once the line is known to be FILE content — which this parser is the first to know.
+const content = (diffLine) => diffLine.slice(1).replace(/\r$/, '');
+
 export async function* addedHunks(lines) {
   let file = null; let cur = null;
   const keep = (h) => h && h.file && !SELF_EXCLUDE.some((re) => re.test(h.file));
   for await (const line of lines) {
     if (line.startsWith('+++ b/')) { if (keep(cur)) yield cur; file = line.slice(6); cur = null; }
     else if (line.startsWith('@@')) { if (keep(cur)) yield cur; cur = { file, lines: [] }; }
-    else if (line.startsWith('+') && !line.startsWith('+++') && cur) cur.lines.push(line.slice(1));
+    else if (line.startsWith('+') && !line.startsWith('+++') && cur) cur.lines.push(content(line));
   }
   if (keep(cur)) yield cur;
 }
@@ -47,7 +60,9 @@ export async function collectCitations(lines) {
 // Resolve a cited path against --root first (`:./<path>`, cwd = root — matches how the plugin's
 // own docs cite plugin-relative paths like `rules/x.md`), falling back to the repo top level
 // (final review A3). Untrimmed (final review A2): leading/trailing blank lines are real content
-// that a `path:N` citation counts against.
+// that a `path:N` citation counts against. The blob is split on '\n' alone, so a CRLF blob's `\r`
+// stays on each line and falls to the per-line trim() at the two comparisons below — line numbers
+// are not shifted and a `\r`-only line is still blank (#23 pins both through real git).
 function showAt(root, ref, file) {
   const nested = gitRaw(['show', `${ref}:./${file}`], root);
   if (nested.code === 0) return nested;
