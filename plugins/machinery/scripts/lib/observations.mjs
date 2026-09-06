@@ -58,7 +58,10 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
     ? { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines }
     // A bare run IS the tool's natural noise level.
     : { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines };
-  const entry = { ...defined({ identity, ...measured }), ledger: { ...prev.ledger } };
+  // The training loop's sub-record (lib/training.mjs) rides on the same entry and is nobody's
+  // business here: carried forward exactly as it was when present, absent when it was absent. A
+  // record rebuilt without it would silently reset a tool's training on every run.
+  const entry = { ...defined({ identity, ...measured }), ledger: { ...prev.ledger }, ...(prev.training === undefined ? {} : { training: prev.training }) };
   // Sufficient means BOTH quiet enough AND the tool still said something. A flag that drops the
   // line count by deleting the tool's own answer is not a fix, it's a worse failure mode — measured
   // on `git commit --quiet` and `npm install --silent`, which print nothing at all. outcomeSurvived
@@ -66,4 +69,20 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
   // alone; the bare branch above never reads it.
   if (candidate) entry.ledger[candidate] = (lineCount <= PASS_THROUGH_LINES && outcomeSurvived) ? 'sufficient' : 'insufficient';
   return { ...obs, [key]: entry };
+}
+
+const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// The training loop's own sub-record, written by the runner (noteRun / reopen) and by train-tool.mjs
+// (identify). Set on a record that exists, or on the minimal record when none does — a pick can land
+// before the runner has ever measured the tool here (batch identification over a stored log), and
+// that record must not invent a `noisy`: absence stays the signal decide() reads as unseen.
+export const withTraining = (obs, key, training) => ({ ...obs, [key]: { ...(isObject(obs[key]) ? obs[key] : { ledger: {} }), training } });
+
+// Renames a record: graduation gives a bespoke tool a catalog id, and the measurement made under the
+// bespoke key follows it rather than being taken again. Nothing to move returns obs itself.
+export function moveRecord(obs, from, to) {
+  if (!(from in obs)) return obs;
+  const { [from]: rec, ...rest } = obs;
+  return { ...rest, [to]: rec };
 }

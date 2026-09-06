@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { bespokeKey, recordRun, loadObservations, saveObservations } from '../scripts/lib/observations.mjs';
+import { bespokeKey, recordRun, loadObservations, saveObservations, withTraining, moveRecord } from '../scripts/lib/observations.mjs';
 
 test('bespokeKey strips flags and arguments, keeping the leading command shape', () => {
   assert.equal(bespokeKey('bash scripts/battery.sh --quick'), 'bash scripts/battery.sh');
@@ -153,4 +153,32 @@ test('a missing or unreadable record loads as empty, never as a crash (external 
     fs.writeFileSync(file, '{ this is not json');
     assert.deepEqual(loadObservations(root), {});
   } finally { fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
+// ---- The training loop: the record carries the loop's own sub-record ----
+
+test('recordRun carries a training sub-record forward unchanged, on a bare run and on a trial', () => {
+  const training = { picks: [{ text: 'done', log: 'l', at: 'a' }], streak: 1, history: [] };
+  let obs = withTraining({}, 'bash scripts/battery.sh', training);
+  obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'bespoke', lineCount: 200, stdoutLines: 200, stderrLines: 0 });
+  assert.deepEqual(obs['bash scripts/battery.sh'].training, training);
+  assert.equal(obs['bash scripts/battery.sh'].noisy, true);
+  obs = recordRun(obs, 'bash scripts/battery.sh', { identity: 'catalog', lineCount: 3, candidate: '-q' });
+  assert.deepEqual(obs['bash scripts/battery.sh'].training, training);
+});
+
+test('RED CHECK: a record with no training has no training field after recordRun — nothing is invented', () => {
+  const obs = recordRun({}, 'x', { identity: 'bespoke', lineCount: 3 });
+  assert.ok(!('training' in obs.x));
+});
+
+test('withTraining writes on a record that exists and creates the minimal one that does not; moveRecord renames a key', () => {
+  let obs = recordRun({}, 'a', { identity: 'bespoke', lineCount: 90, stdoutLines: 90, stderrLines: 0 });
+  obs = withTraining(obs, 'a', { picks: [], streak: 0, history: [] });
+  assert.equal(obs.a.noisy, true); assert.deepEqual(obs.a.training, { picks: [], streak: 0, history: [] });
+  obs = withTraining(obs, 'fresh', { picks: [], streak: 0, history: [] });
+  assert.deepEqual(obs.fresh, { ledger: {}, training: { picks: [], streak: 0, history: [] } }, 'no noisy invented: absence stays the signal');
+  const moved = moveRecord(obs, 'a', 'a-slug');
+  assert.ok(!('a' in moved)); assert.equal(moved['a-slug'].noisy, true); assert.ok('fresh' in moved);
+  assert.equal(moveRecord(obs, 'absent', 'x'), obs, 'nothing to move: the same object back');
 });
