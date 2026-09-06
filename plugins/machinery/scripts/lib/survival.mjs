@@ -13,6 +13,7 @@
 // fixture: the project half of this data is hand-editable, so a bad shape is a diagnostic
 // (rules/design-invariants.md § External input).
 import { select, TAIL_LINES } from './filter.mjs';
+import { outcomeMatcher } from './catalog.mjs';
 
 // Lines are quoted into diagnostics with backticks, not JSON.stringify: spec I19 bans
 // JSON.stringify anywhere under scripts/ but lib/emit.mjs and the declared file-writers, and this
@@ -49,9 +50,11 @@ export function survivalProblems(id, entry, fixture) {
   const { lines, answers } = fixture;
   if (!Array.isArray(lines) || lines.length === 0 || lines.some((l) => typeof l !== 'string')) { bad('the fixture has no `lines` array of recorded output'); return problems; }
   if (!Array.isArray(answers) || answers.length === 0) { bad('fixture declares no answer lines — it proves nothing'); return problems; }
-  if (typeof entry.outcome !== 'string' || entry.outcome === '') { bad('the catalog entry declares no `outcome` pattern'); return problems; }
+  // One compiler for the outcome (catalog.mjs), so the prefix form a graduation writes is judged by
+  // exactly the object select() will be handed, not by a second reading of the same field.
   let outcome;
-  try { outcome = new RegExp(entry.outcome); } catch (e) { bad(`the \`outcome\` pattern is not a valid regular expression: ${e.message}`); return problems; }
+  try { outcome = outcomeMatcher(entry); } catch (e) { bad(`the \`outcome\` pattern is unusable: ${e.message}`); return problems; }
+  if (outcome === undefined) { bad('the catalog entry declares no `outcome` pattern'); return problems; }
 
   const buried = bury(lines);
   const keptPlain = select(lines, outcome), keptBuried = select(buried, outcome);

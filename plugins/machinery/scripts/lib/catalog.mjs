@@ -25,13 +25,22 @@ function readTable(file) {
 // in that project silently lost assimilation. `outcome` is deliberately not checked here: the
 // runner compiles it at its own site and warns there, because a bad answer pattern still leaves a
 // matchable tool, whereas a bad `match` leaves nothing.
-function entryProblem(entry) {
+export function entryProblem(entry) {
   if (!isObject(entry)) return 'the entry is not a JSON object';
   const m = entry.match;
   if (!isObject(m)) return '"match" is missing or not an object';
   if (m.type !== 'prefix' && m.type !== 'regex') return `"match.type" is '${String(m.type)}', expected "prefix" or "regex"`;
   if (typeof m.value !== 'string' || m.value === '') return '"match.value" is missing or not a non-empty string';
   if (m.type === 'regex') { try { new RegExp(m.value); } catch (e) { return `"match.value" is not a valid regex: ${e.message}`; } }
+  // Design verification 9: a machine-derived pattern is prefix or literal, never regex. The writer
+  // (lib/graduate.mjs) can only produce the object form; this is the check over the record for
+  // anything that arrived another way — a hand edit, an older file. A learned entry carrying a
+  // regex string is dropped and named, and the tool falls back to the generic contract.
+  if (isObject(entry.learned)) {
+    const o = entry.outcome;
+    if (!isObject(o) || (o.type !== 'prefix' && o.type !== 'literal') || typeof o.value !== 'string' || o.value === '')
+      return 'a "learned" entry must carry an outcome of the form { type: prefix | literal, value }: a machine-derived pattern is never a regex (design verification 9)';
+  }
   return null;
 }
 
@@ -112,3 +121,30 @@ export function matchedCandidate(command, candidates) {
   const argv = new Set(tokens(command));
   return candidates.find((c) => c.split(/\s+/).every((flag) => argv.has(flag))) ?? null;
 }
+
+// The one compiler of an entry's `outcome` into the thing select() tests lines with. Two forms, one
+// per half of the design ("Match techniques, and which are allowed where"): a STRING is a regex — the
+// human-reviewed universal form, a person has read it and a fixture exercises it — and an OBJECT
+// { type: prefix | literal, value } is the machine-derived form, which can neither over-match
+// silently nor backtrack. A prefix or literal is never compiled to a regex: it is tested by
+// startsWith or equality, so there is no escaping step to get wrong. Returns undefined when the entry
+// declares no outcome; throws, with a reason, on any other shape — the caller decides what a
+// malformed outcome costs (the runner warns and falls back to the generic filter).
+export function outcomeMatcher(entry) {
+  const o = entry?.outcome;
+  if (o === undefined) return undefined;
+  if (typeof o === 'string') {
+    if (o === '') throw new Error('the outcome pattern is empty');
+    return new RegExp(o);
+  }
+  if (isObject(o) && typeof o.value === 'string' && o.value !== '') {
+    if (o.type === 'prefix') return { type: 'prefix', value: o.value, test: (line) => line.startsWith(o.value) };
+    if (o.type === 'literal') return { type: 'literal', value: o.value, test: (line) => line === o.value };
+  }
+  throw new Error('the outcome is neither a regex string nor an object of the form { type: prefix | literal, value }');
+}
+
+// A learned entry is one the training loop wrote (lib/graduate.mjs), marked by its `learned` field.
+// The mark is what drift acts on and what a later graduation may overwrite; an entry without it was
+// written by a person and is never trained over.
+export const isLearned = (entry) => isObject(entry) && isObject(entry.learned);

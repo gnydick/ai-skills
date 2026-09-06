@@ -10,7 +10,7 @@ import { select, selectInfra, render, PASS_THROUGH_LINES, MAX_SHOWN } from './li
 import { logDir, formatRunLog, linesOf } from './lib/runlog.mjs';
 import { captureRun } from './lib/capture.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { loadCatalog, matchTool, matchedCandidate } from './lib/catalog.mjs';
+import { loadCatalog, matchTool, matchedCandidate, outcomeMatcher } from './lib/catalog.mjs';
 import { loadObservations, saveObservations, recordRun, bespokeKey } from './lib/observations.mjs';
 import { decide, candidatesOf } from './lib/assimilate.mjs';
 
@@ -97,12 +97,12 @@ async function main() {
   catch { /* not inside a repository: nowhere to keep a record, and nothing to look one up in */ }
   try {
     toolId = matchTool(command, catalog);
-    // A missing `outcome` stays undefined rather than becoming `new RegExp(undefined)`, which is
-    // /undefined/ and keeps any line with that word in it. `outcome` is a plain pattern string
-    // carrying no flag information, so this RegExp is non-global by construction — which is what
-    // keeps select() clear of the lastIndex statefulness a /g or /y pattern brings (Task 3's
-    // review). A catalog format that ever allowed flags would have to re-open that.
-    if (toolId && catalog[toolId].outcome) outcomePattern = new RegExp(catalog[toolId].outcome);
+    // outcomeMatcher() is the one compiler: a regex for a hand-written entry, a startsWith test for a
+    // learned one, undefined for none. It is non-global by construction either way — a catalog
+    // `outcome` carries no flag information — which is what keeps select() clear of the lastIndex
+    // statefulness a /g or /y pattern brings (Task 3 of the core plan). A malformed outcome throws
+    // here and is caught below like the other two catalog reads.
+    if (toolId) outcomePattern = outcomeMatcher(catalog[toolId]);
     // Two different questions, deliberately not one variable. `candidate` is the flag THIS run is
     // a trial of — already present in the command — which is the only thing the ledger can record
     // a verdict about. The flag to RECOMMEND is by definition not in the command, so
