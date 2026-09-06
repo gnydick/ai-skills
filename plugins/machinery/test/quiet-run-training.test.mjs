@@ -83,17 +83,51 @@ test('V12 through the runner: a learned matcher that matches nothing re-opens tr
   assert.match(r.stdout, /\[quiet:train\] node: learned answer line re-opened for training \(matched-nothing\) — read the log, then: node "[^"]+" identify --log "[^"]+" --line <N>\n$/);
 });
 
-// Beyond the brief's literal test list: the top-level task requires a case proving the training
-// path is guarded — a malformed training record must never cost the wrapped command its own
-// output or its own exit code (rules/design-invariants.md, and this file's own header: recording
-// is best-effort). `training` here is a bare string, not an object: recordRun() only drops a
-// PRIOR training field on `undefined`, so a hand-edited non-object string survives into
-// trainingOf(), which is the one place required to sanitise it rather than throw.
-test('the training path never costs the wrapped command its output or exit code, however malformed the training record', { skip: !bash }, () => {
-  const root = repo('quiet-train-guard-');
+// Beyond the brief's literal test list: a regression pin on Task 4's sanitizer (lib/training.mjs
+// trainingOf(), lines 35-44) — a hand-edited non-object `training` field reads as the empty shape
+// rather than throwing. `training` here is a bare string, not an object: recordRun() only drops a
+// PRIOR training field on `undefined`, so this garbage string survives into trainingOf(), which is
+// the one place required to sanitise it. Fix round 1 note: this test alone is NOT evidence the
+// try/catch guard around the recording block (quiet-run.mjs:169-214) does anything — trainingOf()
+// never throws on this input, guard present or not, so the assertions below pass identically
+// either way. It stays because the sanitizer behaviour is worth pinning; the guard itself is
+// proven by the next test, which forces a real throw.
+test('a malformed training record is sanitised rather than recorded raw (regression pin on trainingOf, not a guard test)', { skip: !bash }, () => {
+  const root = repo('quiet-train-sanitize-');
   seed(root, 'observations.json', { node: { identity: 'bespoke', ledger: {}, training: 'not-an-object' } });
   const cmd = `node -e "console.log('real output'); process.exit(7)"`;
   const r = run(root, 'filter', cmd);
   assert.equal(r.code, 7, "the wrapped command's own exit code survives a garbage training record");
   assert.equal(r.stdout, 'real output\n', "the wrapped command's own output survives a garbage training record");
+  const t = obsOf(root).node.training;
+  assert.deepEqual(t.picks, []); assert.equal(t.streak, 0);
+  assert.deepEqual(t.history, [{ lines: 1, stdoutLines: 1, stderrLines: 0, code: 7 }], 'the string was sanitised to the empty shape, then this run was noted onto it');
+  assert.equal(typeof t.lastLog, 'string');
+});
+
+// Fix round 1 — the falsifiable guard test. The property that actually depends on the try/catch
+// at quiet-run.mjs:169-214 is the wrapped command's own EXIT CODE, not its stdout:
+// process.stdout.write(out) (quiet-run.mjs:166) already ran, synchronously, before this try/catch
+// even opens, so no throw inside it can touch what was already written — an stdout assertion here
+// can never distinguish a present guard from a missing one. What an uncaught throw inside the
+// block DOES change is main()'s own return: `return code` (line 217) never executes, main()'s
+// promise rejects, and the outer .catch() (line 220) overwrites process.exitCode with 1 — turning
+// this test's real exit code, 7, into 1. A sanitiser-safe value can never force that throw:
+// everything reaching saveObservations() was loaded through JSON.parse (loadObservations, or this
+// seed() helper's own JSON.stringify), and nothing JSON.parse can produce is unsafe for
+// JSON.stringify to write back out — so a BigInt or a circular reference, the reviewer's
+// suggestion, cannot be seeded through the observations.json file this record actually loads from.
+// A directory sitting where observations.json is expected throws for real (EISDIR) at
+// saveObservations()'s own fs.writeFileSync, inside the guarded region, for a wholly realistic
+// reason (a path collision, not a fabricated in-memory value) — proven RED against a deliberately
+// broken build in the accompanying report (task-7-report.md, "Fix round 1").
+test('a write that genuinely throws inside the recording block still leaves the wrapped command its own exit code (falsifiable guard proof)', { skip: !bash }, () => {
+  const root = repo('quiet-train-guard-throw-');
+  const obsPath = path.join(root, '.claude', 'machinery', 'observations.json');
+  fs.mkdirSync(obsPath, { recursive: true }); // observations.json IS a directory: the write inside the guard throws for real
+  const cmd = `node -e "console.log('real output'); process.exit(7)"`;
+  const r = run(root, 'filter', cmd);
+  assert.equal(r.code, 7, "the wrapped command's own exit code survives a write that genuinely throws inside the guard");
+  assert.equal(r.stdout, 'real output\n', "the wrapped command's own output is unaffected (already written before the guarded block opened)");
+  assert.ok(fs.statSync(obsPath).isDirectory(), 'the write really did fail: observations.json is still the directory it was, never replaced');
 });
