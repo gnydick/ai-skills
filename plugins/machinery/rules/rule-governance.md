@@ -124,7 +124,8 @@ gate that runs the register check.
   not write one by hand — generate it from version-control history or do
   without it.
 - Where a citation still names a line, that line must point at real content. A
-  citation landing on a blank line is not a weak citation, it is no citation,
-  and it blocks.
+  citation landing on a blank line is not a weak citation, it is no citation.
+  Nothing blocks on it: the check that did was unwired on 2026-09-05 and no
+  gate has validated a citation since, at commit time or at merge time.
 
 <!-- rows: 2.1–2.34; OQ.1 (owner ruling 2026-09-02) -->

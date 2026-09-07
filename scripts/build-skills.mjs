@@ -17,7 +17,7 @@
 //   check    fail if skills/ has drifted from the buckets
 //   install  link ~/.claude/skills/<name> back to its bucket source
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -133,6 +133,22 @@ function validateHooks() {
          + `Fix: git update-index --chmod=+x ${file}`);
     }
   }
+}
+
+// The machinery gate's check list is generated from the checks' own declarations (#73, spec I43),
+// the same regenerate-and-compare mechanism register/INDEX.md already uses. Run here rather than
+// only in the test suite so a hand-edit to the generated array, an undeclared module dropped into
+// scripts/gate/, or a claim left behind by an unwiring (I44) all fail the build. Spawned rather
+// than imported: the leg is async and this file's validation pass is not.
+function validateGateManifest() {
+  const script = path.join(REPO, 'plugins', 'machinery', 'scripts', 'gate-manifest.mjs');
+  if (!fs.existsSync(script)) return; // no machinery plugin in this checkout — nothing to assert
+  const r = spawnSync(process.execPath, [script, '--check', '--root', REPO], { cwd: REPO, encoding: 'utf8' });
+  // Both proof lines are echoed, pass or fail: a pass for a bad reason (an empty gate directory, an
+  // empty claims list) is exactly what a bare exit code hides.
+  process.stdout.write(r.stdout ?? '');
+  if (r.status === 0) return;
+  fail(`the machinery gate manifest is not the generated one, or a claim outlived its check:\n${(r.stdout ?? '').trimEnd()}${r.stderr ? '\n' + r.stderr.trimEnd() : ''}`);
 }
 
 // .gitattributes normalizes line endings on the way in, but only while it is
@@ -562,6 +578,7 @@ if (cmd === 'deny') { deny(process.argv[3]); process.exit(process.exitCode ?? 0)
 
 const manifest = loadManifest();
 validateHooks();
+validateGateManifest();
 validateLineEndings();
 validateMarketplace();
 const skills = collect(manifest);

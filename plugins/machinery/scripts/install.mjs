@@ -9,6 +9,10 @@ import { projectRoot } from './lib/root.mjs';
 import { generateIndex } from './lib/index.mjs';
 import { pluginRoot, rulesSource } from './lib/config.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
+// The generated manifest is the sole source of which check modules exist and which are wired
+// (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
+// copy holds rather than whatever happens to be lying in the gate directory.
+import { CHECK_FILES } from './gate/manifest.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
@@ -84,7 +88,12 @@ function installProject() {
   // The gate files import '../lib/...'; installed alongside gateDir/lib, so rewrite that prefix
   // to './lib/' during copy (spec I6: the installed gate never points at the plugin cache).
   fs.mkdirSync(gateDir, { recursive: true });
-  for (const f of fs.readdirSync(path.join(pluginRoot(), 'scripts', 'gate'))) {
+  // WHAT gets copied is derived from the generated manifest, never a hand-kept list and no longer
+  // "whatever is in the directory" (#73, I43). Before this the installer shipped every module under
+  // scripts/gate/ into every adopting project, including citation-target.mjs — unwired since
+  // 2026-09-05 (#29) and imported by nothing there: a dead payload with a test holding it in place.
+  // An unwired check is now structurally unable to reach a project that will never run it.
+  for (const f of ['gate.mjs', 'manifest.mjs', ...CHECK_FILES]) {
     const src = fs.readFileSync(path.join(pluginRoot(), 'scripts', 'gate', f), 'utf8').replaceAll("'../lib/", "'./lib/");
     fs.writeFileSync(path.join(gateDir, f), src);
   }

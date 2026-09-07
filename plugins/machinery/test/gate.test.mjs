@@ -61,8 +61,9 @@ test('first commit after /machinery:install passes the gate (final review A1)', 
     assert.equal(res.code, 0, res.stderr);
     const g0 = gate(r.root);
     assert.equal(g0.code, 0, g0.stdout + g0.stderr);
-    assert.doesNotMatch(g0.stdout, /register_check: index is stale/);
-    assert.doesNotMatch(g0.stdout, /register_check: index not staged/);
+    assert.doesNotMatch(g0.stdout, /index is stale/);
+    assert.doesNotMatch(g0.stdout, /index not staged/);
+    assert.match(g0.stdout, /register_check: 0 of 1 index comparison\(s\) failed/, 'the passing comparison carries its denominator too (#73)');
     g(r.root, 'commit', '-q', '-m', 'install');
     assert.equal(g(r.root, 'status', '--porcelain').trim(), '');
   } finally { r.cleanup(); }
@@ -88,8 +89,8 @@ test('an index generated but never staged is distinguished from a stale one (fin
     g(r.root, 'add', '.claude/rules/t.md');
     const res = gate(r.root);
     assert.equal(res.code, 1);
-    assert.match(res.stdout, /register_check: index not staged \(generated but not added\) — git add/);
-    assert.doesNotMatch(res.stdout, /register_check: index is stale/);
+    assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed — index not staged \(generated but not added\) — git add/);
+    assert.doesNotMatch(res.stdout, /index is stale/);
   } finally { r.cleanup(); }
 });
 
@@ -117,7 +118,7 @@ test('partial staging: a staged rule edit without its regenerated (unstaged) ind
     write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n- a second rule\n');
     runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
     g(r.root, 'add', '.claude/rules/t.md');
-    let res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /register_check: index is stale/);
+    let res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed — index is stale/);
     g(r.root, 'add', '.claude/machinery/INDEX.md');
     res = gate(r.root); assert.equal(res.code, 0, res.stdout + res.stderr);
   } finally { r.cleanup(); }
@@ -135,7 +136,7 @@ test('register check works when --root is a subdirectory of the repo (staged pat
     runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
     g(r.root, 'add', 'sub/.claude/rules/t.md');
     let res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
-    assert.equal(res.code, 1); assert.match(res.stdout, /register_check: index is stale/);
+    assert.equal(res.code, 1); assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed — index is stale/);
     g(r.root, 'add', 'sub/.claude/machinery/INDEX.md');
     res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
     assert.equal(res.code, 0, res.stdout + res.stderr);

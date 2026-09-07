@@ -28,7 +28,7 @@ test('the installed gate runs standalone from the project (no plugin path baked 
   const r = makeRepo();
   try {
     install(r.root);
-    for (const f of ['gate.mjs', 'register-check.mjs', 'citation-target.mjs', 'sweep-guard.mjs']) assert.ok(!fs.readFileSync(path.join(r.root, '.githooks/machinery', f), 'utf8').includes(PLUGIN.replace(/\\/g, '/')));
+    for (const f of ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'sweep-guard.mjs']) assert.ok(!fs.readFileSync(path.join(r.root, '.githooks/machinery', f), 'utf8').includes(PLUGIN.replace(/\\/g, '/')));
     fs.writeFileSync(path.join(r.root, 'docs.md', ), 'x'); execFileSync('git', ['add', '-A'], { cwd: r.root });
     const g = execFileSync(process.execPath, [path.join(r.root, '.githooks/machinery/gate.mjs')], { cwd: r.root, encoding: 'utf8', env: { ...process.env, CLAUDE_PLUGIN_ROOT: '' } });
     assert.match(g, /register_check: 0 of 0/);
@@ -38,10 +38,14 @@ test('the installed gate runs standalone from the project (no plugin path baked 
 // #19 fix round 1: install.mjs copies a hand-kept list of lib files beside the gate. A lib import
 // added to git.mjs (lines.mjs) and not to that list installs a gate that dies at import — this
 // walks every relative import reachable from the installed gate and names the first that does
-// not resolve, so the list is checked mechanically rather than remembered. Since #29 the walk
-// starts from every file in the installed gate directory, not only gate.mjs: citation-target.mjs
-// still ships there but nothing in gate.mjs imports it, so a walk rooted at the gate alone would
-// stop seeing its imports and a lib it needs could be dropped from the copy list unnoticed.
+// not resolve, so the list is checked mechanically rather than remembered. The walk starts from
+// every file in the installed gate directory rather than gate.mjs alone, so nothing that ships
+// there goes unwalked.
+//
+// #73: WHAT ships is now derived from the generated manifest's CHECK_FILES, so an unwired module
+// cannot reach a project at all. citation-target.mjs was copied into every adopting project from
+// 2026-09-05 to 2026-09-06 with nothing importing it — a dead payload that this very test used to
+// hold in place. The assertion below is that claim reversed, not deleted.
 test('every relative import reachable from any installed gate file resolves inside .githooks/machinery', () => {
   const r = makeRepo();
   try {
@@ -57,8 +61,9 @@ test('every relative import reachable from any installed gate file resolves insi
     };
     const roots = fs.readdirSync(dir).filter((f) => f.endsWith('.mjs'));
     for (const f of roots) walk(path.join(dir, f));
-    assert.ok(roots.includes('citation-target.mjs'), 'the unwired module still ships in the installed copy (#29)');
-    assert.ok(seen.size >= 5, `the walk saw ${seen.size} files — the observer must see the gate's own imports`);
+    assert.ok(!roots.includes('citation-target.mjs'), 'an unwired check must not be installed into a project that will never run it (#73)');
+    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'sweep-guard.mjs'], 'exactly the generated CHECK_FILES, plus the runner and the manifest');
+    assert.ok(seen.size >= 5,`the walk saw ${seen.size} files — the observer must see the gate's own imports`);
     assert.deepEqual(missing, []);
   } finally { r.cleanup(); }
 });
