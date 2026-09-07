@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PASS_THROUGH_LINES } from './filter.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './ignore.mjs';
+import { tokens } from './quotes.mjs';
 
 const recordFile = (root) => path.join(root, ...OBSERVATIONS_IGNORE.split('/'));
 
@@ -31,16 +32,139 @@ export function saveObservations(root, obs) {
   return created && ensureIgnored(root, OBSERVATIONS_IGNORE);
 }
 
-// A bespoke tool's key is its LEADING non-flag tokens — the command with every argument stripped,
-// stopping at the first flag. Everything from that flag onward is argument, including a flag's own
-// value, which carries no dash of its own: `--jobs 4` would otherwise leave `4` in the key and give
-// one tool two records. `cargo test --workspace` and `cargo test -p x` collapse under a single
-// catalog id via matchTool() instead; this handles what has no entry.
-export function bespokeKey(command) {
-  const tokens = command.trim().split(/\s+/);
-  const firstFlag = tokens.findIndex((tok) => tok.startsWith('-'));
-  return (firstFlag === -1 ? tokens : tokens.slice(0, firstFlag)).join(' ');
+// ---- The generalized command form (#87) ----
+//
+// A bespoke tool's key is its command line GENERALIZED: the command, its subcommands and its flag
+// NAMES kept as written, every argument VALUE replaced by a typed placeholder, and the flags
+// alphabetized so the order they were typed in cannot make a second record. The shape is the
+// owner's, 2026-09-07: "command plus alphabetized list of params with values with placeholders like
+// `gh --a_param %d --b_param %f --c_param %s`".
+//
+// Why: a record is keyed by command LINE, not by tool, and that is the design — "command lines are
+// unique, not tools. so there can be as many entries for a command as there are variants" (owner,
+// 2026-09-07). A variant that recurs accumulates and can graduate; one that never recurs was never
+// worth learning. What that does not cover is a tool whose variants are UNBOUNDED — `gh issue edit
+// 59`, `60`, `61` — where every invocation is a fresh key, no history ever forms, and an answer
+// line identical across all of them is re-learned from scratch forever. Measured here on
+// 2026-09-07: 60 entries, 59 seen exactly once, 0 picks, 0 graduations.
+//
+// This is a heuristic and is meant to be one — "this where heuristics are a feature, not a
+// replacement for something exact and deterministic" (owner, same day). Nothing exact is
+// recoverable from a command string. The invariant is not that the key is right; it is that a wrong
+// key cannot silently persist, which the training loop already carries: a matcher that stops
+// matching re-opens training.
+//
+// WHICH WAY TO BE WRONG, because the two failure modes are not symmetric. COLLAPSE — two tools at
+// one key — surfaces as picks that never agree, so the tool never graduates and training stays
+// open: noisy, visible, self-limiting, and the detector already exists. FRAGMENTATION — one tool
+// across many keys — produces SILENCE: a key seen once, no picks, nothing to notice; it hid here
+// for days and was found only by counting. So where a token's role is unsure, this prefers a
+// placeholder to preserving a distinction of doubtful value.
+
+// After a generic runner the first value-shaped token is the tool's IDENTITY, not a parameter (#15
+// requirement 2): `node scripts/bump.mjs` and `node scripts/reindex.mjs` are two tools, and `node
+// %p` would merge every script in a project into one record. The runner's own name carries no
+// identity at all, which is what makes it the exception rather than a special case.
+export const GENERIC_RUNNERS = new Set([
+  'bash', 'sh', 'zsh', 'dash', 'ksh', 'node', 'npx', 'deno', 'bun',
+  'python', 'python2', 'python3', 'ruby', 'perl', 'pwsh', 'powershell',
+]);
+// A compound is a sequence of commands, so an operator ends one and the token after it heads the
+// next: its own runner check, its own subcommand budget, its own alphabetized flags.
+const OPERATOR = /^(?:&&|\|\||[|;&]|>>?|<<?)$/;
+const INT = /^[+-]?\d+$/;
+const FLOAT = /^[+-]?(?:\d+\.\d*|\.\d+|\d+(?:\.\d+)?[eE][+-]?\d+)$/;
+// Path-shaped: a separator either way round, a home or relative lead, a bare drive, or a filename
+// extension. Absolute paths carrying a session-scoped temporary directory are the largest single
+// source of unrepeatable keys in the measured record, and they all land here.
+const PATHISH = /[\\/]|^~|^\.\.?$|^[A-Za-z]:$|\.[A-Za-z0-9]{1,8}$/;
+// A bare word: a subcommand, not a value. `issue` and `edit` in `gh issue edit 59`.
+const WORD = /^[A-Za-z][A-Za-z0-9_-]*$/;
+// How deep a subcommand path is taken to go. `gh issue edit`, `git remote add`, `npm run build` —
+// the convention is a group and a verb. Past that a bare positional is read as a VALUE, which is
+// what collapses `gh label create blocked` and `gh label create deployment-isolation` into one
+// record rather than one each, forever.
+const SUBCOMMAND_DEPTH = 2;
+
+// A value's TYPE only, never its precision or width: `%f0.2` would fragment again on the next
+// value, which is the defect this exists to fix (#87 required behaviour 4).
+// A token that is ALREADY a placeholder stands for itself, so the derivation is idempotent: a key
+// fed back through it — a log filtered by key, a record read and re-keyed — comes out unchanged
+// rather than degrading one type at a time into `%s`.
+const PLACEHOLDER = /^%[dfps]$/;
+const placeholder = (tok) => (PLACEHOLDER.test(tok) ? tok : INT.test(tok) ? '%d' : FLOAT.test(tok) ? '%f' : PATHISH.test(tok) ? '%p' : '%s');
+const isFlag = (tok) => tok.length > 1 && tok.startsWith('-') && !/\s/.test(tok);
+
+// What one token becomes. `positional` is false for a flag's own operand, which is always a value:
+// a flag's name is structure and its operand never is. So `--label bug` cannot spend the subcommand
+// budget that `gh issue edit` needs, and the runner exception is the FIRST POSITIONAL only, exactly
+// as #15 requirement 2 states it — `node -e "…"` carries a one-off script, not an identity, and
+// `python -m pytest` collapsing with `python -m http.server` is collapse, the visible direction.
+function valueOf(seg, tok, positional) {
+  if (positional && seg.runner && !seg.identity) { seg.identity = true; return tok; }
+  if (positional && WORD.test(tok) && seg.depth < SUBCOMMAND_DEPTH) { seg.depth++; return tok; }
+  return placeholder(tok);
 }
+
+// Consecutive identical placeholders are one: how MANY same-typed values were passed is not what
+// tells two tools apart, and `git add a.mjs b.mjs` keying differently from `git add a.mjs` is the
+// fragmentation this whole derivation exists to remove.
+const collapseRuns = (parts) => parts.filter((p, i) => !(p.startsWith('%') && p === parts[i - 1]));
+
+// The alphabetized parameters go after the positionals, and an identical parameter written twice is
+// written once: both are order and count, neither is identity.
+const render = (seg) => [...collapseRuns(seg.parts), ...[...new Set(seg.flags)].sort()].join(' ');
+
+// The derivation, and the one place it happens. Returns BOTH the key and the literal leading run of
+// the command it came from, because they are one walk and a second walk would eventually disagree
+// (rules/design-invariants.md § Never re-derive a fact). The `prefix` is what a graduated catalog
+// entry matches on: the key now holds placeholders, so it is no longer a prefix of any command, and
+// an entry built from it would match nothing forever. It closes at the first token this derivation
+// did NOT keep verbatim — the first placeholder, the first flag, or the first operator — so it is
+// always a literal head of the real command line.
+//
+// A malformed, empty, or half-quoted command is data, never a crash: tokens() runs an unterminated
+// span to the end of the string, and every branch below is total over whatever comes out.
+export function generalize(command) {
+  const toks = tokens(command);
+  const out = [], prefix = [];
+  let seg = null, prefixOpen = true;
+  for (let i = 0; i < toks.length; i++) {
+    const tok = toks[i];
+    if (OPERATOR.test(tok)) {
+      if (seg) out.push(render(seg));
+      out.push(tok); seg = null; prefixOpen = false;
+      continue;
+    }
+    if (!seg) {
+      // The head is the command's own name and is always kept as written.
+      seg = { runner: GENERIC_RUNNERS.has(tok.replace(/^.*[\\/]/, '').replace(/\.exe$/i, '').toLowerCase()), identity: false, depth: 0, parts: [tok], flags: [] };
+      if (prefixOpen) prefix.push(tok);
+      continue;
+    }
+    if (isFlag(tok)) {
+      prefixOpen = false;
+      const eq = tok.indexOf('=');
+      if (eq > 0) { seg.flags.push(`${tok.slice(0, eq)}=${valueOf(seg, tok.slice(eq + 1), false)}`); continue; }
+      // `--` is the end-of-flags marker, not a parameter, so it takes no operand of its own.
+      const next = toks[i + 1];
+      if (tok !== '--' && next !== undefined && !OPERATOR.test(next) && !isFlag(next)) { seg.flags.push(`${tok} ${valueOf(seg, next, false)}`); i++; }
+      else seg.flags.push(tok);
+      continue;
+    }
+    const part = valueOf(seg, tok, true);
+    if (part === tok && prefixOpen) prefix.push(tok); else prefixOpen = false;
+    seg.parts.push(part);
+  }
+  if (seg) out.push(render(seg));
+  return { key: out.join(' '), prefix: prefix.join(' ') };
+}
+
+export const generalizedForm = (command) => generalize(command).key;
+// The key a bespoke tool is recorded under IS its generalized form. `cargo test --workspace` and
+// `cargo test -p x` collapse under a single catalog id via matchTool() instead; this handles what
+// has no entry.
+export const bespokeKey = (command) => generalize(command).key;
 
 // The key a run is recorded under and — inseparably — HOW it was derived. Both derivation sites
 // (quiet-run.mjs's runner, train-tool.mjs's identify and logs) already hold the answer matchTool()
@@ -56,10 +180,17 @@ export function bespokeKey(command) {
 // off one normalized `id`, so they cannot disagree, and the pair carries a brand no other module
 // can forge: a caller cannot hand the graduation gate a `matched` it did not get from matchTool()
 // (rules/design-invariants.md § Where a distinguishing type is created).
+//
+// The pair carries a third thing since #87: `prefix`, the literal leading run of THIS command, from
+// the same walk that made the key. A generalized key holds placeholders, so it is a prefix of
+// nothing; graduation needs a `match` that the commands it was learned from actually start with,
+// and deriving one from the key is not possible — it has to come from the command, at the one site
+// that already reads it.
 const TOOL_KEY = Symbol('toolKey');
 export function toolKey(toolId, command) {
   const id = toolId ?? null;
-  return Object.freeze({ [TOOL_KEY]: true, key: id ?? bespokeKey(command), matched: id !== null });
+  const { key, prefix } = generalize(command);
+  return Object.freeze({ [TOOL_KEY]: true, key: id ?? key, matched: id !== null, prefix });
 }
 export const isToolKey = (v) => !!v && typeof v === 'object' && v[TOOL_KEY] === true;
 

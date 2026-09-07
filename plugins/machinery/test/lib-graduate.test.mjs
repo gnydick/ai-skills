@@ -120,15 +120,16 @@ test('re-graduation overwrites the learned entry and its fixture, and leaves the
 
 // Final re-review: the C1 fix reads "an existing learned entry sits at this key" as "this is that
 // tool again", and a bespoke key can land on that string BY COINCIDENCE. `./a.sh` graduates to the
-// id `a.sh` (learnedId strips the leading `./`), and a later run of `a.sh --x` — a command that
-// entry does NOT match, since it does not start with `./a.sh` — keys on bespokeKey('a.sh --x'),
-// which is also `a.sh`. The strings collide; the tools do not. Read as a re-graduation, one
+// id `a.sh` (learnedId strips the leading `./`), and a later run of `a.sh` reached through the
+// search path — a command that entry does NOT match, since it does not start with `./a.sh` — keys
+// on bespokeKey('a.sh'), which is also `a.sh`. The strings collide; the tools do not. Read as a
+// re-graduation, one
 // invocation's learned answer is silently overwritten with the other's while `match.value` still
 // says `./a.sh`. A re-graduation is real only when the entry's OWN match answered for this command.
 // Every value below is derived from the two commands' own shapes, never from graduate()'s output.
 test('RED CHECK — a bespoke key that merely COINCIDES with a learned id is a collision, not a re-graduation', () => {
   const dir = root(), r = trained();
-  const FIRST = './a.sh', SECOND = 'a.sh --x';
+  const FIRST = './a.sh', SECOND = 'a.sh';
   const ALIAS = learnedId(FIRST);
   assert.equal(ALIAS, bespokeKey(SECOND), 'precondition: two unrelated commands, one string');
   const other = { [ALIAS]: { match: { type: 'prefix', value: FIRST }, outcome: { type: 'prefix', value: 'ok: ' }, candidates: [], learned: { at: AT, picks: 4 } } };

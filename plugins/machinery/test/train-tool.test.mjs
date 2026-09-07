@@ -9,6 +9,8 @@ import { runScript, PLUGIN } from './helpers/run.mjs';
 import { formatRunLog } from '../scripts/lib/runlog.mjs';
 import { loadCatalogReport, matchTool } from '../scripts/lib/catalog.mjs';
 import { survivalProblems } from '../scripts/lib/survival.mjs';
+import { learnedId } from '../scripts/lib/training.mjs';
+import { bespokeKey } from '../scripts/lib/observations.mjs';
 
 process.env.CLAUDE_PLUGIN_ROOT = PLUGIN;
 
@@ -19,6 +21,9 @@ const JOB = fs.mkdtempSync(path.join(os.tmpdir(), 'train-tool-job-'));
 fs.mkdirSync(path.join(JOB, 'tmp'));
 let n = 0;
 const CMD = 'bash scripts/battery.sh --quick';
+// The key IS the generalized command form (#87), flag name and all, so the id it sanitizes to
+// carries the flag too. Derived here rather than typed, so the two cannot drift apart.
+const LEARNED_ID = learnedId(bespokeKey(CMD));
 function writeLog(summary, command = CMD) {
   const records = [
     { t: 0.1, stream: 'stderr', text: '   Compiling fs-core v0.1.0' },
@@ -53,19 +58,22 @@ test('the loop, end to end: two picks form the prefix, two agreements graduate i
   const r4 = train(root, 'identify', '--log', logs[3], '--line', '4');
   assert.equal(r4.code, 0, r4.stderr);
   assert.match(r4.stdout, /shadow: agreed — 2 of 2 consecutive agreements/);
-  assert.match(r4.stdout, /graduated: 'bash-scripts-battery\.sh' now keeps lines starting with `test result: ok\. `/);
+  assert.match(r4.stdout, /graduated: 'bash-scripts-battery\.sh---quick' now keeps lines starting with `test result: ok\. `/);
   assert.match(r4.stdout, /commit both/);
-  const entry = read(machinery(root, 'tool-catalog.json'))['bash-scripts-battery.sh'];
+  const entry = read(machinery(root, 'tool-catalog.json'))[LEARNED_ID];
   assert.deepEqual(entry.outcome, { type: 'prefix', value: 'test result: ok. ' });
+  // The entry matches on the pair's PREFIX, the literal leading run of the command (#87) — the key
+  // itself now carries the flag name and could carry placeholders, and no command starts with one.
   assert.deepEqual(entry.match, { type: 'prefix', value: 'bash scripts/battery.sh' });
-  const fixture = read(machinery(root, 'fixtures', 'bash-scripts-battery.sh.json'));
-  assert.deepEqual(survivalProblems('bash-scripts-battery.sh', entry, fixture), []);
+  const fixture = read(machinery(root, 'fixtures', `${LEARNED_ID}.json`));
+  assert.deepEqual(survivalProblems(LEARNED_ID, entry, fixture), []);
   assert.deepEqual(fixture.answers, [2, 3, 4, 5]);
   const { catalog, dropped } = loadCatalogReport(root);
-  assert.deepEqual(dropped, []); assert.ok(catalog['bash-scripts-battery.sh']);
+  assert.deepEqual(dropped, []); assert.ok(catalog[LEARNED_ID]);
+  assert.equal(matchTool(CMD, catalog), LEARNED_ID, 'and the entry it wrote really does match the command it was learned from');
   const obs = read(machinery(root, 'observations.json'));
-  assert.ok(!('bash scripts/battery.sh' in obs), 'the record moved with the tool');
-  assert.deepEqual(obs['bash-scripts-battery.sh'].training.picks, []);
+  assert.ok(!(CMD in obs), 'the record moved with the tool');
+  assert.deepEqual(obs[LEARNED_ID].training.picks, []);
   // Graduated and not re-opened: a further identification is refused, and says why.
   const r5 = train(root, 'identify', '--log', writeLog('test result: ok. 9 passed; 0 failed'), '--line', '4');
   assert.notEqual(r5.code, 0); assert.match(r5.stderr, /already graduated/);
@@ -86,7 +94,7 @@ test('the loop, end to end: two picks form the prefix, two agreements graduate i
 // can), four more identifications re-graduate it. The key is never handed in by the test.
 test('the loop closes backward: drift re-opens a graduated tool and re-identifying to agreement re-graduates it', { skip: !bash }, () => {
   const root = repo('train-tool-reclose-');
-  const ID = 'bash-scripts-battery.sh', KEY = 'bash scripts/battery.sh';
+  const ID = LEARNED_ID, KEY = CMD, PREFIX = 'bash scripts/battery.sh';
   let r;
   for (const s of ['3', '4', '5', '60']) r = train(root, 'identify', '--log', writeLog(`test result: ok. ${s} passed; 0 failed`), '--line', '4');
   assert.equal(r.code, 0, r.stderr);
@@ -100,7 +108,7 @@ test('the loop closes backward: drift re-opens a graduated tool and re-identifyi
     'i=0\nwhile [ $i -lt 100 ]; do echo "   Compiling c$i"; i=$((i+1)); done\necho "PASS: 99 checks ok"\n');
   const drift = runner(root, KEY);
   assert.equal(drift.code, 0, drift.stderr);
-  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh: learned answer line re-opened for training \(matched-nothing\)/);
+  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh---quick: learned answer line re-opened for training \(matched-nothing\)/);
   assert.equal(read(machinery(root, 'observations.json'))[ID].training.open.reason, 'matched-nothing');
   assert.ok(!(KEY in read(machinery(root, 'observations.json'))), 'the runner keys on the id once the tool has graduated');
 
@@ -113,7 +121,7 @@ test('the loop closes backward: drift re-opens a graduated tool and re-identifyi
 
   const { catalog, dropped } = loadCatalogReport(root);
   assert.deepEqual(dropped, []);
-  assert.deepEqual(catalog[ID].match, { type: 'prefix', value: KEY }, 'the entry still matches the command the tool is really run as');
+  assert.deepEqual(catalog[ID].match, { type: 'prefix', value: PREFIX }, 'the entry still matches the command the tool is really run as');
   assert.deepEqual(catalog[ID].outcome, { type: 'prefix', value: 'PASS: ' }, 'and it learned the new answer line');
   assert.equal(matchTool(CMD, catalog), ID, 'RED CHECK: a re-graduated entry that matched nothing would be a dead entry');
   assert.deepEqual(survivalProblems(ID, catalog[ID], read(machinery(root, 'fixtures', `${ID}.json`))), []);
@@ -171,10 +179,10 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
   // (learnedId), for an unrelated command — identifyCmd's pre-check looks up catalog[key] with the
   // RAW key "bash scripts/battery.sh" and finds nothing there, so it never sees this entry; only
   // graduate()'s own internal catalog[id] lookup does.
-  const ID = 'bash-scripts-battery.sh';
-  // The bespoke KEY is CMD with its flags stripped (bespokeKey) — the same key train-tool.mjs
-  // itself derives at runtime from the log's own `$ command` header, which still carries `--quick`.
-  const KEY = 'bash scripts/battery.sh';
+  const ID = LEARNED_ID;
+  // The bespoke KEY is CMD generalized (bespokeKey) — the same key train-tool.mjs itself derives at
+  // runtime from the log's own `$ command` header.
+  const KEY = bespokeKey(CMD);
   fs.mkdirSync(machinery(root), { recursive: true });
   const handWritten = { [ID]: { match: { type: 'prefix', value: 'unrelated command' }, outcome: '^nope', candidates: [] } };
   fs.writeFileSync(machinery(root, 'tool-catalog.json'), JSON.stringify(handWritten, null, 2) + '\n');
@@ -213,11 +221,11 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
 test('logs lists stored run logs newest first with the key the runner would use, filtered by --key, with a proof line', () => {
   const root = repo('train-tool-logs-');
   const a = writeLog('x', 'python scripts/oracle_compare.py --base HEAD~1');
-  const r = train(root, 'logs', '--key', 'python scripts/oracle_compare.py');
+  const r = train(root, 'logs', '--key', 'python scripts/oracle_compare.py --base %s');
   assert.equal(r.code, 0, r.stderr);
   const lines = r.stdout.trim().split('\n');
-  assert.equal(lines[0], `${a}\tpython scripts/oracle_compare.py`);
-  assert.match(lines.at(-1), /^train_tool_logs: 1 of \d+ run logs match 'python scripts\/oracle_compare\.py'/);
+  assert.equal(lines[0], `${a}\tpython scripts/oracle_compare.py --base %s`);
+  assert.match(lines.at(-1), /^train_tool_logs: 1 of \d+ run logs match 'python scripts\/oracle_compare\.py --base %s'/);
   const all = train(root, 'logs');
-  assert.ok(all.stdout.split('\n').filter((l) => l.endsWith('\tbash scripts/battery.sh')).length >= 4, 'the loop test’s logs are listed under their bespoke key in a project with no learned entry');
+  assert.ok(all.stdout.split('\n').filter((l) => l.endsWith(`\t${CMD}`)).length >= 4, 'the loop test’s logs are listed under their bespoke key in a project with no learned entry');
 });

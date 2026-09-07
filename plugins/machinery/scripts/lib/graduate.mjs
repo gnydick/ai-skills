@@ -45,7 +45,7 @@ export function graduate(root, { tool, catalog, observations, training, matcher,
   // caller cannot forge the pair — the brand is a module-private symbol — so it cannot claim a
   // match it never made. This is a programmer error, not external input, so it throws.
   if (!isToolKey(tool)) throw new TypeError('graduate() takes the pair observations.mjs toolKey() makes, not a key string: whether the catalog matched this command is not recoverable from the key');
-  const { key, matched } = tool;
+  const { key, matched, prefix } = tool;
   // A tool has TWO identities and the loop has to close under both: the bespoke key
   // (`bash scripts/battery.sh`) before graduation, and the sanitized catalog id
   // (`bash-scripts-battery.sh`) after. From the first run after graduation matchTool() answers with
@@ -69,9 +69,14 @@ export function graduate(root, { tool, catalog, observations, training, matcher,
     // this key sanitizes to — is still refused, hand-written or learned.
     const existing = catalog[id];
     if (existing && !isLearned(existing)) return { ok: false, problems: [`'${id}' is a hand-written catalog entry; training never overwrites one`] };
-    if (existing && existing.match?.value !== key) return { ok: false, problems: [`'${id}' is already the learned entry for '${existing.match?.value}', not '${key}'`] };
+    if (existing && existing.match?.value !== prefix) return { ok: false, problems: [`'${id}' is already the learned entry for '${existing.match?.value}', not '${prefix}'`] };
   }
-  const entry = learnedEntry(retrained ? retrained.match : { type: 'prefix', value: key }, matcher, at, training.picks.length);
+  // The match is the pair's PREFIX, not its key (#87). A key is the generalized command form and
+  // holds placeholders — `gh issue edit %d` — so an entry built from it would start no command
+  // that was ever run and would match nothing, forever. The prefix is the literal leading run of
+  // the command the pick was made on, derived in the same walk that made the key, so the two
+  // cannot disagree about where the generalization began.
+  const entry = learnedEntry(retrained ? retrained.match : { type: 'prefix', value: prefix }, matcher, at, training.picks.length);
   const unloadable = entryProblem(entry);
   if (unloadable) return { ok: false, problems: [`'${id}': ${unloadable}`] };
   // The last pick is this run's; the earlier ones are appended to the fixture as further answers.

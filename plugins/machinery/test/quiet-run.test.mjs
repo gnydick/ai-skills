@@ -149,16 +149,18 @@ const obsOf = (root) => JSON.parse(fs.readFileSync(path.join(root, '.claude', 'm
 
 test('a run records its observation under the bespoke key derived from the command itself', { skip: !bash }, () => {
   // matchTool()/bespokeKey() operate on the command TEXT, and a `node -e "..."` fixture is not a
-  // real off-the-shelf invocation: it resolves as bespoke, keyed by its own leading non-flag
-  // token. The assertion is on that real key, not on a catalog id the fixture never matches.
+  // real off-the-shelf invocation: it resolves as bespoke, keyed by its own generalized form (#87)
+  // — the runner, its flag name, and the one-off script as a value. The assertion is on that real
+  // key, not on a catalog id the fixture never matches.
   const root = repo('quiet-run-record-');
   const cmd = `node -e "for(let i=0;i<80;i++)console.log('noise');console.log('done')"`;
+  const KEY = 'node -e %s';
   runScript('scripts/quiet-run.mjs', { cwd: root, args: ['--shell', 'bash', '--mode', 'filter', '-c', cmd] });
   const obs = obsOf(root);
-  assert.equal(obs['node'].identity, 'bespoke');
-  assert.equal(obs['node'].noisy, true); // 81 lines > PASS_THROUGH_LINES (40)
-  assert.equal(obs['node'].lines, 81);
-  assert.ok(obs['node'].stdoutLines > 0);
+  assert.equal(obs[KEY].identity, 'bespoke');
+  assert.equal(obs[KEY].noisy, true); // 81 lines > PASS_THROUGH_LINES (40)
+  assert.equal(obs[KEY].lines, 81);
+  assert.ok(obs[KEY].stdoutLines > 0);
 });
 
 test('suggest mode prints the recommendation after verbatim output', { skip: !bash }, () => {
@@ -278,7 +280,7 @@ test('RED CHECK: an unusable catalog entry warns and degrades, it does not eat t
   assert.equal(r.code, 3);
   assert.equal(r.stdout.trim().split('\n').length, 6);
   assert.match(r.stderr, /quiet-run: unusable tool catalog/);
-  assert.equal(obsOf(root)['node'].identity, 'bespoke', 'an unusable entry is not a tool this run knows anything about');
+  assert.equal(obsOf(root)['node -e %s'].identity, 'bespoke', 'an unusable entry is not a tool this run knows anything about');
 
   const noOutcome = repo('quiet-run-nooutcome-');
   seed(noOutcome, 'tool-catalog.json', { silent: { match: { type: 'prefix', value: 'node ' }, candidates: [] } });

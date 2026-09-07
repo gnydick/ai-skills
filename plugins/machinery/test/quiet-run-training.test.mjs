@@ -41,7 +41,10 @@ test("a learned prefix entry's answer line survives filtering, applied through t
 
 // ---- Task 7: the runner notes runs, judges drift, and nudges (design, "The nudge register") ----
 const gen = (n) => `node -e "for(let i=0;i<${n};i++)console.log('   Compiling c'+i);console.log('done')"`;
-const NUDGE = /\[quiet:train\] node: answer line not yet learned \(0 identified, 0 of 2 agreements\) — read the log, then: node "([^"]+\/train-tool\.mjs)" identify --log "([^"]+)" --line <N>\n$/;
+// The bespoke key is the generalized form of the command (#87): the runner, its flag name, and
+// the one-off script as a value.
+const BESPOKE = 'node -e %s';
+const NUDGE = /\[quiet:train\] node -e %s: answer line not yet learned \(0 identified, 0 of 2 agreements\) — read the log, then: node "([^"]+\/train-tool\.mjs)" identify --log "([^"]+)" --line <N>\n$/;
 
 test('a noisy bespoke run ends with the training nudge, naming a log that exists and holds this run, and the run is noted', { skip: !bash }, () => {
   const root = repo('quiet-train-nudge-');
@@ -56,7 +59,7 @@ test('a noisy bespoke run ends with the training nudge, naming a log that exists
   const { command, records } = parseRunLog(fs.readFileSync(m[2], 'utf8'));
   assert.equal(command, gen(100), 'the nudge points at THIS run');
   assert.equal(records.length, 101);
-  const t = obsOf(root).node.training;
+  const t = obsOf(root)[BESPOKE].training;
   assert.deepEqual(t.history, [{ lines: 101, stdoutLines: 101, stderrLines: 0, code: 0 }]);
   assert.equal(t.lastLog.replace(/\\/g, '/'), m[2]);
   assert.deepEqual(t.picks, []); assert.equal(t.streak, 0);
@@ -66,7 +69,7 @@ test('RED CHECK: a quiet bespoke run gets no nudge — a tool that is never wrap
   const root = repo('quiet-train-quiet-');
   const r = run(root, 'filter', gen(5));
   assert.doesNotMatch(r.stdout, /\[quiet:train\]/);
-  assert.equal(obsOf(root).node.training.history.length, 1, 'the run is still noted: the shape history is measurement, not a nudge');
+  assert.equal(obsOf(root)[BESPOKE].training.history.length, 1, 'the run is still noted: the shape history is measurement, not a nudge');
 });
 
 test('V12 through the runner: a learned matcher that matches nothing re-opens training — picks discarded, reason recorded, nudge says so', { skip: !bash }, () => {
@@ -92,12 +95,12 @@ test('V12 through the runner: a learned matcher that matches nothing re-opens tr
 // proven by the next test, which forces a real throw.
 test('a malformed training record is sanitised rather than recorded raw (regression pin on trainingOf, not a guard test)', { skip: !bash }, () => {
   const root = repo('quiet-train-sanitize-');
-  seed(root, 'observations.json', { node: { identity: 'bespoke', ledger: {}, training: 'not-an-object' } });
+  seed(root, 'observations.json', { [BESPOKE]: { identity: 'bespoke', ledger: {}, training: 'not-an-object' } });
   const cmd = `node -e "console.log('real output'); process.exit(7)"`;
   const r = run(root, 'filter', cmd);
   assert.equal(r.code, 7, "the wrapped command's own exit code survives a garbage training record");
   assert.equal(r.stdout, 'real output\n', "the wrapped command's own output survives a garbage training record");
-  const t = obsOf(root).node.training;
+  const t = obsOf(root)[BESPOKE].training;
   assert.deepEqual(t.picks, []); assert.equal(t.streak, 0);
   assert.deepEqual(t.history, [{ lines: 1, stdoutLines: 1, stderrLines: 0, code: 7 }], 'the string was sanitised to the empty shape, then this run was noted onto it');
   assert.equal(typeof t.lastLog, 'string');

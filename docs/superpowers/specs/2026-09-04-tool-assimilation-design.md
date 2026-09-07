@@ -199,6 +199,85 @@ else entirely.
 Bespoke tools skip the ledger. There is nothing to look up, so they go straight to wrap on
 the first noisy observation.
 
+### The key a bespoke record takes: the generalized command form
+
+Added 2026-09-07 (#87). A record is keyed by command LINE, not by tool, and that is the
+design — owner, 2026-09-07: *"command lines are unique, not tools. so there can be as many
+entries for a command as there are variants."* A variant that recurs accumulates a history
+and can graduate; one that never recurs was never worth learning, because a learned answer
+line would have nothing to be applied to.
+
+What that does not cover is a tool whose variants are **unbounded**. `gh issue edit 59`,
+`60`, `61` — one fresh key per invocation, forever. No variant ever recurs, no history ever
+forms, and an answer line identical across all of them is re-learned from scratch every
+time. Measured in this repo on 2026-09-07: 60 entries, 59 seen exactly once, 7 noisy enough
+to have triggered the training invitation, 0 identification picks, 0 graduations.
+
+So a bespoke key is the command line **generalized**, in the shape the owner set out the
+same day — *"command plus alphabetized list of params with values with placeholders like
+`gh --a_param %d --b_param %f --c_param %s`"*:
+
+```
+gh issue edit 59 --body x        ->  gh issue edit %d --body %s
+gh issue edit 60 --body y        ->  gh issue edit %d --body %s   (one record)
+bash run.sh --fast               ->  bash run.sh --fast
+bash run.sh --slow               ->  bash run.sh --slow           (two: a flag NAME is structure)
+```
+
+The rules, all of them heuristics on purpose:
+
+- The command name, its subcommands and its flag NAMES are structure and survive as
+  written. Only VALUES become placeholders, which is what keeps `--fast` and `--slow`
+  apart — the collapse #15 named as the damaging one.
+- A placeholder carries the value's TYPE and nothing else: `%d`, `%f`, `%p`, `%s`. Never
+  precision or width — `%f0.2` would fragment again on the next value, which is the defect
+  being fixed.
+- Parameters are alphabetized, so the order the flags were typed in cannot make a second
+  record. An identical parameter written twice is written once.
+- A path-shaped token is `%p`. Absolute paths carrying a session-scoped temporary directory
+  were the largest single source of unrepeatable keys in the measured record.
+- A run of consecutive same-typed values is one placeholder: how many were passed is not
+  what tells two tools apart.
+- A subcommand path is taken to be at most two words deep (`gh issue edit`, `npm run
+  build`); past that a bare positional reads as a value, so `gh label create <name>` is one
+  record and not one per label.
+- After a generic runner — `bash`, `sh`, `python`, `node`, `npx` and the like — the first
+  POSITIONAL is identity and survives verbatim (#15 requirement 2). `node %p` would merge
+  every script in a project into one record. A flag's operand is not that positional:
+  `node -e "..."` carries a one-off script, not an identity.
+
+**Which way to be wrong.** The two failure modes are not symmetric. *Collapse* — two tools
+at one key — surfaces as picks that never agree, so the tool never graduates and training
+stays open: noisy, visible, self-limiting, and the training loop already detects it.
+*Fragmentation* — one tool across many keys — produces silence: a key seen once, no picks,
+nothing to notice. It went unremarked here for days and was found only by counting. So
+where a token's role is unsure the derivation prefers a placeholder to preserving a
+distinction of doubtful value.
+
+This is deliberately a heuristic. Owner, 2026-09-07: *"this where heuristics are a feature,
+not a replacement for something exact and deterministic."* Nothing exact is recoverable
+from a command string. The invariant is not that the key is right; it is that a wrong key
+cannot silently persist, which the loop already carries — a matcher that stops matching
+re-opens training.
+
+**What graduation matches on.** A generalized key holds placeholders, so it is a prefix of
+no command, and a catalog entry built from it would match nothing forever. The pair
+`toolKey()` makes therefore carries a third field beside the key: the literal leading run of
+the command it came from, closing at the first token the derivation did not keep verbatim.
+That is what `lib/graduate.mjs` writes as the entry's `match`, and it comes from the same
+walk that made the key, so the two cannot disagree about where the generalization began.
+
+**No migration.** Owner ruling, 2026-09-07: *"we haven't actually processed anything so code
+changes are completely unfrozen."* Nothing had ever graduated and no pick had ever been
+made, so existing records carried no evidence; they are invalidated by the new derivation
+rather than translated to it.
+
+**Known residue, not fixed here.** A runner's first positional survives verbatim by rule, so
+a script invoked through an absolute path that carries a session directory or a plugin
+version — `node "…/machinery/0.1.93/scripts/intake.mjs" list` — still takes a fresh key when
+that path changes. Collapsing it would mean reducing the identity to a basename, which the
+requirement above does not authorize.
+
 ### Per-stream policy
 
 Neither stream gets a blanket rule.

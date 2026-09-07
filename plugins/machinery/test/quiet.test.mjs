@@ -281,7 +281,9 @@ const BASH = ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files/Git/usr/bin
 // A skipped run of a real-bash test is unproven, not passed: the name says so where the skip shows.
 const unproven = (name) => (BASH ? name : `UNPROVEN (no bash on this machine, skipped): ${name}`);
 const rewriteIn = (root, c) => out(runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) }).stdout).updatedInput.command;
-const NOISY_NODE = { node: { identity: 'bespoke', noisy: true, lines: 1400, ledger: {} } };
+// Keyed by the generalized form of the command below (#87): the runner, its flag name, and the
+// one-off script as a value.
+const NOISY_NODE = { 'node -e %s': { identity: 'bespoke', noisy: true, lines: 1400, ledger: {} } };
 test(unproven('#13: the compound keeps its control flow — && short-circuits on the wrapped segment\'s real exit code, || takes it'), { skip: !BASH }, () => {
   const root = project(NOISY_NODE);
   const rewrite = (c) => rewriteIn(root, c);
