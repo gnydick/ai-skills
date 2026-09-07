@@ -83,3 +83,30 @@ export function segmentsOutside(command, separator) {
   return pieces;
 }
 export const splitOutside = (command, separator) => segmentsOutside(command, separator).map((s) => s.text);
+
+// The command's argv, as the shell would see it, near enough: whitespace-split, with a single- or
+// double-quoted span kept inside one token and its quotes stripped. A quote opens a span wherever it
+// sits in the token, not only at its start (re-review R3: `-m"do not --quiet me"` used to split as
+// `-m"do`, `not`, `--quiet`, `me"`, and a flag inside a commit message was recorded as applied). An
+// unterminated span runs to the end of the command — that is data, not a crash. Good enough to tell
+// an argument from a flag, which is all any caller needs; it is not a shell parser and does not try
+// to be. It lives here, beside the span definition it reads, rather than in any one reader (issue
+// #11): catalog.mjs's matchedCandidate() and observations.mjs's generalizedForm() both take their
+// argv from it, so no reader can grow a splitter of its own and disagree with the other.
+// A `#` comment is a span there as well (#13 fix round 2), and a word inside it is no token: a flag
+// named in a trailing comment was never applied.
+export function tokens(command) {
+  const states = quoteStates(command);
+  const out = [];
+  let token = '', inToken = false;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (states[i] === COMMENT) continue;
+    if (states[i] === DELIM) { inToken = true; continue; }
+    if (states[i] === INSIDE) { token += ch; continue; }
+    if (/\s/.test(ch)) { if (inToken) out.push(token); token = ''; inToken = false; continue; }
+    token += ch; inToken = true;
+  }
+  if (inToken) out.push(token);
+  return out;
+}

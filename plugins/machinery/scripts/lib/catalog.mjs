@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pluginRoot } from './config.mjs';
-import { quoteStates, DELIM, INSIDE, COMMENT } from './quotes.mjs';
+import { tokens } from './quotes.mjs';
 
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -86,32 +86,6 @@ export function matchTool(command, catalog) {
     if (type === 'regex' && new RegExp(value).test(command)) return id;
   }
   return null;
-}
-
-// The command's argv, as the shell would see it, near enough: whitespace-split, with a single- or
-// double-quoted span kept inside one token and its quotes stripped. A quote opens a span wherever it
-// sits in the token, not only at its start (re-review R3: `-m"do not --quiet me"` used to split as
-// `-m"do`, `not`, `--quiet`, `me"`, and a flag inside a commit message was recorded as applied). An
-// unterminated span runs to the end of the command — that is data, not a crash. Good enough to tell
-// an argument from a flag, which is all the caller below needs; it is not a shell parser and does
-// not try to be. What a span IS comes from quotes.mjs (issue #11): classify.mjs's segment splitter
-// reads the same definition, so the two can no longer disagree about where a quote runs to.
-// A `#` comment is a span there as well (#13 fix round 2), and a word inside it is no token: a flag
-// named in a trailing comment was never applied.
-function tokens(command) {
-  const states = quoteStates(command);
-  const out = [];
-  let token = '', inToken = false;
-  for (let i = 0; i < command.length; i++) {
-    const ch = command[i];
-    if (states[i] === COMMENT) continue;
-    if (states[i] === DELIM) { inToken = true; continue; }
-    if (states[i] === INSIDE) { token += ch; continue; }
-    if (/\s/.test(ch)) { if (inToken) out.push(token); token = ''; inToken = false; continue; }
-    token += ch; inToken = true;
-  }
-  if (inToken) out.push(token);
-  return out;
 }
 
 // The first candidate flag already present in the command, or null — the caller uses this to tell
