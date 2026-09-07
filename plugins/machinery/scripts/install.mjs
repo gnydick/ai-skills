@@ -8,6 +8,7 @@ import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
 import { generateIndex } from './lib/index.mjs';
 import { pluginRoot, rulesSource } from './lib/config.mjs';
+import { RULES_INDEX, LEGACY_RULES_INDEX } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
@@ -82,7 +83,17 @@ function installProject() {
   // ruling look applied when it is not (rules/design-invariants.md § Telling the user what you dropped).
   if (git(['ls-files', '--error-unmatch', '--', ignoreLine], root).code === 0)
     process.stderr.write(`warning: ${ignoreLine} is tracked; it is per-machine data and should not be. Run: git rm --cached ${ignoreLine}\n`);
-  fs.writeFileSync(path.join(mach, 'INDEX.md'), generateIndex(rules)); say('regenerated .claude/machinery/INDEX.md');
+  // #81 migration. A project installed before the rename has .claude/machinery/INDEX.md tracked.
+  // Regenerating under the new name and walking away leaves an orphan the gate will never look at,
+  // and the gate cannot migrate it itself because nothing under scripts/gate/ writes (spec I23). So
+  // the install is the migration: rename it, say so where the user sees it, and stage the removal
+  // alongside the addition so the very next commit carries both halves.
+  const legacyIndexPath = path.join(mach, LEGACY_RULES_INDEX);
+  const migrated = fs.existsSync(legacyIndexPath);
+  if (migrated) fs.rmSync(legacyIndexPath, { force: true });
+  fs.writeFileSync(path.join(mach, RULES_INDEX), generateIndex(rules));
+  say(`regenerated .claude/machinery/${RULES_INDEX}`);
+  if (migrated) say(`migrated .claude/machinery/${LEGACY_RULES_INDEX} → .claude/machinery/${RULES_INDEX} (#81); the old name is staged as removed`);
   const hooksDir = path.join(root, '.githooks'), gateDir = path.join(hooksDir, 'machinery');
   fs.rmSync(gateDir, { recursive: true, force: true });
   // The gate files import '../lib/...'; installed alongside gateDir/lib, so rewrite that prefix
@@ -102,7 +113,7 @@ function installProject() {
   // imports and fails on any that does not resolve, so a lib added to git.mjs (lines.mjs, #19
   // fix round 1) and forgotten here is caught mechanically rather than at a project's next commit.
   fs.mkdirSync(path.join(gateDir, 'lib'), { recursive: true });
-  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'frontmatter.mjs', 'index.mjs', 'report.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'frontmatter.mjs', 'index.mjs', 'report.mjs', 'layout.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   fs.writeFileSync(path.join(gateDir, 'VERSION'), version() + '\n');
   fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install. Runs the machinery commit gate on every commit.\nexec node .githooks/machinery/gate.mjs\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755); } catch {}
@@ -120,7 +131,8 @@ function installProject() {
   // a generated-but-unstaged index and rejects a remedy (reindex) that would produce nothing new.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
   // not swept into the next commit. observations.json is deliberately absent from this list.
-  git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/INDEX.md',
+  git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', `.claude/machinery/${RULES_INDEX}`,
+       ...(migrated ? [`.claude/machinery/${LEGACY_RULES_INDEX}`] : []),
        '.claude/machinery/tool-catalog.json', ...(ignoreWritten ? ['.gitignore'] : []), '.githooks'], root);
   return 0;
 }

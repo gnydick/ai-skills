@@ -52,7 +52,7 @@ function stagedIndex(root, indexFile) {
 // {rulesDir, inbox, index, root} → true if it passes. Never writes (spec I23).
 // The index is compared against a regeneration from the STAGED rule files, not the working
 // tree (spec I28, I2): the index must never disagree with the rule files being committed.
-export function registerCheck({ rulesDir, inbox, index, root }) {
+export function registerCheck({ rulesDir, inbox, index, legacyIndex, root }) {
   let ok = true;
   let pend = [];
   try { pend = pending(inbox); } catch (e) { report('register_check', 1, 1, `inbox malformed — ${e.message}`); return false; }
@@ -66,6 +66,17 @@ export function registerCheck({ rulesDir, inbox, index, root }) {
   // a fresh regeneration's own .trim() would otherwise disagree with.
   const curRaw = stagedIndex(root, index);
   const cur = curRaw === null ? null : curRaw.trim();
+  // #81: a project installed before the rename carries the old index name. The gate never writes
+  // (spec I23), so it cannot migrate — but "index not staged, git add it" would send the user to
+  // stage a file the rename made obsolete, and the register check would then be permanently red for
+  // a reason its own message denies. Name the migration instead, with the same denominator.
+  const legacy = legacyIndex ? stagedIndex(root, legacyIndex) : null;
+  if (cur === null && legacy !== null) {
+    const from = path.relative(process.cwd(), legacyIndex) || legacyIndex;
+    const to = path.relative(process.cwd(), index) || index;
+    report('register_check', 1, 1, `index comparison(s) failed — ${from} is the pre-#81 name; the index is now ${to}. Run /machinery:install to migrate it (it renames the file and stages both sides)`);
+    return false;
+  }
   if (staged.length === 0 && cur === null) {
     // Final review A1: nothing under rulesDir and no index are staged — nothing being
     // committed can disagree with anything, so there is nothing to check.

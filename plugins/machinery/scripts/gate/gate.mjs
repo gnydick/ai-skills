@@ -21,6 +21,10 @@
 import path from 'node:path';
 import { CHECKS } from './manifest.mjs';
 import { projectRoot } from '../lib/root.mjs';
+// File names come from the one place that spells them (#81). This module builds its own layout
+// rather than importing lib/config.mjs because it ships standalone into an adopting project and
+// must never point back at the plugin cache (spec I6) — but the NAMES are still declared once.
+import { RULES_INDEX, LEGACY_RULES_INDEX, INBOX, RULES_DIR, MACHINERY_DIR, REGISTER_DIR } from '../lib/layout.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
@@ -29,8 +33,8 @@ const mergeMode = argv.includes('--merge');
 const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd());
 
 const layout = universal
-  ? { rulesDir: path.join(root, 'rules'), inbox: path.join(root, 'inbox.md'), index: path.join(root, 'register', 'INDEX.md') }
-  : { rulesDir: path.join(root, '.claude', 'rules'), inbox: path.join(root, '.claude', 'machinery', 'inbox.md'), index: path.join(root, '.claude', 'machinery', 'INDEX.md') };
+  ? { rulesDir: path.join(root, RULES_DIR), inbox: path.join(root, INBOX), index: path.join(root, REGISTER_DIR, RULES_INDEX), legacyIndex: path.join(root, REGISTER_DIR, LEGACY_RULES_INDEX) }
+  : { rulesDir: path.join(root, '.claude', RULES_DIR), inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), index: path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX), legacyIndex: path.join(root, '.claude', MACHINERY_DIR, LEGACY_RULES_INDEX) };
 
 // One context, handed to every check. Each check destructures what it needs, so the manifest can
 // generate a uniform call and a new leg slots into the closed list without changing this loop.

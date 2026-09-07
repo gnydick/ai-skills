@@ -84,7 +84,7 @@ test('universal intake bumps the plugin version in the same commit (spec I31)', 
     fs.writeFileSync(path.join(plug, 'rules', 'straight-talk.md'), '# S\n\n## Claims\n\n- a\n');
     fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
     fs.writeFileSync(path.join(plug, 'inbox.md'), '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'RULES_INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'plugin');
     fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
     withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: say less', session: 's' }));
@@ -110,7 +110,7 @@ test('intake commit --kind universal commits in the rules source\'s own checkout
     fs.writeFileSync(path.join(plug, 'rules', 't.md'), '# T\n\n## Claims\n\n- a\n');
     fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
     fs.writeFileSync(path.join(plug, 'inbox.md'), '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'RULES_INDEX.md')] });
     g(wt, 'add', '-A'); g(wt, 'commit', '-q', '-m', 'plugin');
     fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
     withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: file it where it lives', session: 's' }));

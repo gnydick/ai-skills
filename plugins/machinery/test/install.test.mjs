@@ -15,7 +15,7 @@ test('project install creates the layout, copies the gate, sets hooksPath, stamp
   try {
     const res = install(r.root);
     assert.equal(res.code, 0, res.stderr);
-    for (const f of ['.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/INDEX.md', '.githooks/pre-commit', '.githooks/machinery/gate.mjs', '.githooks/machinery/lib/inbox.mjs', '.githooks/machinery/VERSION'])
+    for (const f of ['.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/RULES_INDEX.md', '.githooks/pre-commit', '.githooks/machinery/gate.mjs', '.githooks/machinery/lib/inbox.mjs', '.githooks/machinery/VERSION'])
       assert.ok(fs.existsSync(path.join(r.root, f)), f);
     assert.equal(fs.readFileSync(path.join(r.root, '.githooks/machinery/VERSION'), 'utf8').trim(), version);
     assert.equal(execFileSync('git', ['config', 'core.hooksPath'], { cwd: r.root, encoding: 'utf8' }).trim(), '.githooks');
@@ -221,5 +221,44 @@ test('an observations.json already tracked from before the ruling is named, not 
     assert.equal(res.code, 0, res.stderr);
     assert.match(res.stderr, /observations\.json is tracked/);
     assert.match(res.stderr, /git rm --cached/);
+  } finally { r.cleanup(); }
+});
+
+// Ticket #81 (owner, 2026-09-07: "move INDEX.md to RULES_INDEX.md and create a SPEC_INDEX.md for
+// specs"). Every project that installed the machinery before this has .claude/machinery/INDEX.md on
+// disk and tracked. Left alone, the renamed gate looks for RULES_INDEX.md, does not find it, and
+// reports an unstaged index — an error pointing at the wrong problem. The installer migrates, and an
+// orphaned INDEX.md sitting beside a new RULES_INDEX.md is a failure of the ticket, not a leftover.
+test('migration: an already-installed project has INDEX.md renamed to RULES_INDEX.md, said out loud, with no orphan left (#81)', () => {
+  const r = makeRepo();
+  try {
+    fs.mkdirSync(path.join(r.root, '.claude', 'rules'), { recursive: true });
+    fs.mkdirSync(path.join(r.root, '.claude', 'machinery'), { recursive: true });
+    fs.writeFileSync(path.join(r.root, '.claude', 'rules', 't.md'), '# T\n\n## S\n\n- a rule\n');
+    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'inbox.md'), '');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    execFileSync('git', ['add', '-A'], { cwd: r.root });
+    execFileSync('git', ['commit', '-q', '-m', 'installed before #81'], { cwd: r.root });
+    const before = fs.readdirSync(path.join(r.root, '.claude', 'machinery')).sort();
+    assert.deepEqual(before, ['INDEX.md', 'inbox.md'], 'the fixture really is a pre-#81 install');
+
+    const res = install(r.root);
+    assert.equal(res.code, 0, res.stderr);
+    const after = fs.readdirSync(path.join(r.root, '.claude', 'machinery')).sort();
+    assert.ok(after.includes('RULES_INDEX.md'), after.join(', '));
+    assert.ok(!after.includes('INDEX.md'), `an orphaned INDEX.md survived the migration: ${after.join(', ')}`);
+    assert.match(res.stdout, /INDEX\.md/);
+    assert.match(res.stdout, /RULES_INDEX\.md/);
+    // The removal is STAGED, not left as an unstaged deletion. git reports it as a rename (R100)
+    // when the content is unchanged and as D+A when it is not, so the assertion is on the index
+    // itself: the old path is gone from what the next commit will carry, by whichever spelling.
+    const staged = execFileSync('git', ['diff', '--cached', '--name-status'], { cwd: r.root, encoding: 'utf8' });
+    assert.match(staged, /\.claude\/machinery\/RULES_INDEX\.md/, staged);
+    assert.match(staged, /\.claude\/machinery\/INDEX\.md/, `the old name is not mentioned in the staged change at all:\n${staged}`);
+    const tracked = execFileSync('git', ['ls-files', '--cached', '--', '.claude/machinery'], { cwd: r.root, encoding: 'utf8' });
+    assert.doesNotMatch(tracked, /^\.claude\/machinery\/INDEX\.md$/m, `the old index is still tracked after the migration:\n${tracked}`);
+    assert.match(tracked, /^\.claude\/machinery\/RULES_INDEX\.md$/m, tracked);
+    const gate = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root });
+    assert.equal(gate.code, 0, gate.stdout + gate.stderr);
   } finally { r.cleanup(); }
 });

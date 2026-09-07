@@ -19,7 +19,7 @@ test('the ten rule files exist in the plugin and nowhere else in the repo (spec 
 });
 
 test('the register index is exactly the generated one (spec I2)', () => {
-  assert.equal(fs.readFileSync(path.join(PLUGIN, 'register', 'INDEX.md'), 'utf8'), generateIndex(path.join(PLUGIN, 'rules')));
+  assert.equal(fs.readFileSync(path.join(PLUGIN, 'register', 'RULES_INDEX.md'), 'utf8'), generateIndex(path.join(PLUGIN, 'rules')));
 });
 
 test('audit procedure lives only in the auditor brief (spec I35)', () => {

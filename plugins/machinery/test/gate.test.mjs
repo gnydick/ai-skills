@@ -15,7 +15,7 @@ const RULE = '# T\n\n## S\n\n- a rule\n';
 function project(root) {
   write(root, '.claude/rules/t.md', RULE);
   write(root, '.claude/machinery/inbox.md', '');
-  runScript('scripts/reindex.mjs', { args: ['--rules', path.join(root, '.claude/rules'), '--out', path.join(root, '.claude/machinery/INDEX.md')] });
+  runScript('scripts/reindex.mjs', { args: ['--rules', path.join(root, '.claude/rules'), '--out', path.join(root, '.claude/machinery/RULES_INDEX.md')] });
   g(root, 'add', '-A'); g(root, 'commit', '-q', '-m', 'install');
 }
 const gate = (root) => runScript('scripts/gate/gate.mjs', { args: ['--root', root], cwd: root });
@@ -83,7 +83,7 @@ test('an index generated but never staged is distinguished from a stale one (fin
   const r = makeRepo();
   try {
     write(r.root, '.claude/rules/t.md', RULE);
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/RULES_INDEX.md')] });
     // Rule file staged; the regenerated index was written to disk but never `git add`ed at all
     // (not tracked from an earlier commit either) — distinct from a stale, already-tracked index.
     g(r.root, 'add', '.claude/rules/t.md');
@@ -106,7 +106,7 @@ test('a PENDING inbox entry blocks', () => {
 test('a stale (hand-edited) index blocks (spec I28)', () => {
   const r = makeRepo();
   try {
-    project(r.root); write(r.root, '.claude/machinery/INDEX.md', 'edited by hand'); g(r.root, 'add', '-A');
+    project(r.root); write(r.root, '.claude/machinery/RULES_INDEX.md', 'edited by hand'); g(r.root, 'add', '-A');
     const res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /index is stale/);
   } finally { r.cleanup(); }
 });
@@ -116,10 +116,10 @@ test('partial staging: a staged rule edit without its regenerated (unstaged) ind
   try {
     project(r.root);
     write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n- a second rule\n');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/RULES_INDEX.md')] });
     g(r.root, 'add', '.claude/rules/t.md');
     let res = gate(r.root); assert.equal(res.code, 1); assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed — index is stale/);
-    g(r.root, 'add', '.claude/machinery/INDEX.md');
+    g(r.root, 'add', '.claude/machinery/RULES_INDEX.md');
     res = gate(r.root); assert.equal(res.code, 0, res.stdout + res.stderr);
   } finally { r.cleanup(); }
 });
@@ -130,14 +130,14 @@ test('register check works when --root is a subdirectory of the repo (staged pat
     const sub = path.join(r.root, 'sub');
     write(sub, '.claude/rules/t.md', RULE);
     write(sub, '.claude/machinery/inbox.md', '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/RULES_INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'sub install');
     write(sub, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n- a second rule\n');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/RULES_INDEX.md')] });
     g(r.root, 'add', 'sub/.claude/rules/t.md');
     let res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
     assert.equal(res.code, 1); assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed — index is stale/);
-    g(r.root, 'add', 'sub/.claude/machinery/INDEX.md');
+    g(r.root, 'add', 'sub/.claude/machinery/RULES_INDEX.md');
     res = runScript('scripts/gate/gate.mjs', { args: ['--root', sub], cwd: sub });
     assert.equal(res.code, 0, res.stdout + res.stderr);
   } finally { r.cleanup(); }
@@ -179,7 +179,7 @@ test('citation paths resolve against --root first, then the repo top level (fina
     write(sub, 'rules/w.md', 'line1\nline2\nline3\n');
     write(sub, '.claude/rules/t.md', RULE);
     write(sub, '.claude/machinery/inbox.md', '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(sub, '.claude/rules'), '--out', path.join(sub, '.claude/machinery/RULES_INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'sub install');
     write(sub, 'docs/n.md', 'see `rules/w.md:2`'); g(r.root, 'add', '-A');
     const res = cite(sub);
@@ -193,7 +193,7 @@ test('a wrapped `file § Section` citation spanning two added lines is not trunc
   try {
     project(r.root);
     write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n\n## Merging and tearing down\n\n- another\n');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/RULES_INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'add section');
     write(r.root, 'docs/n.md', 'see `.claude/rules/t.md` § Merging and\ntearing down\n'); g(r.root, 'add', '-A');
     let res = cite(r.root);
@@ -242,7 +242,7 @@ test('--universal runs the register check over the plugin layout', () => {
   const r = makeRepo();
   try {
     write(r.root, 'rules/t.md', RULE); write(r.root, 'inbox.md', '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, 'rules'), '--out', path.join(r.root, 'register/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, 'rules'), '--out', path.join(r.root, 'register/RULES_INDEX.md')] });
     g(r.root, 'add', '-A');
     assert.equal(runScript('scripts/gate/gate.mjs', { args: ['--root', r.root, '--universal'], cwd: r.root }).code, 0);
   } finally { r.cleanup(); }
@@ -354,7 +354,7 @@ test('through real git: a CRLF-authored wrapped citation matches a CRLF-authored
     g(r.root, 'config', 'core.autocrlf', 'false');
     write(r.root, '.claude/rules/t.md', '# T\r\n\r\n## S\r\n\r\n- a rule\r\n\r\n## Merging and tearing down\r\n\r\n- another\r\n');
     write(r.root, 'src/x.js', 'line1\r\n\r\nline3\r\n');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/RULES_INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'crlf fixtures');
     assert.match(g(r.root, 'show', 'HEAD:src/x.js'), /\r\n/, 'the committed blob really is CRLF, or the pin sees an LF file');
     // The line citation goes first: a `§ Heading` capture runs to the next punctuation or the end
@@ -377,6 +377,25 @@ test('through real git: a CRLF-authored wrapped citation matches a CRLF-authored
 test('a line source that fails part-way fails the collection — the citations that arrived are never reported (#19)', async () => {
   const dying = (async function* () { yield '+++ b/docs/n.md'; yield '@@ -0,0 +1 @@'; yield '+see `src/x.js:3`'; throw new Error('git diff -U0: killed by SIGTERM'); })();
   await assert.rejects(collectCitations(dying), /killed by SIGTERM/);
+});
+
+// Ticket #81: a project that has not re-run /machinery:install after the rename still has
+// .claude/machinery/INDEX.md staged and no RULES_INDEX.md at all. The gate cannot write, so it
+// cannot migrate — but "index not staged (generated but not added)" would send the user to
+// `git add` a file the rename made obsolete. It names the rename instead.
+test('the pre-#81 index name is named as a migration, not reported as a missing index (#81)', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, '.claude/rules/t.md', RULE);
+    write(r.root, '.claude/machinery/inbox.md', '');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
+    g(r.root, 'add', '-A');
+    const res = gate(r.root);
+    assert.equal(res.code, 1, res.stdout + res.stderr);
+    assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed/, 'the failure still carries its denominator');
+    assert.match(res.stdout, /RULES_INDEX\.md/);
+    assert.match(res.stdout, /machinery:install/, 'the remedy named is the migration, not a git add');
+  } finally { r.cleanup(); }
 });
 
 test('RED CHECK: the gate is not a no-op — a pending entry really fails it', () => {
