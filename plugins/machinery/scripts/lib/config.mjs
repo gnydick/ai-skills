@@ -30,5 +30,10 @@ export const legacyProjectIndex = (root) => path.join(root, '.claude', MACHINERY
 // fabricated default the design invariants forbid.
 export const projectSpecs = (root) => path.join(root, DOCS_DIR, SPECS_DIR);
 export const projectSpecInbox = (root) => path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX);
-export const projectSpecIndex = (root) => path.join(root, '.claude', MACHINERY_DIR, SPEC_INDEX);
+// The index sits WITH the specs, not with the other generated state (owner, 2026-09-07:
+// "docs/dictated-specs can't hold the actual dictated specs?" — one place, not two): someone
+// browsing the spec area sees what is in it without knowing .claude/machinery exists. The INBOX
+// stays behind, because it holds raw dictations nobody has decided anything about yet, and an
+// unfiled capture landing in the documentation tree would be wrong.
+export const projectSpecIndex = (root) => path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX);
 export function markers() { return JSON.parse(fs.readFileSync(path.join(pluginRoot(), 'markers.json'), 'utf8')); }

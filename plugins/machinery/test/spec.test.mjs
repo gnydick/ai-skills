@@ -61,7 +61,7 @@ function installedProject() {
   write(r.root, '.claude/machinery/spec-inbox.md', '');
   fs.mkdirSync(path.join(r.root, 'docs', 'dictated-specs'), { recursive: true });
   write(r.root, '.claude/machinery/RULES_INDEX.md', generateIndex(path.join(r.root, '.claude/rules')));
-  write(r.root, '.claude/machinery/SPEC_INDEX.md', generateSpecIndex(path.join(r.root, 'docs/dictated-specs')));
+  write(r.root, 'docs/dictated-specs/SPEC_INDEX.md', generateSpecIndex(path.join(r.root, 'docs/dictated-specs')));
   g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'install');
   return r;
 }
@@ -159,10 +159,27 @@ test('the pre-#81 index name is named as a migration, not reported as a missing 
 
 // ------------------------------------------------------------------ Part 2: one fixed location
 
-test('the spec layout is resolvable, and sits beside the rule layout by the same symmetry (#81)', () => {
+test('the spec layout is resolvable: the index sits WITH the specs, the inbox does not (#81)', () => {
   assert.equal(projectSpecs('R'), path.join('R', 'docs', 'dictated-specs'));
+  // Owner, 2026-09-07: "docs/dictated-specs can't hold the actual dictated specs?" — one place, not
+  // two. An index belongs next to the thing it indexes, so someone browsing the spec area sees
+  // what is in it without knowing .claude/machinery exists.
+  assert.equal(projectSpecIndex('R'), path.join('R', 'docs', 'dictated-specs', 'SPEC_INDEX.md'));
+  // The inbox stays behind on purpose: it holds raw dictations nobody has decided anything about
+  // yet, and an unfiled capture landing in the documentation tree would be wrong.
   assert.equal(projectSpecInbox('R'), path.join('R', '.claude', 'machinery', 'spec-inbox.md'));
-  assert.equal(projectSpecIndex('R'), path.join('R', '.claude', 'machinery', 'SPEC_INDEX.md'));
+});
+
+test('the spec index does not index itself (#81)', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'specs-'));
+  try {
+    fs.writeFileSync(path.join(d, 'tooling.md'), '# Tooling\n\n## Resolving a tool\n\n- x\n');
+    fs.writeFileSync(path.join(d, 'SPEC_INDEX.md'), generateSpecIndex(d));
+    const out = generateSpecIndex(d);
+    assert.match(out, /^\| dictated-specs\/tooling\.md \|/m, out);
+    assert.doesNotMatch(out, /SPEC_INDEX/, 'the generated index must not carry a row for itself');
+    assert.equal(out, generateSpecIndex(d), 'and it must be a fixed point: regenerating over its own output changes nothing');
+  } finally { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5 }); }
 });
 
 // The spec area is outside .claude/ entirely, so a filed specification is never seen by anything
@@ -174,15 +191,15 @@ test('the spec index is generated, never authored, and a filed specification nev
     // would not merely produce a wrong row — it would throw.
     write(r.root, 'docs/dictated-specs/tooling.md', '---\ntitle: Tooling\n---\n# Tooling\n\n## Resolving a tool\n\n- resolve by explicit path\n');
     // Hand-edited first: the spec index is generated, never authored, and the gate says so.
-    write(r.root, '.claude/machinery/SPEC_INDEX.md', 'edited by hand');
+    write(r.root, 'docs/dictated-specs/SPEC_INDEX.md', 'edited by hand');
     g(r.root, 'add', '-A');
     let res = gate(r.root);
     assert.equal(res.code, 1, res.stdout + res.stderr);
     assert.match(res.stdout, /spec_check: 1 of 1 spec index comparison\(s\) failed — spec index is stale/, res.stdout);
 
     // Regenerated through the real script, with the --kind that picks the spec generator.
-    runScript('scripts/reindex.mjs', { args: ['--kind', 'specs', '--rules', path.join(r.root, 'docs/dictated-specs'), '--out', path.join(r.root, '.claude/machinery/SPEC_INDEX.md')] });
-    g(r.root, 'add', '.claude/machinery/SPEC_INDEX.md');
+    runScript('scripts/reindex.mjs', { args: ['--kind', 'specs', '--rules', path.join(r.root, 'docs/dictated-specs'), '--out', path.join(r.root, 'docs/dictated-specs/SPEC_INDEX.md')] });
+    g(r.root, 'add', 'docs/dictated-specs/SPEC_INDEX.md');
     const rulesIndex = fs.readFileSync(path.join(r.root, '.claude/machinery/RULES_INDEX.md'), 'utf8');
     assert.match(rulesIndex, /\| rules\/t\.md \|/, rulesIndex);
     assert.doesNotMatch(rulesIndex, /tooling/, 'a specification must never appear as a row among dictated rules');
@@ -218,7 +235,7 @@ test('install creates the spec layout and stages the spec index alongside the ru
     assert.equal(fs.readFileSync(projectSpecInbox(r.root), 'utf8'), '');
     assert.equal(fs.readFileSync(projectSpecIndex(r.root), 'utf8'), generateSpecIndex(projectSpecs(r.root)));
     const staged = g(r.root, 'diff', '--cached', '--name-only');
-    assert.match(staged, /\.claude\/machinery\/SPEC_INDEX\.md/, staged);
+    assert.match(staged, /docs\/dictated-specs\/SPEC_INDEX\.md/, staged);
     assert.match(staged, /\.claude\/machinery\/spec-inbox\.md/, staged);
   } finally { r.cleanup(); }
 });

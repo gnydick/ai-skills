@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseRuleFile } from './frontmatter.mjs';
-import { SPECS_DIR } from './layout.mjs';
+import { SPECS_DIR, SPEC_INDEX } from './layout.mjs';
 
 export function readRules(rulesDir) {
   return fs.readdirSync(rulesDir).filter((f) => f.endsWith('.md')).sort()
@@ -75,11 +75,19 @@ export function generateSpecIndexFrom(entries) {
     ...files.map((f) => `| ${SPECS_DIR}/${f.name} | ${f.sections.length} | ${f.sections.join('; ')} |`), ''].join('\n');
 }
 
-// A missing spec area indexes as empty rather than throwing: a project that has not declared one is
-// reported by the gate and the capture hook, in words, and never by a stack trace here.
+// The index lives INSIDE the directory it indexes, so it must not index itself: without this it
+// would grow a row for SPEC_INDEX.md, and regenerating over its own output would never reach a
+// fixed point — every run would differ from the last and the gate's comparison would never settle.
+// Non-recursive, deliberately: this is the sole derivation of what the index contains, and the
+// gate's staged reader is held to it.
+const isSpecFile = (f) => f.endsWith('.md') && f !== SPEC_INDEX;
+
+// A spec area that does not exist yet indexes as empty rather than throwing: that is a project with
+// no specifications filed, not a misconfiguration, and never a stack trace here.
 export function generateSpecIndex(specsDir) {
   const entries = fs.existsSync(specsDir)
-    ? fs.readdirSync(specsDir).filter((f) => f.endsWith('.md')).sort()
+    ? fs.readdirSync(specsDir, { withFileTypes: true })
+      .filter((e) => e.isFile() && isSpecFile(e.name)).map((e) => e.name).sort()
       .map((f) => ({ name: f, text: fs.readFileSync(path.join(specsDir, f), 'utf8') }))
     : [];
   return generateSpecIndexFrom(entries);

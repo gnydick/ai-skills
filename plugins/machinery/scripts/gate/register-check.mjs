@@ -30,7 +30,16 @@ function stagedRuleEntries(root, rulesDir) {
   const rel = toPosix(path.relative(root, rulesDir));
   const ls = git(['ls-files', '--cached', '--', rel], root);
   if (ls.code !== 0) throw new Error(`git ls-files failed: ${ls.stderr}`);
-  const files = ls.stdout.split('\n').filter((f) => f && f.endsWith('.md')).sort();
+  // NON-RECURSIVE, to agree exactly with generateIndex()'s readdirSync (lib/index.mjs). `git
+  // ls-files` walks subdirectories and readdirSync does not, and Claude Code auto-loads
+  // subdirectories of .claude/rules/, so a user can put a .md in one. While the two readers
+  // disagreed, that file made this check permanently red against an index no generator can produce
+  // — and /machinery:reindex, the remedy the failure message names, could not fix it. One fact,
+  // one derivation (rules/design-invariants.md § Never re-derive a fact).
+  const depth = rel === '' || rel === '.' ? 0 : rel.split('/').length;
+  const files = ls.stdout.split('\n')
+    .filter((f) => f && f.endsWith('.md') && f.split('/').length === depth + 1)
+    .sort();
   return files.map((f) => {
     // `:./<path>` resolves relative to cwd (root); plain `:<path>` resolves relative to the
     // git top level, which breaks when root is itself a subdirectory of the enclosing repo

@@ -36,9 +36,9 @@ const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.c
 // rules"): its own area, its own inbox, its own generated index, resolved the same way in both modes.
 const layout = universal
   ? { rulesDir: path.join(root, RULES_DIR), inbox: path.join(root, INBOX), index: path.join(root, REGISTER_DIR, RULES_INDEX), legacyIndex: path.join(root, REGISTER_DIR, LEGACY_RULES_INDEX),
-      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, SPEC_INBOX), specIndex: path.join(root, REGISTER_DIR, SPEC_INDEX) }
+      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, SPEC_INBOX), specIndex: path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX) }
   : { rulesDir: path.join(root, '.claude', RULES_DIR), inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), index: path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX), legacyIndex: path.join(root, '.claude', MACHINERY_DIR, LEGACY_RULES_INDEX),
-      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX), specIndex: path.join(root, '.claude', MACHINERY_DIR, SPEC_INDEX) };
+      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX), specIndex: path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX) };
 
 // One context, handed to every check. Each check destructures what it needs, so the manifest can
 // generate a uniform call and a new leg slots into the closed list without changing this loop.

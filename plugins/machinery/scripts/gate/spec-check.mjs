@@ -41,7 +41,10 @@ const posixBasename = (p) => p.split('/').pop();
 function stagedSpecTree(root, specsDir, specIndex) {
   const specsRel = toPosix(path.relative(root, specsDir));
   const indexRel = toPosix(path.relative(root, specIndex));
-  const ls = git(['ls-files', '--cached', '--', specsRel, indexRel], root);
+  // The index lives inside the spec area, so one pathspec covers both — and this is the only git
+  // call the leg makes in the overwhelmingly common case of a project with no specifications. The
+  // gate runs on every commit; its cost is the test suite's cost too.
+  const ls = git(['ls-files', '--cached', '--', specsRel], root);
   if (ls.code !== 0) throw new Error(`git ls-files failed: ${ls.stderr}`);
   const listed = ls.stdout.split('\n').filter(Boolean);
   const read = (f) => {
@@ -49,8 +52,14 @@ function stagedSpecTree(root, specsDir, specIndex) {
     if (show.code !== 0) throw new Error(`git show :./${f} failed: ${show.stderr}`);
     return show.stdout;
   };
-  const specs = listed.filter((f) => f !== indexRel && f.endsWith('.md')).sort()
-    .map((f) => ({ name: posixBasename(f), text: read(f) }));
+  // NON-RECURSIVE, to agree exactly with generateSpecIndex()'s readdirSync — `git ls-files` walks
+  // subdirectories and readdirSync does not. This is the same disagreement register-check carried
+  // until #81 found it: two readers of one fact, and the one that sees more makes the check red
+  // against an index no generator can produce.
+  const depth = specsRel === '' || specsRel === '.' ? 0 : specsRel.split('/').length;
+  const specs = listed
+    .filter((f) => f !== indexRel && f.endsWith('.md') && f.split('/').length === depth + 1)
+    .sort().map((f) => ({ name: posixBasename(f), text: read(f) }));
   return { specs, index: listed.includes(indexRel) ? read(indexRel) : null };
 }
 

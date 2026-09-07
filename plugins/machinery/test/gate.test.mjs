@@ -383,6 +383,27 @@ test('a line source that fails part-way fails the collection — the citations t
 // spec.test.mjs with the rest of #81: this file is the suite's longest and sets the wall clock the
 // 15 s budget (spec I42) is measured against, so a case that can sit elsewhere does.
 
+// Found while moving the spec area out from under .claude/rules/ (#81), confirmed by the owner:
+// this check read the staged rule files with `git ls-files --cached -- <rulesDir>`, which walks
+// subdirectories, while generateIndex() reads them with a readdirSync that does not. Claude Code
+// auto-loads subdirectories of .claude/rules/, so a user can put a file in one — and then the two
+// readers disagree, the check goes red against an index no generator can produce, and
+// /machinery:reindex, the remedy the message names, cannot fix it. One fact, one derivation.
+test('a rule file in a SUBDIRECTORY of the rules dir is ignored by the gate exactly as the generator ignores it', () => {
+  const r = makeRepo();
+  try {
+    project(r.root);
+    // parseRuleFile() refuses this frontmatter outright, so a reader that picked the file up would
+    // throw rather than merely produce an extra row — the failure is unmistakable either way.
+    write(r.root, '.claude/rules/sub/nested.md', '---\ntitle: not a rule file\n---\n# N\n\n## Deep\n\n- x\n');
+    g(r.root, 'add', '-A');
+    const res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /register_check: 0 of 1 index comparison\(s\) failed/, res.stdout);
+    assert.doesNotMatch(fs.readFileSync(path.join(r.root, '.claude/machinery/RULES_INDEX.md'), 'utf8'), /nested/);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: the gate is not a no-op — a pending entry really fails it', () => {
   const r = makeRepo();
   try {

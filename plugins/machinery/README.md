@@ -39,7 +39,9 @@ intake files them. A rule's substance is never duplicated outside its one home.
 
 Specifications follow the same shape (#81): `docs/dictated-specs/` for the
 documents, `.claude/machinery/spec-inbox.md` for captured `SPEC:` prompts, and a
-generated `.claude/machinery/SPEC_INDEX.md` beside `RULES_INDEX.md`.
+generated `docs/dictated-specs/SPEC_INDEX.md` sitting with the specifications it
+indexes. The inbox stays behind in `.claude/machinery/` on purpose: it holds raw
+dictations nobody has filed yet, and those do not belong in the docs tree.
 
 ## Filing a universal rule
 
@@ -58,7 +60,7 @@ A `SPEC:` prompt is a specification handed down, and it moves through the same
 machinery a rule does (#81): captured word for word to `.claude/machinery/spec-inbox.md`
 before the assistant replies, filed by `/machinery:spec-intake` into the
 specification under `docs/dictated-specs/` that owns the subsystem, indexed in the
-generated `.claude/machinery/SPEC_INDEX.md`, and dispositioned in one commit.
+generated `docs/dictated-specs/SPEC_INDEX.md`, and dispositioned in one commit.
 
 An undispositioned spec entry blocks the commit, and a disposition naming a path
 outside `docs/dictated-specs/` is refused. That location is fixed and known —

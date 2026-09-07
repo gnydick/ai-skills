@@ -6,5 +6,6 @@ description: Use when the index is reported stale (the post-edit nudge, or the c
 
 - Project: `node "${CLAUDE_PLUGIN_ROOT}/scripts/reindex.mjs" --rules .claude/rules --out .claude/machinery/RULES_INDEX.md`
 - Universal (in the rules-source checkout): `node "${CLAUDE_PLUGIN_ROOT}/scripts/reindex.mjs" --rules rules --out register/RULES_INDEX.md`
+- Specs (the index sits with the specifications it indexes): `node "${CLAUDE_PLUGIN_ROOT}/scripts/reindex.mjs" --kind specs --rules docs/dictated-specs --out docs/dictated-specs/SPEC_INDEX.md`
 
 Commit the regenerated index together with the rule change that made it stale.

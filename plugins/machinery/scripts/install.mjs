@@ -102,8 +102,9 @@ function installProject() {
   fs.writeFileSync(path.join(mach, RULES_INDEX), generateIndex(rules));
   say(`regenerated .claude/machinery/${RULES_INDEX}`);
   if (migrated) say(`migrated .claude/machinery/${LEGACY_RULES_INDEX} → .claude/machinery/${RULES_INDEX} (#81); the old name is staged as removed`);
-  fs.writeFileSync(path.join(mach, SPEC_INDEX), generateSpecIndex(specs));
-  say(`regenerated .claude/machinery/${SPEC_INDEX}`);
+  // The spec index sits WITH the specs, not with the other generated state: one place, not two.
+  fs.writeFileSync(path.join(specs, SPEC_INDEX), generateSpecIndex(specs));
+  say(`regenerated ${DOCS_DIR}/${SPECS_DIR}/${SPEC_INDEX}`);
   const hooksDir = path.join(root, '.githooks'), gateDir = path.join(hooksDir, 'machinery');
   fs.rmSync(gateDir, { recursive: true, force: true });
   // The gate files import '../lib/...'; installed alongside gateDir/lib, so rewrite that prefix
@@ -141,8 +142,9 @@ function installProject() {
   // a generated-but-unstaged index and rejects a remedy (reindex) that would produce nothing new.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
   // not swept into the next commit. observations.json is deliberately absent from this list.
+  // `docs/dictated-specs` is recursive, so it carries the spec index that now lives inside it.
   git(['add', '--', '.claude/rules', `${DOCS_DIR}/${SPECS_DIR}`, '.claude/machinery/inbox.md', `.claude/machinery/${RULES_INDEX}`,
-       `.claude/machinery/${SPEC_INBOX}`, `.claude/machinery/${SPEC_INDEX}`,
+       `.claude/machinery/${SPEC_INBOX}`,
        ...(migrated ? [`.claude/machinery/${LEGACY_RULES_INDEX}`] : []),
        '.claude/machinery/tool-catalog.json', ...(ignoreWritten ? ['.gitignore'] : []), '.githooks'], root);
   return 0;
