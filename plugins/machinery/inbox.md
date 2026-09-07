@@ -52,3 +52,9 @@ disposition: filed → rules/worktree-discipline.md § What may be merged
 URULE: anything starting with SPEC: is a specification to be implemented, not a behavior. expect it to be framed in the context of discussed or currently in flight work, feature, or campaign.  expect to find associated tickets with them. a specification is analogous to what your principal architect would give you. it is authoritative.
 
 disposition: filed → rules/work-tracking.md § A specification handed down
+
+## FILED 2026-09-07T06:38:52Z URULE 5696552d-b37b-4476-a0b7-089391e2f6b6
+
+URULE: when designing, coding, or building anything that must interface with existing resources, no implementation details can be delivered from memory alone unless it's part of a spec loaded with the project. read the resource you are directly interfacing with before coming to a conclusion on how to do your job
+
+disposition: filed → rules/verification-and-evidence.md § Before you write code

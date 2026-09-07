@@ -166,3 +166,7 @@ session start.
   expensive fact twice, collapse it to one before the path goes live.
 
 <!-- rows: 3.1–3.50 -->
+
+## Before you write code
+
+- Before you write code, make sure your design intent matches the existing infrastructure it will run against — read that infrastructure rather than recalling it. No implementation detail is delivered from memory alone; the sole exception is a specification loaded with the project. (Gabe, 2026-09-06, URULE.)
