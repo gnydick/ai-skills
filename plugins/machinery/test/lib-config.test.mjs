@@ -31,7 +31,7 @@ test('project paths sit outside the rules directory (spec I12)', () => {
   assert.equal(legacyProjectIndex('R'), path.join('R', '.claude', 'machinery', 'INDEX.md'));
 });
 
-test('markers come from markers.json', () => assert.deepEqual(markers(), { project: 'PRULE:', universal: 'URULE:', ambiguous: 'RULE:' }));
+test('markers come from markers.json', () => assert.deepEqual(markers(), { project: 'PRULE:', universal: 'URULE:', spec: 'SPEC:', ambiguous: 'RULE:' }));
 
 test('RED CHECK: a malformed machinery.json is an error, not a silent default', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));

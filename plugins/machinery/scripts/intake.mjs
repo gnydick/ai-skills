@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { git, realDir } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
-import { projectInbox, projectIndex, projectRules, universalInbox, universalIndex, rulesSource } from './lib/config.mjs';
+import { projectInbox, projectIndex, projectRules, projectSpecs, projectSpecInbox, projectSpecIndex, universalInbox, universalIndex, rulesSource } from './lib/config.mjs';
 import { pending, setDisposition } from './lib/inbox.mjs';
-import { generateIndex } from './lib/index.mjs';
+import { generateIndex, generateSpecIndex } from './lib/index.mjs';
+import { insideSpecArea } from './lib/layout.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -19,16 +20,30 @@ const die = (m) => { process.stderr.write(m + '\n'); process.exit(1); };
 function list() {
   const out = [];
   let root = null; try { root = projectRoot(opt('--root') || process.cwd()); } catch {}
-  if (root && isRootSession(opt('--root') || process.cwd())) for (const e of pending(projectInbox(root))) out.push([e.stamp, e.marker, projectInbox(root), e.text.split('\n')[0]]);
+  if (root && isRootSession(opt('--root') || process.cwd())) {
+    for (const e of pending(projectInbox(root))) out.push([e.stamp, e.marker, projectInbox(root), e.text.split('\n')[0]]);
+    // #81: the spec inbox is listed on the same line shape, so one `intake list` shows everything
+    // that is blocking a commit rather than half of it.
+    for (const e of pending(projectSpecInbox(root))) out.push([e.stamp, e.marker, projectSpecInbox(root), e.text.split('\n')[0]]);
+  }
   for (const e of pending(universalInbox())) out.push([e.stamp, e.marker, universalInbox(), e.text.split('\n')[0]]);
   process.stdout.write(out.map((r) => r.join('\t')).join('\n') + (out.length ? '\n' : ''));
 }
 
 function commit() {
   const kind = opt('--kind'), stamp = opt('--stamp'), home = opt('--home');
-  if (!['project', 'universal'].includes(kind) || !stamp || !home) die('usage: intake commit --kind project|universal [--root <dir>] --stamp <stamp> --home "<file § Section>"');
+  if (!['project', 'universal', 'spec'].includes(kind) || !stamp || !home) die('usage: intake commit --kind project|universal|spec [--root <dir>] --stamp <stamp> --home "<file § Section>"');
   let repo, inbox, index, rules, extra = [];
-  if (kind === 'project') {
+  // #81: a specification is filed exactly like a project rule — root session, one commit, one repo —
+  // but into the spec area, with the spec index regenerated. The home is checked against that area
+  // HERE as well as at the gate, so the intake cannot write the very disposition the gate rejects.
+  if (kind === 'spec') {
+    const cwd = opt('--root') || process.cwd();
+    if (!isRootSession(cwd)) die('a specification is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
+    repo = projectRoot(cwd); inbox = projectSpecInbox(repo); index = projectSpecIndex(repo); rules = projectSpecs(repo);
+    const filed = home.split(' § ')[0].trim();
+    if (!insideSpecArea(repo, rules, filed)) die(`refusing to file a specification outside the spec area: '${filed}' is not under ${rules}. The spec area is declared by /machinery:install and never guessed.`);
+  } else if (kind === 'project') {
     const cwd = opt('--root') || process.cwd();
     if (!isRootSession(cwd)) die('a project rule is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
     repo = projectRoot(cwd); inbox = projectInbox(repo); index = projectIndex(repo); rules = projectRules(repo);
@@ -53,12 +68,12 @@ function commit() {
     process.stdout.write(`bumped plugin version to ${b.stdout.trim()}\n`);
   }
   fs.mkdirSync(path.dirname(index), { recursive: true });
-  fs.writeFileSync(index, generateIndex(rules), 'utf8');
+  fs.writeFileSync(index, kind === 'spec' ? generateSpecIndex(rules) : generateIndex(rules), 'utf8');
   setDisposition(inbox, stamp, { state: 'FILED', detail: `filed → ${home}` });
   const files = [rules, index, inbox, ...extra].map((f) => path.relative(repo, f).split(path.sep).join('/'));
   const add = git(['add', '--', ...files], repo);
   if (add.code !== 0) die(`git add failed: ${add.stderr}`);
-  const subject = `rule: ${entry.text.split('\n')[0].slice(0, 72)}`;
+  const subject = `${kind === 'spec' ? 'spec' : 'rule'}: ${entry.text.split('\n')[0].slice(0, 72)}`;
   const c = git(['commit', '-q', '-m', `${subject}\n\nFiled → ${home}\nInbox entry ${stamp} (${entry.marker})`, '--', ...files], repo);
   if (c.code !== 0) die(`git commit failed: ${c.stderr}\n${c.stdout}`);
   process.stdout.write(`committed in ${repo}: ${subject}\n`);

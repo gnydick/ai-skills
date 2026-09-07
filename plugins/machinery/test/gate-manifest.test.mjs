@@ -44,7 +44,7 @@ const manifestCheck = (dir, root = REPO) => runScript('scripts/gate-manifest.mjs
 test('every module under scripts/gate declares itself; the two structural files are the only exemptions (I43)', async () => {
   const { declarations, problems } = await loadDeclarations(GATE);
   assert.deepEqual(problems, []);
-  assert.deepEqual(declarations.map((d) => d.id).sort(), ['citation_target', 'register_check', 'sweep_guard']);
+  assert.deepEqual(declarations.map((d) => d.id).sort(), ['citation_target', 'register_check', 'spec_check', 'sweep_guard']);
   assert.deepEqual([...NOT_A_CHECK], ['gate.mjs', MANIFEST_FILE]);
   const files = fs.readdirSync(GATE).filter((f) => f.endsWith('.mjs'));
   assert.equal(files.length, declarations.length + NOT_A_CHECK.length, `scripts/gate holds ${files.length} module(s): ${files.join(', ')}`);
@@ -57,10 +57,10 @@ test('the committed manifest is exactly the generated one (I43)', async () => {
 
 test('the generated manifest carries every wired check and no unwired one (I43)', async () => {
   const { CHECKS, CHECK_FILES } = await import('../scripts/gate/manifest.mjs');
-  assert.deepEqual(CHECKS.map((c) => c.id), ['register_check', 'sweep_guard']);
-  assert.deepEqual([...CHECK_FILES], ['register-check.mjs', 'sweep-guard.mjs']);
+  assert.deepEqual(CHECKS.map((c) => c.id), ['register_check', 'spec_check', 'sweep_guard']);
+  assert.deepEqual([...CHECK_FILES], ['register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']);
   assert.ok(Object.isFrozen(CHECKS));
-  assert.deepEqual(CHECKS.map((c) => c.blocking), [true, false], 'sweep_guard is declared non-blocking');
+  assert.deepEqual(CHECKS.map((c) => c.blocking), [true, true, false], 'sweep_guard is declared non-blocking');
   for (const c of CHECKS) assert.equal(typeof c.run, 'function', c.id);
 });
 

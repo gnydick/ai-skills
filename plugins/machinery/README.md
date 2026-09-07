@@ -37,6 +37,10 @@ One copy only. Universal rules live in this plugin's `rules/`, project rules in
 `.claude/machinery/inbox.md` for a project) that holds captured entries until
 intake files them. A rule's substance is never duplicated outside its one home.
 
+Specifications follow the same shape (#81): `docs/dictated-specs/` for the
+documents, `.claude/machinery/spec-inbox.md` for captured `SPEC:` prompts, and a
+generated `.claude/machinery/SPEC_INDEX.md` beside `RULES_INDEX.md`.
+
 ## Filing a universal rule
 
 `/machinery:rule-intake` runs the sequence: a `URULE:` prompt is **captured** to
@@ -47,6 +51,25 @@ commit** in the rules source's own checkout; `/machinery:reload` then puts the n
 rule into the current session's context. A project rule (`PRULE:`) follows the
 same shape without the version bump, committed in the project's own root
 checkout.
+
+## Filing a specification
+
+A `SPEC:` prompt is a specification handed down, and it moves through the same
+machinery a rule does (#81): captured word for word to `.claude/machinery/spec-inbox.md`
+before the assistant replies, filed by `/machinery:spec-intake` into the
+specification under `docs/dictated-specs/` that owns the subsystem, indexed in the
+generated `.claude/machinery/SPEC_INDEX.md`, and dispositioned in one commit.
+
+An undispositioned spec entry blocks the commit, and a disposition naming a path
+outside `docs/dictated-specs/` is refused. That location is fixed and known —
+one address every project shares, with no config key, no declaration and nothing
+to resolve, the same kind of fact as `.claude/machinery/inbox.md`.
+
+Two limits, stated rather than glossed. Which specification file owns a given
+subsystem is a judgement no mechanism makes: the area, and that the filing lands
+inside it, are what is enforced. And `docs/` is outside `.claude/`, so nothing
+puts a filed specification into a session's context — making one reach a session
+is separate work that does not exist yet.
 
 ## Teaching it a tool
 

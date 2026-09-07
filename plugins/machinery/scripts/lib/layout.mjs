@@ -1,4 +1,7 @@
-// The one spelling of every machinery file name that more than one unit has to name.
+import path from 'node:path';
+
+// The machinery layout: the one spelling of every file name that more than one unit has to name,
+// and the one test of whether a filed path lives inside the spec area.
 //
 // Ticket #81 (owner, 2026-09-07: "move INDEX.md to RULES_INDEX.md and create a SPEC_INDEX.md for
 // specs"). Two units name these files and neither can import the other: lib/config.mjs resolves
@@ -16,9 +19,49 @@ export const LEGACY_RULES_INDEX = 'INDEX.md';
 export const SPEC_INDEX = 'SPEC_INDEX.md';
 export const INBOX = 'inbox.md';
 export const SPEC_INBOX = 'spec-inbox.md';
-// Project-relative directories. Specs sit beside rules under .claude/ by the same symmetry: the
-// ruling settled the spec location by reusing the rules layout rather than by declaring a root.
+// Project-relative directories. Captured specifications persist at ONE fixed, known location —
+// `docs/dictated-specs` at the project root — and nothing resolves, declares or guesses it per
+// project (owner, 2026-09-07: "we just need a unique location to persist those specs", then "i
+// don't want specs under .claude/rules i want docs/dicatated-specs", read as `dictated-specs`
+// because the string becomes a path). The name matches the vocabulary the rules already use: a
+// specification handed down is dictated, exactly as a standing rule is. It is machinery's own
+// ground and not another plugin's — in particular not `docs/superpowers/`, where this repo's own
+// machinery specification currently sits ("i don't want to mix with superpowers necessarily").
+//
+// This is not the fabricated default that rules/design-invariants.md § Absence and defaults
+// forbids. That forbids guessing at a setting whose absence means "inherit the project's own
+// arrangement". This is machinery's own storage, the same kind of fact as
+// `.claude/machinery/inbox.md`, which nobody declares either.
+//
+// WHAT THIS LOCATION IS NOT: auto-loaded. `docs/` is not under `.claude/`, so nothing puts a filed
+// specification into a session's context. Making one reach a session is a separate piece of work
+// (#81 Part 4) and no code, comment or test here may assume it happens.
 export const RULES_DIR = 'rules';
-export const SPECS_DIR = 'specs';
+export const DOCS_DIR = 'docs';
+export const SPECS_DIR = 'dictated-specs';
 export const MACHINERY_DIR = 'machinery';
 export const REGISTER_DIR = 'register';
+
+// The disposition vocabulary for a filed specification (#81). Both the gate leg that refuses a bad
+// filing and the intake that writes one need this test, and neither depends on the other, so it
+// lives here rather than in either — rules/design-invariants.md § Where a distinguishing type is
+// created. Two call sites spelling the containment test themselves is exactly how they drift apart.
+
+// The path half of a `filed → <path> § <Section>` disposition, or null when the disposition is not
+// a filing at all (a dismissal, or a line no writer of ours produced).
+export function filedPath(disposition) {
+  const m = /^filed\s*→\s*(.+)$/.exec(String(disposition ?? '').trim());
+  if (!m) return null;
+  const p = m[1].split(' § ')[0].trim();
+  return p || null;
+}
+
+// True when `p`, as written in a disposition, names something under the project's spec area. A
+// containment test, not an existence test: this judges where a specification was filed, never
+// whether that file happens to be on this machine right now.
+export function insideSpecArea(root, specsDir, p) {
+  const toPosix = (s) => s.split(path.sep).join('/');
+  const rel = toPosix(path.relative(root, specsDir)) + '/';
+  const q = toPosix(path.isAbsolute(p) ? path.relative(root, p) : p).replace(/^\.\//, '');
+  return q.startsWith(rel) && !q.split('/').includes('..');
+}

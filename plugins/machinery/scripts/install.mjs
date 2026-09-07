@@ -6,9 +6,9 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { generateIndex } from './lib/index.mjs';
+import { generateIndex, generateSpecIndex } from './lib/index.mjs';
 import { pluginRoot, rulesSource } from './lib/config.mjs';
-import { RULES_INDEX, LEGACY_RULES_INDEX } from './lib/layout.mjs';
+import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, SPEC_INBOX, DOCS_DIR, SPECS_DIR } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
@@ -64,9 +64,17 @@ function installProject() {
     return 1;
   }
   const rules = path.join(root, '.claude', 'rules'), mach = path.join(root, '.claude', 'machinery');
-  fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true });
+  // #81: captured specifications persist at ONE fixed, known location — docs/dictated-specs — that
+  // nothing declares or resolves. Creating it here is convenience, not declaration: the address
+  // holds whether or not the directory exists yet, exactly as .claude/machinery/inbox.md's does.
+  // Note what this location is NOT: docs/ is outside .claude/, so nothing loads a filed
+  // specification into a session. That is #81 Part 4 and is not built.
+  const specs = path.join(root, DOCS_DIR, SPECS_DIR);
+  fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true }); fs.mkdirSync(specs, { recursive: true });
   const inbox = path.join(mach, 'inbox.md');
   if (!fs.existsSync(inbox)) { fs.writeFileSync(inbox, ''); say(`created ${path.relative(root, inbox)}`); }
+  const specInbox = path.join(mach, SPEC_INBOX);
+  if (!fs.existsSync(specInbox)) { fs.writeFileSync(specInbox, ''); say(`created ${path.relative(root, specInbox)}`); }
   // Ruling 2026-09-05 (specs: tool-assimilation, "The ledger"): tool-catalog.json is a team decision,
   // tracked like inbox.md; observations.json is per-machine measurement and is gitignored, never
   // staged — see the add list at the end, where it is deliberately absent.
@@ -94,6 +102,8 @@ function installProject() {
   fs.writeFileSync(path.join(mach, RULES_INDEX), generateIndex(rules));
   say(`regenerated .claude/machinery/${RULES_INDEX}`);
   if (migrated) say(`migrated .claude/machinery/${LEGACY_RULES_INDEX} → .claude/machinery/${RULES_INDEX} (#81); the old name is staged as removed`);
+  fs.writeFileSync(path.join(mach, SPEC_INDEX), generateSpecIndex(specs));
+  say(`regenerated .claude/machinery/${SPEC_INDEX}`);
   const hooksDir = path.join(root, '.githooks'), gateDir = path.join(hooksDir, 'machinery');
   fs.rmSync(gateDir, { recursive: true, force: true });
   // The gate files import '../lib/...'; installed alongside gateDir/lib, so rewrite that prefix
@@ -131,7 +141,8 @@ function installProject() {
   // a generated-but-unstaged index and rejects a remedy (reindex) that would produce nothing new.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
   // not swept into the next commit. observations.json is deliberately absent from this list.
-  git(['add', '--', '.claude/rules', '.claude/machinery/inbox.md', `.claude/machinery/${RULES_INDEX}`,
+  git(['add', '--', '.claude/rules', `${DOCS_DIR}/${SPECS_DIR}`, '.claude/machinery/inbox.md', `.claude/machinery/${RULES_INDEX}`,
+       `.claude/machinery/${SPEC_INBOX}`, `.claude/machinery/${SPEC_INDEX}`,
        ...(migrated ? [`.claude/machinery/${LEGACY_RULES_INDEX}`] : []),
        '.claude/machinery/tool-catalog.json', ...(ignoreWritten ? ['.gitignore'] : []), '.githooks'], root);
   return 0;

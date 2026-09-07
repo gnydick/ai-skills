@@ -28,7 +28,7 @@ test('the installed gate runs standalone from the project (no plugin path baked 
   const r = makeRepo();
   try {
     install(r.root);
-    for (const f of ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'sweep-guard.mjs']) assert.ok(!fs.readFileSync(path.join(r.root, '.githooks/machinery', f), 'utf8').includes(PLUGIN.replace(/\\/g, '/')));
+    for (const f of ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']) assert.ok(!fs.readFileSync(path.join(r.root, '.githooks/machinery', f), 'utf8').includes(PLUGIN.replace(/\\/g, '/')));
     fs.writeFileSync(path.join(r.root, 'docs.md', ), 'x'); execFileSync('git', ['add', '-A'], { cwd: r.root });
     const g = execFileSync(process.execPath, [path.join(r.root, '.githooks/machinery/gate.mjs')], { cwd: r.root, encoding: 'utf8', env: { ...process.env, CLAUDE_PLUGIN_ROOT: '' } });
     assert.match(g, /register_check: 0 of 0/);
@@ -62,7 +62,7 @@ test('every relative import reachable from any installed gate file resolves insi
     const roots = fs.readdirSync(dir).filter((f) => f.endsWith('.mjs'));
     for (const f of roots) walk(path.join(dir, f));
     assert.ok(!roots.includes('citation-target.mjs'), 'an unwired check must not be installed into a project that will never run it (#73)');
-    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'sweep-guard.mjs'], 'exactly the generated CHECK_FILES, plus the runner and the manifest');
+    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs'], 'exactly the generated CHECK_FILES, plus the runner and the manifest');
     assert.ok(seen.size >= 5,`the walk saw ${seen.size} files — the observer must see the gate's own imports`);
     assert.deepEqual(missing, []);
   } finally { r.cleanup(); }

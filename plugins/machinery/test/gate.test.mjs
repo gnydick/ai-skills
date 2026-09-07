@@ -379,24 +379,9 @@ test('a line source that fails part-way fails the collection — the citations t
   await assert.rejects(collectCitations(dying), /killed by SIGTERM/);
 });
 
-// Ticket #81: a project that has not re-run /machinery:install after the rename still has
-// .claude/machinery/INDEX.md staged and no RULES_INDEX.md at all. The gate cannot write, so it
-// cannot migrate — but "index not staged (generated but not added)" would send the user to
-// `git add` a file the rename made obsolete. It names the rename instead.
-test('the pre-#81 index name is named as a migration, not reported as a missing index (#81)', () => {
-  const r = makeRepo();
-  try {
-    write(r.root, '.claude/rules/t.md', RULE);
-    write(r.root, '.claude/machinery/inbox.md', '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
-    g(r.root, 'add', '-A');
-    const res = gate(r.root);
-    assert.equal(res.code, 1, res.stdout + res.stderr);
-    assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed/, 'the failure still carries its denominator');
-    assert.match(res.stdout, /RULES_INDEX\.md/);
-    assert.match(res.stdout, /machinery:install/, 'the remedy named is the migration, not a git add');
-  } finally { r.cleanup(); }
-});
+// The pre-#81 index name's migration message is register_check's, but its case lives in
+// spec.test.mjs with the rest of #81: this file is the suite's longest and sets the wall clock the
+// 15 s budget (spec I42) is measured against, so a case that can sit elsewhere does.
 
 test('RED CHECK: the gate is not a no-op — a pending entry really fails it', () => {
   const r = makeRepo();

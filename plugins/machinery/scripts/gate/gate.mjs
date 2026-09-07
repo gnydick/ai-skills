@@ -24,7 +24,7 @@ import { projectRoot } from '../lib/root.mjs';
 // File names come from the one place that spells them (#81). This module builds its own layout
 // rather than importing lib/config.mjs because it ships standalone into an adopting project and
 // must never point back at the plugin cache (spec I6) — but the NAMES are still declared once.
-import { RULES_INDEX, LEGACY_RULES_INDEX, INBOX, RULES_DIR, MACHINERY_DIR, REGISTER_DIR } from '../lib/layout.mjs';
+import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, SPEC_INBOX, INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, REGISTER_DIR } from '../lib/layout.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
@@ -32,9 +32,13 @@ const universal = argv.includes('--universal');
 const mergeMode = argv.includes('--merge');
 const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd());
 
+// The spec half is the rule half's mirror (#81, owner ruling 2026-09-07: "make spec: work just like
+// rules"): its own area, its own inbox, its own generated index, resolved the same way in both modes.
 const layout = universal
-  ? { rulesDir: path.join(root, RULES_DIR), inbox: path.join(root, INBOX), index: path.join(root, REGISTER_DIR, RULES_INDEX), legacyIndex: path.join(root, REGISTER_DIR, LEGACY_RULES_INDEX) }
-  : { rulesDir: path.join(root, '.claude', RULES_DIR), inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), index: path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX), legacyIndex: path.join(root, '.claude', MACHINERY_DIR, LEGACY_RULES_INDEX) };
+  ? { rulesDir: path.join(root, RULES_DIR), inbox: path.join(root, INBOX), index: path.join(root, REGISTER_DIR, RULES_INDEX), legacyIndex: path.join(root, REGISTER_DIR, LEGACY_RULES_INDEX),
+      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, SPEC_INBOX), specIndex: path.join(root, REGISTER_DIR, SPEC_INDEX) }
+  : { rulesDir: path.join(root, '.claude', RULES_DIR), inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), index: path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX), legacyIndex: path.join(root, '.claude', MACHINERY_DIR, LEGACY_RULES_INDEX),
+      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX), specIndex: path.join(root, '.claude', MACHINERY_DIR, SPEC_INDEX) };
 
 // One context, handed to every check. Each check destructures what it needs, so the manifest can
 // generate a uniform call and a new leg slots into the closed list without changing this loop.

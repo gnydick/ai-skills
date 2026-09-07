@@ -2,7 +2,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const HEAD = /^## (PENDING|FILED|DISMISSED) (\S+) (PRULE|URULE) (\S+)\s*$/;
+// SPEC joined the marks in #81 (owner ruling, 2026-09-07: "make spec: work just like rules"). One
+// entry shape, one parser, one disposition contract — a spec entry is a rule entry in every respect
+// but which inbox it lands in and which gate leg reads it.
+const HEAD = /^## (PENDING|FILED|DISMISSED) (\S+) (PRULE|URULE|SPEC) (\S+)\s*$/;
 const DISP = /^disposition: (.*)$/;
 
 export function parseInbox(text) {

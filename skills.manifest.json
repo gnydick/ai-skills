@@ -63,6 +63,7 @@
             "reload",
             "reindex",
             "rule-intake",
+            "spec-intake",
             "effort-lifecycle",
             "refresh-diverged-branch",
             "invariant-audit",
