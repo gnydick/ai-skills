@@ -33,18 +33,20 @@ export const declaration = Object.freeze({
 const toPosix = (p) => p.split(path.sep).join('/');
 const posixBasename = (p) => p.split('/').pop();
 
-// What is STAGED under the spec area and at the spec index, read from the git index rather than the
-// working tree (spec I28), so partial staging cannot slip an index past what is actually being
-// committed. ONE `ls-files` covers both paths and decides whether the index is staged at all, so
-// the overwhelmingly common case — a project with no specifications — costs a single git call
-// rather than one per path. The gate runs on every commit; its cost is the suite's cost too.
-function stagedSpecTree(root, specsDir, specIndex) {
+// What is STAGED under the spec area, at the spec index, and at the index's pre-move location, read
+// from the git index rather than the working tree (spec I28), so partial staging cannot slip an
+// index past what is actually being committed.
+//
+// The index no longer lives inside the spec area (owner, 2026-09-07: "just make consistency between
+// where indexes live"), so it is a separate pathspec rather than a name filtered back out of the
+// area's own listing. It is still ONE `ls-files` for all three paths: the overwhelmingly common case
+// — a project with no specifications — costs a single git call, and the gate runs on every commit,
+// so its cost is the test suite's cost too.
+function stagedSpecTree(root, specsDir, specIndex, legacySpecIndex) {
   const specsRel = toPosix(path.relative(root, specsDir));
   const indexRel = toPosix(path.relative(root, specIndex));
-  // The index lives inside the spec area, so one pathspec covers both — and this is the only git
-  // call the leg makes in the overwhelmingly common case of a project with no specifications. The
-  // gate runs on every commit; its cost is the test suite's cost too.
-  const ls = git(['ls-files', '--cached', '--', specsRel], root);
+  const legacyRel = legacySpecIndex ? toPosix(path.relative(root, legacySpecIndex)) : null;
+  const ls = git(['ls-files', '--cached', '--', specsRel, indexRel, ...(legacyRel ? [legacyRel] : [])], root);
   if (ls.code !== 0) throw new Error(`git ls-files failed: ${ls.stderr}`);
   const listed = ls.stdout.split('\n').filter(Boolean);
   const read = (f) => {
@@ -56,16 +58,27 @@ function stagedSpecTree(root, specsDir, specIndex) {
   // subdirectories and readdirSync does not. This is the same disagreement register-check carried
   // until #81 found it: two readers of one fact, and the one that sees more makes the check red
   // against an index no generator can produce.
-  const depth = specsRel === '' || specsRel === '.' ? 0 : specsRel.split('/').length;
+  //
+  // Nothing is filtered out by name here, exactly as the generator filters nothing out by name: an
+  // orphaned index left in the spec area by a project that has not re-run /machinery:install is a
+  // file in that directory, and both readers see it as one. The migration leg below is what a
+  // project in that state actually meets.
+  const rootArea = specsRel === '' || specsRel === '.';
+  const depth = rootArea ? 0 : specsRel.split('/').length;
+  const inArea = (f) => rootArea || f.startsWith(specsRel + '/');
   const specs = listed
-    .filter((f) => f !== indexRel && f.endsWith('.md') && f.split('/').length === depth + 1)
+    .filter((f) => inArea(f) && f.endsWith('.md') && f.split('/').length === depth + 1)
     .sort().map((f) => ({ name: posixBasename(f), text: read(f) }));
-  return { specs, index: listed.includes(indexRel) ? read(indexRel) : null };
+  return {
+    specs,
+    index: listed.includes(indexRel) ? read(indexRel) : null,
+    legacyIndex: legacyRel !== null && listed.includes(legacyRel) ? read(legacyRel) : null,
+  };
 }
 
-// {specsDir, specInbox, specIndex, root} → true if it passes. Never writes (spec I23), which is why
-// it names a missing spec area rather than creating one.
-export function specCheck({ specsDir, specInbox, specIndex, root }) {
+// {specsDir, specInbox, specIndex, legacySpecIndex, root} → true if it passes. Never writes (spec
+// I23), which is why it names a missing spec area rather than creating one.
+export function specCheck({ specsDir, specInbox, specIndex, legacySpecIndex, root }) {
   let ok = true;
   let entries = [];
   try { entries = fs.existsSync(specInbox) ? parseInbox(fs.readFileSync(specInbox, 'utf8')) : []; }
@@ -87,10 +100,21 @@ export function specCheck({ specsDir, specInbox, specIndex, root }) {
   if (outside.length) ok = false;
 
   let tree;
-  try { tree = stagedSpecTree(root, specsDir, specIndex); }
+  try { tree = stagedSpecTree(root, specsDir, specIndex, legacySpecIndex); }
   catch (e) { report('spec_check', 1, 1, `spec files: ${e.message}`); return false; }
   const staged = tree.specs;
   const cur = tree.index === null ? null : tree.index.trim();
+  // A project installed between #81 and the index move carries the index INSIDE the spec area. The
+  // gate never writes (spec I23), so it cannot migrate — and "spec index not staged, git add it"
+  // would send the user to add a file that does not exist yet while the old one sits in the spec
+  // area being indexed as a specification. Name the migration instead, with the same denominator.
+  // Same shape as register_check's leg for the pre-#81 rules index name.
+  if (cur === null && tree.legacyIndex !== null) {
+    const from = path.relative(process.cwd(), legacySpecIndex) || legacySpecIndex;
+    const to = path.relative(process.cwd(), specIndex) || specIndex;
+    report('spec_check', 1, 1, `spec index comparison(s) failed — ${from} is where the spec index used to sit; it is now ${to}, beside the rules index. Run /machinery:install to migrate it (it moves the file and stages both sides)`);
+    return false;
+  }
   if (staged.length === 0 && cur === null) {
     report('spec_check', 0, 0, 'spec index rows (nothing staged under specs or the spec index)');
     return ok;

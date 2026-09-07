@@ -262,3 +262,48 @@ test('migration: an already-installed project has INDEX.md renamed to RULES_INDE
     assert.equal(gate.code, 0, gate.stdout + gate.stderr);
   } finally { r.cleanup(); }
 });
+
+// The same ticket, second migration. A project installed since #81 has the spec index INSIDE the
+// area it indexes — docs/dictated-specs/SPEC_INDEX.md — on disk and tracked. The owner ruled
+// 2026-09-07 ("we don't need to change anything. if anything, just make consistency between where
+// indexes live") that the two generated indexes live in one place, so the spec index moves to
+// .claude/machinery/ beside the rules index. Left behind, the old file is worse than an orphan: the
+// generator no longer excludes that name, so it would be indexed as a specification. Same shape as
+// the INDEX.md migration above — the installer moves it, says so, and stages both sides.
+test('migration: an already-installed project has docs/dictated-specs/SPEC_INDEX.md moved to .claude/machinery/, with no orphan left (#81)', () => {
+  const r = makeRepo();
+  try {
+    fs.mkdirSync(path.join(r.root, '.claude', 'rules'), { recursive: true });
+    fs.mkdirSync(path.join(r.root, '.claude', 'machinery'), { recursive: true });
+    fs.mkdirSync(path.join(r.root, 'docs', 'dictated-specs'), { recursive: true });
+    fs.writeFileSync(path.join(r.root, '.claude', 'rules', 't.md'), '# T\n\n## S\n\n- a rule\n');
+    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'inbox.md'), '');
+    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'spec-inbox.md'), '');
+    fs.writeFileSync(path.join(r.root, 'docs', 'dictated-specs', 'tooling.md'), '# Tooling\n\n## Resolving a tool\n\n- x\n');
+    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/RULES_INDEX.md')] });
+    runScript('scripts/reindex.mjs', { args: ['--kind', 'specs', '--rules', path.join(r.root, 'docs/dictated-specs'), '--out', path.join(r.root, 'docs/dictated-specs/SPEC_INDEX.md')] });
+    execFileSync('git', ['add', '-A'], { cwd: r.root });
+    execFileSync('git', ['commit', '-q', '-m', 'installed with the spec index in the spec area'], { cwd: r.root });
+    assert.deepEqual(fs.readdirSync(path.join(r.root, 'docs', 'dictated-specs')).sort(), ['SPEC_INDEX.md', 'tooling.md'], 'the fixture really has the index inside the spec area');
+
+    const res = install(r.root);
+    assert.equal(res.code, 0, res.stderr);
+    assert.deepEqual(fs.readdirSync(path.join(r.root, 'docs', 'dictated-specs')).sort(), ['tooling.md'], 'an orphaned SPEC_INDEX.md survived the migration on disk');
+    assert.ok(fs.existsSync(path.join(r.root, '.claude', 'machinery', 'SPEC_INDEX.md')));
+    assert.match(res.stdout, /docs\/dictated-specs\/SPEC_INDEX\.md/, res.stdout);
+    assert.match(res.stdout, /\.claude\/machinery\/SPEC_INDEX\.md/, res.stdout);
+    const stagedSpec = execFileSync('git', ['diff', '--cached', '--name-status'], { cwd: r.root, encoding: 'utf8' });
+    assert.match(stagedSpec, /\.claude\/machinery\/SPEC_INDEX\.md/, stagedSpec);
+    assert.match(stagedSpec, /docs\/dictated-specs\/SPEC_INDEX\.md/, `the old path is not mentioned in the staged change at all:\n${stagedSpec}`);
+    const trackedSpec = execFileSync('git', ['ls-files', '--cached'], { cwd: r.root, encoding: 'utf8' });
+    assert.doesNotMatch(trackedSpec, /^docs\/dictated-specs\/SPEC_INDEX\.md$/m, `the old spec index is still tracked after the migration:\n${trackedSpec}`);
+    assert.match(trackedSpec, /^\.claude\/machinery\/SPEC_INDEX\.md$/m, trackedSpec);
+    // And the migrated index really is the one the gate now reads: it carries the spec that stayed
+    // behind, and never a row for itself.
+    const idx = fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'SPEC_INDEX.md'), 'utf8');
+    assert.match(idx, /^\| dictated-specs\/tooling\.md \|/m, idx);
+    assert.doesNotMatch(idx, /SPEC_INDEX/, idx);
+    const gateRes = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root });
+    assert.equal(gateRes.code, 0, gateRes.stdout + gateRes.stderr);
+  } finally { r.cleanup(); }
+});

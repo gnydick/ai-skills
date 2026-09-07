@@ -30,10 +30,16 @@ export const legacyProjectIndex = (root) => path.join(root, '.claude', MACHINERY
 // fabricated default the design invariants forbid.
 export const projectSpecs = (root) => path.join(root, DOCS_DIR, SPECS_DIR);
 export const projectSpecInbox = (root) => path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX);
-// The index sits WITH the specs, not with the other generated state (owner, 2026-09-07:
-// "docs/dictated-specs can't hold the actual dictated specs?" — one place, not two): someone
-// browsing the spec area sees what is in it without knowing .claude/machinery exists. The INBOX
-// stays behind, because it holds raw dictations nobody has decided anything about yet, and an
-// unfiled capture landing in the documentation tree would be wrong.
-export const projectSpecIndex = (root) => path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX);
+// BOTH generated indexes live in machinery's generated-state directory (owner, 2026-09-07: "we
+// don't need to change anything. if anything, just make consistency between where indexes live").
+// The specifications themselves do not move; only this index does.
+//
+// Why the consistency runs in this direction and not the other: RULES_INDEX.md cannot live with its
+// rules, because Claude Code auto-loads .claude/rules/ — a generated index sitting there would be
+// injected into every session as if it were an instruction, and it would index itself. That
+// constraint is on the rules side and cannot be lifted, so the spec index is the half that moves.
+export const projectSpecIndex = (root) => path.join(root, '.claude', MACHINERY_DIR, SPEC_INDEX);
+// Where the spec index sat between #81 and the move, resolved only so the installer can migrate one
+// and the gate can name the migration. Not an alias: nothing resolves to it.
+export const legacyProjectSpecIndex = (root) => path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX);
 export function markers() { return JSON.parse(fs.readFileSync(path.join(pluginRoot(), 'markers.json'), 'utf8')); }
