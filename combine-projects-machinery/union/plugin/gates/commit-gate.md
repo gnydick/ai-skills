@@ -12,6 +12,15 @@ beside the gate, imported by nothing, for a future sweep tool. The items below
 are kept as written so the design of the check survives for that tool, each
 marked where it no longer describes what runs.
 
+**Amended 2026-09-06 (#73):** the gate's check list is generated from a
+`declaration` each check module exports, so the manifest is the whole truth
+about what runs — the advisory warning is a declared `blocking: false` check
+rather than a second execution path beside the array. The unwired citation
+checker is declared `wired: false` with the ruling that unwired it, and is no
+longer copied into an adopting project's `.githooks/machinery/`; it stays in
+the plugin alone. Every claim a check ships is walked, and a check may not be
+marked unwired while any claim about it still stands.
+
 Four cheap checks and one advisory warning, run on every commit — two checks
 the gate executes and rejects the commit on (one since 2026-09-05, see above),
 and two that its header states and a person applies. It is cheap on purpose. Anything heavier belongs to the merge

@@ -1,6 +1,19 @@
 import { gitLines, gitRaw } from '../lib/git.mjs';
 import { report } from '../lib/report.mjs';
 
+// UNWIRED. The declaration is what keeps that fact honest (#73, I43/I44): the generated manifest
+// omits this module, the installer stops shipping it, and the claims walker refuses to let anything
+// claim it blocks. Its claims list is empty because every claim that survived the 2026-09-05
+// unwiring has been amended — that emptiness is the permission to be unwired, not an oversight.
+export const declaration = Object.freeze({
+  id: 'citation_target',
+  run: 'citationTarget',
+  blocking: true,
+  wired: false,
+  reason: 'Unwired 2026-09-05 by owner ruling #29 ("let\'s unwire citation audit and gating" / "i\'d rather not worry about gating citations at all right now, we can do big sweeps later"): citations are to anchor on a symbol name, never a line number, so a line-and-heading validator is the wrong mechanism. The module stays in the plugin for a future symbol-anchored sweep tool and is measured through test/helpers/citation-target-driver.mjs; nothing installs it and nothing runs it at commit or merge time.',
+  claims: Object.freeze([]),
+});
+
 // Ported from citation_creation_gate.py:95-137 plus the union's `file § Section` form.
 const EXTS = 'md|rs|py|mjs|js|ts|tsx|json|toml|yaml|yml|sh|ps1|txt|html|css';
 const LINE_CITE = new RegExp(String.raw`\x60([\w.][\w./\\-]*\.(?:${EXTS})):(\d+)(?:-(\d+))?\x60`, 'g');

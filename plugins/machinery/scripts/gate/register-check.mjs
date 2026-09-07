@@ -4,6 +4,23 @@ import { generateIndexFrom } from '../lib/index.mjs';
 import { report } from '../lib/report.mjs';
 import { git, gitRaw } from '../lib/git.mjs';
 
+// The gate's composition is generated from this (ticket #73, I43), and every claim listed here is
+// walked by the build check, which refuses to let this check be marked `wired: false` while any of
+// them still stands (I44). Add a claim when you write one; amend the claim before unwiring.
+export const declaration = Object.freeze({
+  id: 'register_check',
+  run: 'registerCheck',
+  blocking: true,
+  wired: true,
+  claims: Object.freeze([
+    { file: 'plugins/machinery/rules/rule-governance.md', quote: 'An undispositioned inbox entry fails the register check.' },
+    { file: 'plugins/machinery/rules/rule-governance.md', quote: 'Run the governance check on every commit' },
+    { file: 'docs/superpowers/specs/2026-09-02-machinery-plugin-core-design.md', quote: 'The index cannot be hand-edited into acceptance. | Gate compares staged index to regeneration.' },
+    { file: 'docs/superpowers/specs/2026-09-02-machinery-plugin-core-design.md', quote: 'Every executed check reports a denominator.' },
+    { file: 'combine-projects-machinery/union/plugin/gates/commit-gate.md', quote: '**Check one, the register check, cheap mode. Blocks.**' },
+  ]),
+});
+
 const toPosix = (p) => p.split(path.sep).join('/');
 const posixBasename = (p) => p.split('/').pop();
 
@@ -56,12 +73,19 @@ export function registerCheck({ rulesDir, inbox, index, root }) {
     return ok;
   }
   const fresh = generateIndexFrom(staged).trim();
+  // One index is compared, so the denominator is 1 either way. Before #73 both failure branches
+  // wrote their diagnostic straight to stdout, so a gate failure could arrive with no denominator at
+  // all — against rules/tool-output.md § Proof lines and denominators, and against this check's own
+  // I25 claim. Every path out of here now goes through report().
+  const where = path.relative(process.cwd(), index) || index;
   if (cur === null) {
-    process.stdout.write(`register_check: index not staged (generated but not added) — git add ${path.relative(process.cwd(), index) || index}\n`);
+    report('register_check', 1, 1, `index comparison(s) failed — index not staged (generated but not added) — git add ${where}`);
     ok = false;
   } else if (cur !== fresh) {
-    process.stdout.write(`register_check: index is stale — ${path.relative(process.cwd(), index) || index} differs from a fresh regeneration; run /machinery:reindex\n`);
+    report('register_check', 1, 1, `index comparison(s) failed — index is stale — ${where} differs from a fresh regeneration; run /machinery:reindex`);
     ok = false;
+  } else {
+    report('register_check', 0, 1, 'index comparison(s) failed');
   }
   return ok;
 }
