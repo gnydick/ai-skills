@@ -322,3 +322,7 @@ session start.
   report the first run's work over its own count.
 
 <!-- rows: 9.1, 9.11, 9.13, 9.33–9.35, 9.42, 9.51–9.52, 9.72, 9.79, 9.84–9.85, 9.89–9.106, 9.108–9.115, 9.117–9.118, 9.120–9.142, 9.172–9.180, 9.182–9.185 -->
+
+## The base language's own convention
+
+- Never replace the base programming language's own convention — zero-based indexing, its native ordering, its own numbering — to match a presentation-layer feature. A presentation requirement, such as a 1-based id shown to a user or a reference format's own 1-based numbering, converts once at the boundary that produces it — the persisted format, the display — and internals keep the language's native convention throughout.

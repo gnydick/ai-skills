@@ -58,3 +58,9 @@ disposition: filed → rules/work-tracking.md § A specification handed down
 URULE: when designing, coding, or building anything that must interface with existing resources, no implementation details can be delivered from memory alone unless it's part of a spec loaded with the project. read the resource you are directly interfacing with before coming to a conclusion on how to do your job
 
 disposition: filed → rules/verification-and-evidence.md § Before you write code
+
+## FILED 2026-09-08T23:27:24Z URULE a2af19dc-f7ad-45a6-be61-a545a97ff88e
+
+URULE: never replace base programming language convention to match a presentation layer feature
+
+disposition: filed → rules/design-invariants.md § The base language's own convention
