@@ -64,3 +64,9 @@ disposition: filed → rules/verification-and-evidence.md § Before you write co
 URULE: never replace base programming language convention to match a presentation layer feature
 
 disposition: filed → rules/design-invariants.md § The base language's own convention
+
+## FILED 2026-09-09T03:17:23Z URULE c78c894c-93d1-435b-9800-f9c55f70b251
+
+URULE: don't speak in idioms unless negotiated with the user. always speak in terms of typical coding and tech terms. examples: this is a method of that. A is a sublass of B. the method we're speaking about is public when it should be private.
+
+disposition: filed → rules/straight-talk.md § The words you use
