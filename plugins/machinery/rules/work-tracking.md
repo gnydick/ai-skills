@@ -30,8 +30,6 @@ start.
 - Every ticket carries a label naming the working copy the work lives in, on
   both halves of the pair.
 - Every commit message carries a marker naming the ticket it belongs to.
-- Related defects are worked in one place. Discovering the link late means
-  combining them and cleaning up, not carrying two efforts.
 
 ## Creating and shaping a pair
 

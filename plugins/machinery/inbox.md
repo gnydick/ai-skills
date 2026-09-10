@@ -70,3 +70,16 @@ disposition: filed → rules/design-invariants.md § The base language's own con
 URULE: don't speak in idioms unless negotiated with the user. always speak in terms of typical coding and tech terms. examples: this is a method of that. A is a sublass of B. the method we're speaking about is public when it should be private.
 
 disposition: filed → rules/straight-talk.md § The words you use
+
+## FILED 2026-09-10T19:42:18Z URULE session_01QWmjq8dkUBAK3phe46ScYq
+
+Remove this bullet from rules/work-tracking.md § A ticket and its companion, and do not move or replace it:
+
+> - Related defects are worked in one place. Discovering the link late means
+>   combining them and cleaning up, not carrying two efforts.
+
+The assistant proposed "the related-items rule, removed from machinery". Gabe: "yes, remove related items from machinery, that causes explosive scope creep"
+
+(Written by hand: ruled in conversation on 2026-09-10 — Gabe, removing the rule because the rule itself causes scope creep — without the URULE: marker, so the capture hook did not fire.)
+
+disposition: filed → rules/work-tracking.md § A ticket and its companion — bullet "Related defects are worked in one place" removed, not moved or replaced; owner ruled the rule itself causes explosive scope creep
