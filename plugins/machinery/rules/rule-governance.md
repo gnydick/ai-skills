@@ -60,6 +60,13 @@ gate that runs the register check.
 - Place a new rule by ladder: if a group fits, append a dated row; if no group
   fits but related loose rules exist, promote them together into a new group
   with a summary; otherwise file it as a loose rule under its area.
+- Before a new rule is filed, search the developer-friendliness skill for it as
+  well as the rule groups. If the skill already asks for the same action for the
+  same reason, the rule is not filed into machinery, and its inbox entry is
+  closed with a pointer to the skill section that covers it. If the rule
+  contradicts the skill, it goes to the owner for a ruling before it is filed.
+  Duplicates never live in machinery: where both say the same thing, the skill
+  keeps it. (Gabe, 2026-09-10, URULE.)
 
 ## Filing and closing the loop
 

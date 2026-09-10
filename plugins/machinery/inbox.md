@@ -83,3 +83,13 @@ The assistant proposed "the related-items rule, removed from machinery". Gabe: "
 (Written by hand: ruled in conversation on 2026-09-10 — Gabe, removing the rule because the rule itself causes scope creep — without the URULE: marker, so the capture hook did not fire.)
 
 disposition: filed → rules/work-tracking.md § A ticket and its companion — bullet "Related defects are worked in one place" removed, not moved or replaced; owner ruled the rule itself causes explosive scope creep
+
+## FILED 2026-09-10T20:34:56Z URULE session_01QWmjq8dkUBAK3phe46ScYq
+
+Context: the plan is for developer-friendliness to become its own plugin that machinery depends on, with duplicates removed from machinery. Gabe: "you asked about rule conflicts later, so it'd be new rules added to machinery, it should check to make sure it's not a rule in friendliness already."
+
+The assistant restated it: before a new PRULE or URULE is filed into machinery, intake checks whether developer-friendliness already says it. If it's already there (same action, same reason), it isn't filed and its inbox entry points to the skill section. If it contradicts the skill, it goes to the owner for a ruling before filing. Otherwise it's filed as normal. The assistant proposed filing it now, as a URULE, into rules/rule-governance.md § Finding the group it joins. Gabe: "file it now"
+
+(Written by hand: ruled in conversation on 2026-09-10 — Gabe, adding a duplicate check against the developer-friendliness skill to rule intake — without the URULE: marker, so the capture hook did not fire.)
+
+disposition: filed → rules/rule-governance.md § Finding the group it joins
