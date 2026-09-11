@@ -93,3 +93,27 @@ The assistant restated it: before a new PRULE or URULE is filed into machinery, 
 (Written by hand: ruled in conversation on 2026-09-10 — Gabe, adding a duplicate check against the developer-friendliness skill to rule intake — without the URULE: marker, so the capture hook did not fire.)
 
 disposition: filed → rules/rule-governance.md § Finding the group it joins
+
+## FILED 2026-09-11T22:28:00Z URULE session_01QWmjq8dkUBAK3phe46ScYq
+
+Gabe: "i updated verification-and-evidence.md myself"
+
+Asked what the commit should contain, he chose "Full filing" — his text stays exactly as written, plus an inbox entry, an attribution line, the regenerated index and a version bump. Gabe: "full filing"
+
+The five bullets, as filed into rules/verification-and-evidence.md § The word you just wrote makes a check due:
+
+> - Change only the site the change is about. Then build and run the tests. The compiler errors and test failures that
+>   come back name the affected sites. That list is the evidence, and it was produced with every other site untouched.
+> - Never edit a site to find out whether it needed editing. The build you just ran already answered that. An edit made to
+>   see what happens is a guess wearing the clothes of evidence.
+> - A site you believe is affected that neither the compiler nor a test named gets the path written down first, from the
+>   change to that site, and a test that fails there before you touch it.
+> - Never edit a site to make a failure elsewhere go away. Fix what the failure names.
+> - If you did edit a site and then decided it wasn't needed, undoing it is not enough. Show that the file is
+>   byte-identical to where it started, and say in the report that you edited and reverted it. (Gabe, 2026-09-11, URULE.)
+
+(Written by hand: the owner wrote the five bullets into rules/verification-and-evidence.md himself, in the working tree, rather than dictating them behind the URULE: marker, so the capture hook did not fire. His text is unchanged; the only assistant edit to it is the attribution on the last bullet, which covers all five as one ruling given 2026-09-11.)
+
+Checked against the developer-friendliness skill before filing, as rules/rule-governance.md § Finding the group it joins now requires: none of the five asks for the same action for the same reason, and none contradicts it — that skill governs the record, never how evidence is obtained. The closest neighbours are its § 2 ("The index that did not help") and § 6.6 No surprises, which ask that a tried-and-reverted attempt be disclosed; the fifth bullet agrees with them and sharpens them, but demands something they do not — proof the file is byte-identical again.
+
+disposition: filed → rules/verification-and-evidence.md § The word you just wrote makes a check due

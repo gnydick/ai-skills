@@ -51,6 +51,15 @@ session start.
   it: search the area you changed and fix or defer each one by name before
   closing. Fixing the one you were shown does not discharge a claim about a
   class.
+- Change only the site the change is about. Then build and run the tests. The compiler errors and test failures that
+  come back name the affected sites. That list is the evidence, and it was produced with every other site untouched.
+- Never edit a site to find out whether it needed editing. The build you just ran already answered that. An edit made to
+  see what happens is a guess wearing the clothes of evidence.
+- A site you believe is affected that neither the compiler nor a test named gets the path written down first, from the
+  change to that site, and a test that fails there before you touch it.
+- Never edit a site to make a failure elsewhere go away. Fix what the failure names.
+- If you did edit a site and then decided it wasn't needed, undoing it is not enough. Show that the file is
+  byte-identical to where it started, and say in the report that you edited and reverted it. (Gabe, 2026-09-11, URULE.)
 - A diagnosis is confirmed only when you can trace the path, step by step, from
   the real observed input to the line you are blaming. Reading the end of the
   code correctly does not show that execution ever reaches it.
@@ -169,4 +178,6 @@ session start.
 
 ## Before you write code
 
-- Before you write code, make sure your design intent matches the existing infrastructure it will run against — read that infrastructure rather than recalling it. No implementation detail is delivered from memory alone; the sole exception is a specification loaded with the project. (Gabe, 2026-09-06, URULE.)
+- Before you write code, make sure your design intent matches the existing infrastructure it will run against — read
+  that infrastructure rather than recalling it. No implementation detail is delivered from memory alone; the sole
+  exception is a specification loaded with the project. (Gabe, 2026-09-06, URULE.)
