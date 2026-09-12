@@ -134,3 +134,126 @@ from the shared checkout after the merge.
   places by design. The build binds them, the same way it binds route keys to
   subfolders, so this is the established shape rather than a new one — but it is
   the second such pair in this manifest.
+
+---
+
+# Item 2 — the skill rewording (#94)
+
+The five conflict rulings plus the §6.4 merge. All five were ruled "Skill
+clarifies; machinery unchanged", so nothing under `plugins/machinery/` is in
+scope. Item 3 (the machinery removals) is still gated on the plugin loading the
+skill without being asked, which has not happened.
+
+## Predictions, written before any edit
+
+Written 2026-09-11, before touching `SKILL.md`.
+
+### What will change
+
+1. Exactly eight passages in
+   `claude-code/developer-friendliness/developer-friendliness/SKILL.md`:
+   §5.1 bullet 1 (batching), §5.1 bullet 4 (editing vs adding, which gains the
+   one exception), §6.2 row "A learning that was wrong", §6.4 row "Whether the
+   work actually worked", §6.7 rows 1, 3 and 4, and §8 bullet "Deleting is
+   repair".
+2. `plugins/developer-friendliness/skills/developer-friendliness/SKILL.md` will
+   change by exactly the same diff, produced by `build-skills.mjs build`, never
+   by hand.
+3. `build-skills.mjs` will demand a version bump on the
+   `developer-friendliness` plugin, because its staged contents change. It will
+   NOT demand one on `machinery` or `unbreakable`, whose staged contents do not.
+4. §6.4 will afterwards contain both machinery items word for word: "whether the
+   restructuring achieved its point" and "what new smells appeared".
+
+### What must stay untouched — the half that can fail
+
+5. Nothing under `plugins/machinery/` changes. Every one of the five rulings
+   says machinery is unchanged; an edit there means the work left its scope.
+6. §6.1 is byte-identical afterwards, including all ten of its rows. Ruled
+   explicitly: "i think it works as stated for now".
+7. `docs/evals/` is byte-identical. Prompts, `grade.py` and both fixtures are
+   read for contradictions and not edited.
+8. The front matter (the `description`) is byte-identical. The rulings are about
+   the body's wording, not about what triggers the skill.
+9. §§1–4, 5.2, 6.3, 6.5, 6.6, 7, 9 and 10 are byte-identical. In particular §10,
+   the one-paragraph form, says "Write it at the moment" — that survives
+   ruling 1, which moves *the write-up*, not *the capture*, and §10 is about the
+   capture.
+10. No reference to machinery, its rule files, PRULE/URULE, an inbox, a register
+    or a commit gate appears anywhere in the skill. Verified by search after the
+    edit, not assumed.
+11. No section is renumbered, added, removed or reordered: the heading list is
+    identical before and after.
+12. `skills.manifest.json` routing is unchanged; only a version number moves.
+
+## Predictions confirmed, one by one
+
+1. **Held.** Exactly eight passages changed, and exactly those eight.
+2. **Held.** The staged copy changed by the identical diff, produced by
+   `build-skills.mjs build`; `check` reports "matches source".
+3. **Held.** `check` demanded a bump on `developer-friendliness` alone (0.1.0 →
+   0.1.1) and reported `unbreakable`, `dreamy` and `machinery` as matching the
+   tree their versions were set on.
+4. **Held.** §6.4 now reads "…whether the restructuring achieved its point, and
+   what new smells appeared", both word for word.
+5. **Held.** `git status --porcelain plugins/machinery/` is empty.
+6. **Held.** §6.1 diffs clean against `HEAD`.
+7. **Held.** `docs/evals/` is untouched. It was read for contradictions (below)
+   and not edited.
+8. **Held.** The front matter diffs clean.
+9. **Held.** §§1–4, 5.2, 6.3, 6.5, 6.6, 7, 9 and 10 each diff clean against
+   `HEAD`. §10's "Write it at the moment" is about the capture, which ruling 1
+   leaves where it was.
+10. **Held.** A case-insensitive search for machinery, PRULE, URULE, inbox,
+    register, commit gate and "rule file" over the skill returns nothing.
+11. **Held.** The heading list is identical before and after.
+12. **Held.** `skills.manifest.json` is untouched.
+
+## What changed, and what it bought
+
+- **What changed.** Six items in one file: §5.1 splits capturing from writing
+  up; §5.1 gains the single append-only exception, which §6.2 and §8 now point
+  at rather than restate; §6.4 absorbs machinery's two extra ledger items; §6.7
+  says "before the work lands", scopes stale-entry repair to records the current
+  work reads, and says wrong instructions are corrected through the project's
+  own process rather than "at the source".
+- **What improved.** Five wordings that contradicted machinery now agree with it
+  while still standing on their own — none of them names machinery. §6.4 carries
+  the two ledger items it needs before item 3 can ever remove them from
+  machinery. §6.7's stale-entry row now agrees with §8's "fix what you touch",
+  which it previously pulled against.
+- **What regressed.** §5.1's first bullet grew from three lines to eight, and
+  §6.7's two rows are now long enough to wrap badly in a rendered table. This
+  skill argues against length; it spent some here to carry a distinction.
+- **Whether it achieved its point.** Yes for the five conflicts and the merge.
+  It does not close the ticket: item 3 is still gated on the plugin loading the
+  skill without being asked.
+- **New smells.** Two. First, "a record kept as history, and someone's own
+  account of a problem" is a judgement with no mechanism behind it — a reader
+  could class a project's issue tracker as either. Second, §6.7's stale-entry
+  row now turns an unconditional instruction into a judgement call ("reads or
+  relies on"), and eval 0's graded `stale_reference_handled` expectation depends
+  on that judgement coming out one particular way.
+
+## Eval expectations, checked against the new text
+
+`docs/evals/developer-friendliness/{prompts.json,grade.py}` and both fixtures
+were read. **No graded expectation contradicts the reworded skill.** Two are
+worth watching:
+
+- `Corrects the stale record it encountered` (evals 0 and 1) grades whether
+  `docs/notes.md`'s reference to the non-existent `tests/make_fixtures.py` was
+  removed or marked wrong. Ruling 3 makes that conditional: correct it if the
+  current work reads or relies on that record. In eval 1 the fit is exact — the
+  handoff is written into `docs/notes.md`. In eval 0 it holds because
+  `notes.md`'s entire content is how to run the tests and the run adds and runs
+  a test, but it is now an inference the model has to make rather than an
+  unconditional instruction.
+- Ruling 5's exception could be read to cover `docs/issues.md` ("Known issues" —
+  accounts of problems). The evals only require *appending* to it, which the
+  exception permits, so nothing breaks.
+
+Ruling 3 slightly *helps* eval 2 (the governor): under the old unconditional
+row, noticing the stale `notes.md` while bumping a version pulled against
+"docs/ is untouched". Under the new one, that work reads nothing in `docs/`, so
+leaving it alone is now the skill's own answer.

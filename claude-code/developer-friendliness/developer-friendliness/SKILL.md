@@ -218,15 +218,27 @@ The governor on every other section.
 
 ### 5.1 Writing
 
-- **Write at the moment, not batched.** Batching pays to reconstruct everything
-  batched, and the detail that mattered — the exact error, the thing you tried
-  first — is the part you have already forgotten.
+- **Capture at the moment; write up in one pass.** Capturing a detail and
+  writing it up are two acts, and only the first is urgent. Capture when it
+  happens — a line in your own report of the task is enough — because the detail
+  that mattered, the exact error, the thing you tried first, is the part you
+  have already forgotten by the end. The full write-up can wait for one pass
+  before the work lands. Batching the *capture* is what costs: it pays to
+  reconstruct everything batched, out of the next reader's hour rather than your
+  minute.
 - **One line where one line does.** Length is not care; it is the usual way a
   record stops being read.
 - **Never restate the artifact.** Copies drift. Record what it cannot show: why,
   what else was considered, what is still wrong.
 - **Prefer editing an entry to adding one.** Records grow by accretion unless
   something opposes it. Deleting a stale entry is maintenance, not loss.
+  **One exception, and it is the only one:** a record kept as history, and
+  someone's own account of a problem, are added to and never edited or deleted.
+  Their value is that they say what was true, or what someone saw, at the time
+  they were written; editing one destroys the only copy of that and leaves
+  nothing that could disagree with today's story. Correct them by appending,
+  saying what the new entry supersedes. Every other record follows the
+  edit-or-delete rule above.
 - **The report and the record are two masters.** A message is read once, now, by
   someone with full context; a record is read later, cold, by someone with none.
   One artifact serving both is either unreadable or assumes context its reader
@@ -284,7 +296,7 @@ here, run the filter.
 | What qualifies | what surprised you; what you had to run something to learn | if rediscovering it costs a command and a wait, it costs that every time, for everyone |
 | The form | the fact, the evidence, and when you learned it | an unattributed claim cannot be rechecked, so it is believed past its expiry |
 | Where it lives | with the change that produced it, unless it recurs on every visit | a learning in a global pile is not found by the person reading the change it explains |
-| A learning that was wrong | fix or delete it; never append a correction beside it | two contradicting notes are worse than neither — the reader must adjudicate with less than you had |
+| A learning that was wrong | fix or delete it; never append a correction beside it — unless it lives in one of §5.1's two append-only records, where the correction is appended and names what it supersedes | two contradicting notes are worse than neither — the reader must adjudicate with less than you had, and an appended correction that does not say what it replaces leaves them exactly there |
 | Learnings about the tools, not the project | kept out of the project's own record | padding it with environment trivia is how it becomes unread |
 
 ### 6.3 Decisions
@@ -304,7 +316,7 @@ finished.
 
 | Choice | Derived answer | The asymmetry |
 |---|---|---|
-| Whether the work actually worked | a ledger for the effort: what changed, what improved, what regressed, what is newly wrong | without it, success is folklore and the next attempt is argued from memory rather than from what happened |
+| Whether the work actually worked | a ledger for the effort: what changed, what improved, what regressed, what is newly wrong, whether the restructuring achieved its point, and what new smells appeared | without it, success is folklore and the next attempt is argued from memory rather than from what happened; and a ledger that lists what changed without answering whether it achieved its point has recorded the work and not the outcome |
 | When to write it | when the result is measurable, not when the change lands | the moment passes and the comparison becomes unrecoverable |
 | A regression you caused and accepted | recorded as accepted, with why | an accepted tradeoff and an unnoticed defect look identical later |
 | Work that did not achieve its goal | recorded plainly | an unrecorded failure is repeated, usually by someone who read only that it was attempted |
@@ -351,10 +363,10 @@ One surprise converts every future summary into something to be checked.
 
 | Choice | Derived answer | The asymmetry |
 |---|---|---|
-| Docs covering behavior you changed | updated in the same change | a wrong document is worse than a missing one — missing is obvious, wrong is believed |
+| Docs covering behavior you changed | updated before the work lands | a wrong document is worse than a missing one — missing is obvious, wrong is believed, and once the work has landed nobody is looking at the doc any more |
 | The message on a change | why, and what it is not | the diff is always accurate; the reason is available exactly once |
-| A stale entry noticed in passing | deleted or corrected | leaving it costs every future reader doubt about everything near it |
-| Instructions that proved wrong | corrected at the source | a silent workaround leaves it in place to catch the next person |
+| A stale entry noticed in passing | corrected, if it is in a record the current work reads or relies on; anywhere else, filed and left alone | leaving it where you are working costs every future reader doubt about everything near it, and you are the one person already holding what makes it wrong; going after one outside that spends this session on somebody else's record |
+| Instructions that proved wrong | never silently worked around — corrected through whatever process the project uses to change its instructions, or proposed to whoever owns them | a silent workaround leaves it in place to catch the next person, who will not have your reason for going around it |
 | Generated documents | regenerated, never hand-patched | a patched artifact disagrees with its generator, discovered at the worst time |
 
 ---
@@ -420,9 +432,12 @@ usually the wrong instinct.
 - **Repair is cumulative, not a project.** A record recovers trust by being
   right where someone checks, repeatedly, over many sessions. A one-time cleanup
   pass produces a document that is accurate for a week.
-- **Deleting is repair.** An abandoned document that is eighty percent wrong is
-  worse than no document, because it is believed by whoever has not yet been
-  burned by it.
+- **Deleting is repair, with one exception.** An abandoned document that is
+  eighty percent wrong is worse than no document, because it is believed by
+  whoever has not yet been burned by it. The exception is §5.1's: a record kept
+  as history, and someone's own account of a problem, are not yours to delete or
+  rewrite however wrong they read — being wrong is part of what they record, and
+  the person who wrote one is the only one who can say it no longer holds.
 - **If there is genuinely nowhere to put things**, that is one question to the
   developer, and it is worth asking, because every later choice depends on the
   answer. Ask it once and apply the answer everywhere.
