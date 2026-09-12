@@ -1,9 +1,17 @@
 #!/bin/sh
 # Runs every guard in the repo before a commit lands (see scripts/build-skills.mjs check),
-# then the machinery plugin's own tests and its universal register gate.
+# then the build script's own tests, then the machinery plugin's tests and its
+# universal register gate.
 # Enable once per clone: node scripts/build-skills.mjs hooks
 set -e
 node scripts/build-skills.mjs check
+# The build script's own suite. It runs entirely against fixture repos under a
+# temp home injected through AI_SKILLS_HOME, so it never reaches the real
+# ~/.claude. Its own count line (build_skills_tests: N of N) is printed by the
+# suite, because node --test's `# pass N` summary is not the declared proof
+# format and a pass for a bad reason — an empty file, a suite that registered
+# nothing — is exactly what gets compressed away.
+node --test 'scripts/test/*.test.mjs'
 start=$(date +%s)
 node --test 'plugins/machinery/test/*.test.mjs'
 end=$(date +%s)

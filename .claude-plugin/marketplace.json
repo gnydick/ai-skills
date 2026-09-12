@@ -11,7 +11,12 @@
     {
       "name": "unbreakable",
       "source": "./plugins/unbreakable",
-      "description": "Design discipline in three parts: invariants enforced so that violating them is unrepresentable — enforcement ladders, illegal-state elimination, choke-point design; every choice that is not an invariant derived from the situation rather than inherited from habit; and the record of the work — what gets filed, written down, and left behind — kept so the developer never has to hold what could have been parked"
+      "description": "Design discipline in two parts: invariants enforced so that violating them is unrepresentable — enforcement ladders, illegal-state elimination, choke-point design; and every choice that is not an invariant derived from the situation rather than inherited from habit"
+    },
+    {
+      "name": "developer-friendliness",
+      "source": "./plugins/developer-friendliness",
+      "description": "Everything an assistant produces that outlives the conversation — what gets filed, written down, reported, read back, and left behind at a session boundary — kept so the developer never has to hold what could have been parked and never pays full price to get it back. A three-question filter, a durability ladder whose top rung is deleting the note by making the situation impossible, a retrieval ladder for reading a record without paying for all of it, and a budget that makes a tracker nobody triages as much of a failure as writing nothing. Installed into ~/.claude/rules by build-skills.mjs install, so it is loaded in every session rather than waiting to be invoked"
     },
     {
       "name": "dreamy",

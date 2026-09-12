@@ -15,7 +15,10 @@
 //
 //   build    stage buckets flat into skills/   (committed; plugins clone, they don't build)
 //   check    fail if skills/ has drifted from the buckets
-//   install  link ~/.claude/skills/<name> back to its bucket source
+//   install  link ~/.claude/skills/<name> back to its bucket source, and
+//            ~/.claude/rules/<name> for the skills the claude-rules target
+//            names — installed is not loaded, and only the second root loads
+//            in every session
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -26,6 +29,12 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(REPO, 'skills.manifest.json');
+// The one authority for the home root in this file. install() now writes under
+// two roots (~/.claude/skills and ~/.claude/rules), and a second os.homedir()
+// call is a second place the answer can come from. The override exists so the
+// test suite can be handed a temp home: without it, the only way to exercise
+// install() is to point the real ~/.claude at whatever tree the suite runs in.
+const HOME = process.env.AI_SKILLS_HOME || os.homedir();
 const MARKER = '.generated';
 // One entry per published plugin, resolved from the manifest's routes — never
 // hardcoded, and never inferred from what happens to be in plugins/.
@@ -303,7 +312,7 @@ function collect(manifest) {
              + `the subfolder must be the plugin that claims the skill: either move it to ${bucket}/${plugin.name}/${entry.name}/ `
              + `or change the route that claims it`);
         }
-        skills.push({ name: entry.name, bucket, subfolder: sub.name, src, relSrc, targets, plugin });
+        skills.push({ name: entry.name, bucket, subfolder: sub.name, src, relSrc, targets, plugin, rules: false });
       }
     }
   }
@@ -321,6 +330,40 @@ function collect(manifest) {
   for (const p of PLUGINS) {
     for (const name of p.skills) {
       if (!seen.has(name)) fail(`route "${p.name}" lists skill "${name}", which exists in no bucket`);
+    }
+  }
+
+  // claude-rules is the second declared membership list in this manifest, and it
+  // is validated as strictly as the routes above for the same reason: installed
+  // is not loaded. A ~/.claude/skills entry only loads when the skill is
+  // invoked, while every .md under ~/.claude/rules loads into every session — so
+  // a name that quietly matches nothing is not a skill shipping to one fewer
+  // place, it is a skill that silently stops being always-on.
+  //
+  // Membership is DECLARED per skill, never inferred: the bucket's targets say
+  // which compatibility class may have a rules entry, and this list says who
+  // actually gets one. Both halves are required, and a name that satisfies only
+  // one of them is named here rather than skipped.
+  const rulesTarget = manifest.targets['claude-rules'];
+  if (rulesTarget) {
+    if (!Array.isArray(rulesTarget.skills)) {
+      fail('targets["claude-rules"] has no "skills" list — a rules entry is declared per skill, the same way '
+         + 'targets["claude-plugin"].routes declares plugin membership, and is never inferred from a bucket or a folder name');
+    } else {
+      for (const name of rulesTarget.skills) {
+        const s = skills.find((x) => x.name === name);
+        if (!s) {
+          fail(`targets["claude-rules"].skills lists "${name}", which exists in no bucket`);
+          continue;
+        }
+        if (!s.targets.includes('claude-rules')) {
+          fail(`targets["claude-rules"].skills lists "${name}", which sits in bucket "${s.bucket}" — that bucket does not `
+             + `declare the claude-rules target, so the skill would be installed as an always-loaded rules file from a `
+             + `compatibility class that never agreed to it: add "claude-rules" to buckets["${s.bucket}"].targets, or drop the name`);
+          continue;
+        }
+        s.rules = true;
+      }
     }
   }
   return skills;
@@ -519,40 +562,67 @@ function linkTarget(dest) {
   try { return { kind: 'link', target: fs.realpathSync(dest) }; } catch { return { kind: 'dangling' }; }
 }
 
-function install(skills, force) {
-  const root = path.join(os.homedir(), '.claude', 'skills');
-  for (const s of skills.filter((x) => x.targets.includes('claude-personal'))) {
-    const dest = path.join(root, s.name);
-    const existing = linkTarget(dest);
+// One destination, one link. install() writes under two roots now, and the
+// dangling/relink/plain-copy handling below is the whole of what makes a
+// re-install safe — copied to a second call site, the two would drift and only
+// one of them would still refuse to eat a directory holding unique content.
+// Returns whether the link was (re)made, so the caller can report it.
+function linkSkill(dest, s, force) {
+  const existing = linkTarget(dest);
 
-    if (existing.kind === 'dangling') {
-      unlinkDir(dest);
-      console.log(`    removed dangling link at ${dest}`);
-    } else if (existing.kind === 'link') {
-      // A link is only correct while it still resolves to THIS source. After a
-      // source directory moves, a link to the old path keeps looking like a
-      // healthy install from the outside, so the target is compared rather
-      // than trusted.
-      let src;
-      try { src = fs.realpathSync(s.src); } catch { src = s.src; }
-      if (existing.target === src) { ok(`${s.name} already linked`); continue; }
-      unlinkDir(dest);
-      console.log(`    relinked ${s.name} — pointed at ${existing.target}`);
-    } else if (existing.kind === 'dir') {
-      // A plain copy is only safe to replace when it has nothing unique in it.
-      const same = [...treeOf(s.src)].every(([rel, buf]) => {
-        const f = path.join(dest, rel);
-        return fs.existsSync(f) && fs.readFileSync(f).equals(buf);
-      });
-      if (!same && !force) {
-        fail(`${dest} differs from ${s.relSrc} — inspect it, then re-run with --force`);
-        continue;
-      }
-      fs.rmSync(dest, { recursive: true, force: true });
-      console.log(`    replaced copy at ${dest}`);
+  if (existing.kind === 'dangling') {
+    unlinkDir(dest);
+    console.log(`    removed dangling link at ${dest}`);
+  } else if (existing.kind === 'link') {
+    // A link is only correct while it still resolves to THIS source. After a
+    // source directory moves, a link to the old path keeps looking like a
+    // healthy install from the outside, so the target is compared rather
+    // than trusted.
+    let src;
+    try { src = fs.realpathSync(s.src); } catch { src = s.src; }
+    if (existing.target === src) { ok(`${s.name} already linked at ${dest}`); return false; }
+    unlinkDir(dest);
+    console.log(`    relinked ${s.name} — pointed at ${existing.target}`);
+  } else if (existing.kind === 'dir') {
+    // A plain copy is only safe to replace when it has nothing unique in it.
+    const same = [...treeOf(s.src)].every(([rel, buf]) => {
+      const f = path.join(dest, rel);
+      return fs.existsSync(f) && fs.readFileSync(f).equals(buf);
+    });
+    if (!same && !force) {
+      fail(`${dest} differs from ${s.relSrc} — inspect it, then re-run with --force`);
+      return false;
     }
-    link(dest, s.src);
-    ok(`${s.name} → ${path.relative(REPO, s.src)}`);
+    fs.rmSync(dest, { recursive: true, force: true });
+    console.log(`    replaced copy at ${dest}`);
+  }
+  link(dest, s.src);
+  return true;
+}
+
+// Two roots, one link mechanism.
+//
+// ~/.claude/skills is how a skill becomes AVAILABLE; ~/.claude/rules is how it
+// becomes LOADED. They are not the same fact: the memory docs say a rules file
+// loads into context every session, while a skill loads only when it is invoked
+// or judged relevant. developer-friendliness was installed under skills/ the
+// whole time and did nothing until someone typed its name.
+//
+// The link is to the skill's DIRECTORY, not to SKILL.md: on Windows this is a
+// directory junction (mklink /J), which cannot link a file, and a file symlink
+// needs elevation. The directory holds exactly one file, so exactly that file
+// loads.
+function install(skills, force) {
+  const skillsRoot = path.join(HOME, '.claude', 'skills');
+  const rulesRoot = path.join(HOME, '.claude', 'rules');
+
+  for (const s of skills.filter((x) => x.targets.includes('claude-personal'))) {
+    if (linkSkill(path.join(skillsRoot, s.name), s, force)) ok(`${s.name} → ${path.relative(REPO, s.src)}`);
+  }
+  // `rules` is set in collect() only where the bucket declares the target AND
+  // the manifest's per-skill list names it, so nothing here re-derives it.
+  for (const s of skills.filter((x) => x.rules)) {
+    if (linkSkill(path.join(rulesRoot, s.name), s, force)) ok(`${s.name} → ${path.relative(REPO, s.src)} (always loaded)`);
   }
 }
 
