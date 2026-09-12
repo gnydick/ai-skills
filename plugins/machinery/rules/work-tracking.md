@@ -33,14 +33,15 @@ start.
 
 ## Creating and shaping a pair
 
-- Creating a ticket pair is one command, not a sequence people repeat by hand:
-  it creates the ticket, creates its companion titled for the ticket, links them
-  with the real relationship rather than a mention, and labels both the same.
-  Done by hand it is several calls in a fixed order keyed on an identifier the
-  interface never shows, so it gets done differently each time and pairs end up
-  half-made.
-- The same command repairs a half-made pair by linking two tickets that already
-  exist. Repair goes through the pipeline too, not around it.
+- Creating a ticket pair is one instruction from the owner, never a sequence they
+  walk through: asked to file a pair, whoever is asked creates the ticket,
+  creates its companion titled for the ticket, links them with the real
+  relationship rather than a mention, and labels both the same. The several calls
+  in a fixed order, keyed on an identifier the interface never shows, are the
+  assistant's to get right and never the owner's to remember — done differently
+  each time, they leave pairs half-made.
+- Repairing a half-made pair is the same one instruction: the link between two
+  tickets that already exist gets made on request.
 - A full ticket has a fixed shape: the problem, the required behaviour as
   numbered items, the design constraint, the dated decision and who made it, the
   tests required, and the exact places in the code it touches.

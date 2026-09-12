@@ -149,3 +149,31 @@ Supersession is stated here in both directions, because the register cannot carr
 The `developer-friendliness` skill loads in every session from `~/.claude/rules/`, and machinery declares it a dependency, so nothing that machinery's rules stopped saying has stopped reaching a session.
 
 disposition: filed → rules/work-tracking.md — three duplicate bullets removed, two from § Reading it and keeping it current and one from § The learnings record; each is kept by the always-on developer-friendliness skill at the sections named in this entry, and the effort-lifecycle skill's step 6 was re-pointed at that skill in the same commit
+
+## FILED 2026-09-12T01:46:22Z URULE session_01Cb11bxAbN31rQdnCc9MGx1
+
+Reword the opening two bullets of rules/work-tracking.md § Creating and shaping a pair. "One command" was read by an assistant as a CLI script that must exist; finding none, it treated the absence as a defect, nearly filed a ticket about ticket tooling, and encoded the same misreading into ticket #98's recorded fix. Gabe: "one command meant one command from me, the phrasing should be fixed"
+
+So the rule means: the owner gives one instruction — "file a pair" — and whoever is asked does the whole sequence. It has never required a script. The cost the rule protects the owner from is having to remember or walk through the steps, not the steps existing.
+
+The two bullets as filed:
+
+> - Creating a ticket pair is one instruction from the owner, never a sequence they
+>   walk through: asked to file a pair, whoever is asked creates the ticket,
+>   creates its companion titled for the ticket, links them with the real
+>   relationship rather than a mention, and labels both the same. The several calls
+>   in a fixed order, keyed on an identifier the interface never shows, are the
+>   assistant's to get right and never the owner's to remember — done differently
+>   each time, they leave pairs half-made.
+> - Repairing a half-made pair is the same one instruction: the link between two
+>   tickets that already exist gets made on request.
+
+Every fact the old wording carried survives: what a pair consists of, that the link is the real relationship and not a mention, that both halves are labelled the same, that the calls run in a fixed order keyed on an identifier the interface never shows, that doing it differently each time leaves pairs half-made, and that repair is covered too. What is gone is only the word that invited the misreading.
+
+Where "one command" came from: combine-projects-machinery/union/RECONCILIATION.md row 6.15 shows the source rule was ferrislicer's `new_ticket_pair.py`, a real script. The universal paraphrase kept "one command" after the script it named was left behind. That reconciliation table is the frozen record of what was proposed and approved at that review — it is not edited here.
+
+Checked against the developer-friendliness skill before filing, as rules/rule-governance.md § Finding the group it joins requires: that skill says nothing about creating or repairing a ticket pair, so there is no duplicate and no contradiction. This is in any case a correction to a rule machinery already owns, not a new rule looking for a home.
+
+(Written by hand: ruled in conversation on 2026-09-11 — Gabe, correcting the § Creating and shaping a pair wording — without the URULE: marker, so the capture hook did not fire.)
+
+disposition: filed → rules/work-tracking.md § Creating and shaping a pair — the opening two bullets reworded so "one command" reads as one instruction from the owner, never as a script that must exist
