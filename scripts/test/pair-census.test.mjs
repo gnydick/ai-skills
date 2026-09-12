@@ -193,3 +193,30 @@ check('the CLI with no repository fails loudly, naming where it looked', () => {
   assert.match(run.stderr, /GITHUB_REPOSITORY/);
   assert.match(run.stderr, /--repo/);
 });
+
+// Ticket #97 required behaviour 3: the census prints linked, unlinked and
+// wrong-parent counts against the total, not only the offender count. The
+// headline proof line above carries the number that decides pass or fail; this
+// second line carries the breakdown, so a reader sees which of the two repairs
+// is owed without counting the lines underneath.
+check('the report also states linked, unlinked and wrong-parent counts against the total', () => {
+  const nodes = [
+    ...LINKED_ONLY,
+    ticket(13), companion(14, 13, null),
+    ticket(15), companion(16, 15, null),
+    ticket(17), companion(18, 17, 11),
+  ];
+  const lines = reportLines(census(nodes));
+  assert.equal(
+    lines[1],
+    'pair_census: 4 of 7 companion(s) correctly linked; 2 unlinked, 1 attached to the wrong ticket',
+  );
+});
+
+check('the breakdown line is printed on a clean tracker too, not only on failure', () => {
+  const lines = reportLines(census(LINKED_ONLY));
+  assert.equal(
+    lines[1],
+    'pair_census: 4 of 4 companion(s) correctly linked; 0 unlinked, 0 attached to the wrong ticket',
+  );
+});

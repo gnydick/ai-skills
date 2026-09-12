@@ -126,6 +126,16 @@ export function proofLine(result) {
 
 export function reportLines(result) {
   const lines = [proofLine(result)];
+  // Ticket #97 required behaviour 3: linked, unlinked and wrong-parent counts
+  // against the total, not only the offender count. The headline above carries
+  // the number that decides pass or fail; this carries the breakdown, so a
+  // reader sees which of the two repairs is owed without counting the lines
+  // underneath. Every count here comes off the single classification census()
+  // already made — nothing recounts anything.
+  lines.push(
+    `pair_census: ${result.companions.length - result.offenders.length} of ${result.companions.length} companion(s) correctly linked; `
+    + `${result.unlinked.length} unlinked, ${result.wrongParent.length} attached to the wrong ticket`,
+  );
   for (const c of result.unlinked) {
     lines.push(`pair_census: #${c.companion} "Context: #${c.ticket}" has no sub-issue parent — it is paired to #${c.ticket} by its title only`);
   }
