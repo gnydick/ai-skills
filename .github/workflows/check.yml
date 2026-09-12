@@ -19,3 +19,37 @@ jobs:
       # `build-skills.mjs hooks` was never run. Make this a required status
       # check on main, or it is only advisory.
       - run: node scripts/build-skills.mjs check
+
+  # The ticket-pair census (#97). It lives here and NOT on the pre-commit hook by
+  # ruling — Gabe, 2026-09-11: "graphql query plus CI". The hook runs on every
+  # commit under a 20-second budget, and a network round trip does not belong
+  # there; putting it there would have let that budget decide the design.
+  # Its unit tests are a different thing and do run on the hook, because they
+  # touch fixtures only and never the network.
+  #
+  # A non-zero exit fails the build: the script exits 1 when a companion is
+  # unlinked or attached to the wrong ticket, and 2 when it could not run at all
+  # — no token, an API error, a rate limit, or a matcher that has drifted so far
+  # it finds no companions. Both must be red, because the defect this check
+  # exists for is invisibility, and a census that quietly did not happen looks
+  # exactly like a tracker that complies.
+  pair-census:
+    name: every ticket companion is sub-issue-linked to its own ticket
+    runs-on: ubuntu-latest
+    permissions:
+      # Read-only, and issues: read is the one the GraphQL `parent` field needs.
+      # Declared explicitly rather than inherited: the repository-wide default
+      # for GITHUB_TOKEN is a setting somebody can change, and this check going
+      # quietly unauthorised is the failure mode it was built to prevent.
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/pair-census.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_REPOSITORY is already in the runner environment; the script
+          # reads it rather than hard-coding a repository the workflow knows.
