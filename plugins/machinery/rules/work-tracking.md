@@ -52,11 +52,6 @@ start.
 
 - To catch up on a ticket: list the titles, fetch its one companion entry, read
   that. Nothing else, unless that turns out to be insufficient.
-- Read the tracker for the fields you actually need. Read a whole ticket only
-  when the short context proves insufficient, and never pull whole tickets in
-  bulk.
-- Keep the companion entry current as the ticket moves. A pickup context that
-  describes last week is worse than none.
 - Learnings are written back into the companion entry, condensed, so the next
   reader gets them at pickup cost.
 - A correction from the owner updates both halves of the pair, every time.
@@ -82,9 +77,6 @@ start.
   record of how understanding changed.
 - Every entry stands on its own: what prompted it, what was done, what was
   observed, and what is concluded.
-- Every effort also keeps a running ledger: what was done, what changed, what is
-  better, what got worse, whether the restructuring achieved its point, and what
-  new smells appeared.
 - Three records, three jobs: the tracker holds what is broken, the plans and
   specifications hold what was intended, and the notebook holds what reality
   answered. Work is fully recorded only when both intent and answer exist.
