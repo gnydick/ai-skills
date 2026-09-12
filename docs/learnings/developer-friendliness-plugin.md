@@ -257,3 +257,147 @@ Ruling 3 slightly *helps* eval 2 (the governor): under the old unconditional
 row, noticing the stale `notes.md` while bumping a version pulled against
 "docs/ is untouched". Under the new one, that work reads nothing in `docs/`, so
 leaving it alone is now the skill's own answer.
+
+---
+
+# Item 3 — the three duplicate removals from machinery
+
+Ticket #94 (companion #96), item 3, the last piece. Working copy
+`.claude/worktrees/work-tracking-duplicate-removals`, branch of the same name,
+based on `main` at 15b08fd.
+
+The ruling (Gabe, 2026-09-10, answering "we are removing all dups from
+machinery, correct?"): "Confirmed. Duplicates come out of machinery, and the
+skill keeps its version." The gate on it — "only after the plugin loads the
+skill without being asked" — was discharged 2026-09-11 by observation: a
+session in another project quoted the skill's §5.1 append-only exception, text
+an hour old that exists nowhere on that project's disk, with the developer
+never naming the skill.
+
+## Predictions, written before any change
+
+Written 2026-09-11, before the first edit.
+
+### What will change
+
+1. `plugins/machinery/rules/work-tracking.md` loses exactly three bullets —
+   seven lines — and nothing else: "Read the tracker for the fields you
+   actually need…" and "Keep the companion entry current…" from § Reading it
+   and keeping it current, and the running-ledger bullet from § The learnings
+   record.
+2. `plugins/machinery/register/RULES_INDEX.md`, regenerated, changes in exactly
+   one cell: work-tracking's rule count 36 → 33. Every other row is
+   byte-identical.
+3. Both Supersession tables stay empty. The generator can only express a
+   supersession whose superseded side is a section of a rule file
+   (`lib/index.mjs` throws otherwise), and the replacement here is a skill
+   outside `rules/`. The supersession is therefore recorded in prose, in both
+   directions, in the inbox entry and this ledger — not in the register.
+4. `plugins/machinery/inbox.md` gains one hand-written FILED entry (the ruling
+   carried no URULE: marker, so the capture hook did not fire), dispositioned
+   in the same commit.
+5. `plugins/machinery/.claude-plugin/plugin.json` version 0.1.110 → 0.1.111.
+6. `plugins/machinery/skills/effort-lifecycle/SKILL.md` step 6 is re-pointed.
+   It restates the ledger's item list and cites `rules/work-tracking.md` § The
+   learnings record as its contract; removal 3 takes that contract out of that
+   section, so the citation would be left naming something that no longer
+   exists.
+
+### What must stay untouched — the half that can fail
+
+7. Both copies of the skill — `claude-code/developer-friendliness/…/SKILL.md`
+   and `plugins/developer-friendliness/skills/…/SKILL.md` — are byte-identical
+   afterwards. Nothing is added to the skill to make the duplicate claim true;
+   each removal is justified by a row that was already there.
+8. `gate_claims` stays `0 of 11`. Two of the eleven claims cite
+   `rules/work-tracking.md`, and both quote § A specification handed down,
+   which this change does not touch.
+9. `register_check` reports `0 of 0` pending inbox entries and `0 of 1` failed
+   index comparisons.
+10. No other file under `plugins/machinery/rules/` changes, and the other nine
+    index rows are byte-identical.
+11. The `<!-- rows: 6.1–6.21, 6.23–6.30, 6.36 -->` provenance comment at the
+    foot of `work-tracking.md` is left exactly as it is. It records which
+    RECONCILIATION rows the file was built from, not which bullets survive:
+    91f82d8 removed row 6.1's bullet and left the comment alone.
+12. `combine-projects-machinery/` is untouched. It is the archival phase-1
+    tree, and `union/RECONCILIATION.md` and `union/VALIDATION.md` are dated
+    records of what was ruled and checked on 2026-09-02.
+13. Nothing is written outside the working copy. `build-skills.mjs install` is
+    never run — it writes into the real `~/.claude` and dangled three live
+    junctions during item 1.
+14. § Reading it and keeping it current needs no seam repair. Its heading stays
+    true on the five bullets that remain: one reading bullet (catching up on a
+    ticket) and four keeping-current bullets (learnings written back, a
+    correction updating both halves, labelling a blocked pair, closing in
+    order).
+
+## Predictions confirmed, one by one
+
+1. **Wrong in one detail, and only mine.** The three bullets are the three named,
+   and nothing else in the file changed — but the prediction said "seven lines"
+   and the actual removal is **eight** (3 + 2 + 3). A miscount in writing the
+   prediction, not a miss in the work; the diff is `8 deletions(-)`, 0 insertions.
+2. **Held.** `git diff --numstat` on `RULES_INDEX.md` is `1 1` — one line changed,
+   the work-tracking count 36 → 33.
+3. **Held.** Both Supersession tables are byte-identical and empty.
+4. **Held.** One FILED entry appended; `parseInbox` reports 13 entries, 0 pending.
+5. **Held.** 0.1.110 → 0.1.111, and nothing else in `plugin.json`.
+6. **Held, but the site was not the one predicted.** `plugins/machinery/skills/`
+   is a **generated** stage directory. The first edit went there by hand; it was
+   reverted (`git checkout --`, then `git status --porcelain` on that path empty,
+   so the file is byte-identical to `HEAD`), the same edit was made to the source
+   `claude-code/machinery/effort-lifecycle/SKILL.md`, and `build-skills.mjs build`
+   reproduced the generated copy. `check` reports "plugins/machinery/skills/
+   matches source (9 file(s))". Recorded because a site edited and reverted is
+   reported, not quietly undone
+   (`rules/verification-and-evidence.md` § The word you just wrote makes a check due).
+7. **Held.** `git status --porcelain` over
+   `claude-code/developer-friendliness/` and `plugins/developer-friendliness/`
+   is empty. Nothing was added to the skill to make the duplicate claim true.
+8. **Held.** `gate_claims: 0 of 11`.
+9. **Held.** `register_check: 0 of 0 pending inbox entries (must be 0)` and
+   `register_check: 0 of 1 index comparison(s) failed`.
+10. **Held.** `git status --porcelain plugins/machinery/rules/` names
+    `work-tracking.md` and nothing else; the other nine index rows are unchanged.
+11. **Held.** The provenance comment is still
+    `<!-- rows: 6.1–6.21, 6.23–6.30, 6.36 -->`.
+12. **Held.** `git status --porcelain combine-projects-machinery/` is empty.
+13. **Held.** `build-skills.mjs install` was never invoked; only `build` and
+    `check` ran, and neither touches `~/.claude`.
+14. **Held.** `node scripts/build-skills.mjs check` exits 0.
+
+## What changed, and what it bought
+
+- **What changed.** Three bullets left `rules/work-tracking.md`; the index went
+  36 → 33; one hand-written inbox entry records the ruling and stamps the
+  supersession in both directions; `machinery` went to 0.1.111; and
+  `effort-lifecycle` step 6 stopped citing a contract that no longer exists.
+- **What improved.** Machinery's rules no longer say, in weaker words, three
+  things the always-on skill says better and with the reason the skill exists to
+  add — who pays later. The one place that restated the ledger's item list now
+  points at the single editable home for it
+  (`rules/work-tracking.md` § One editable home, which this change makes true
+  rather than merely asserted).
+- **What regressed.** The supersession is prose, not a register row. The
+  generator structurally cannot express "a rule superseded by a skill", so the
+  only machine-readable trace of these three removals is the diff. A reader who
+  trusts the Supersession tables sees nothing.
+- **Whether it achieved its point.** Yes. Item 3 was the last piece of #94, and
+  the ruling's condition — duplicates out of machinery, skill keeps its version —
+  is now true of all four items.
+- **New smells.**
+  - `combine-projects-machinery/union/VALIDATION.md` line 225 still maps the
+    effort loop's step 6, "the effort's running ledger, shipped with the work",
+    to `rules/work-tracking.md` § The learnings record. It is a dated 2026-09-02
+    validation report in the archival phase-1 tree and was left alone, exactly as
+    91f82d8 left `RECONCILIATION.md` row 6.1 after removing that bullet — but the
+    archival tree now carries two mappings that no longer resolve, and nothing
+    counts them.
+  - `§ The learnings record`'s last bullet still says "ledger prose" among the
+    per-task repeats. The word now has no antecedent in machinery. It is Gabe's
+    own dictated URULE text and was not edited.
+  - The `<!-- rows: … -->` provenance comments are not maintained against
+    removals (rows 6.1, 6.5, 6.9 and 6.26 have all lost their bullets and the
+    comment still claims 6.1–6.21 and 6.23–6.30). Harmless today because nothing
+    reads them; misleading to anyone who thinks they are an inventory.

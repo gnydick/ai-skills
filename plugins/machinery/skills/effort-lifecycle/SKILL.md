@@ -74,9 +74,12 @@ belong there either.
    idea came from — is in `rules/worktree-discipline.md` § Committing from it.
 
 6. **Keep the effort's ledger as you go** — what you did, what changed, what
-   got better, what regressed, whether it worked, and what smells new. Its
-   contract is in `rules/work-tracking.md` § The learnings record. The ledger
-   ships with the effort, not after it.
+   got better, what regressed, whether it worked, and what smells new. That
+   list is the `developer-friendliness` skill's § 6.4 Outcomes, which this
+   plugin depends on and which loads in every session; machinery's own
+   `rules/work-tracking.md` § The learnings record carries the rest — the
+   ledger ships with the effort, not after it, and every entry stands on its
+   own.
 
 7. **Announce anything temporary you write into the copy before you write
    it.** Name the file and a unique marker to find it by, and remove both when

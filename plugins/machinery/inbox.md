@@ -117,3 +117,35 @@ The five bullets, as filed into rules/verification-and-evidence.md § The word y
 Checked against the developer-friendliness skill before filing, as rules/rule-governance.md § Finding the group it joins now requires: none of the five asks for the same action for the same reason, and none contradicts it — that skill governs the record, never how evidence is obtained. The closest neighbours are its § 2 ("The index that did not help") and § 6.6 No surprises, which ask that a tried-and-reverted attempt be disclosed; the fifth bullet agrees with them and sharpens them, but demands something they do not — proof the file is byte-identical again.
 
 disposition: filed → rules/verification-and-evidence.md § The word you just wrote makes a check due
+
+## FILED 2026-09-12T01:18:00Z URULE session_01Cb11bxAbN31rQdnCc9MGx1
+
+Remove these three bullets from rules/work-tracking.md. They are duplicates of the always-loaded developer-friendliness skill, which keeps its version of each.
+
+From § Reading it and keeping it current:
+
+> - Read the tracker for the fields you actually need. Read a whole ticket only
+>   when the short context proves insufficient, and never pull whole tickets in
+>   bulk.
+> - Keep the companion entry current as the ticket moves. A pickup context that
+>   describes last week is worse than none.
+
+From § The learnings record:
+
+> - Every effort also keeps a running ledger: what was done, what changed, what is
+>   better, what got worse, whether the restructuring achieved its point, and what
+>   new smells appeared.
+
+Asked "we are removing all dups from machinery, correct?", Gabe ruled on 2026-09-10: "Confirmed. Duplicates come out of machinery, and the skill keeps its version." The ruling gated these three on the plugin loading the skill without being asked (ticket #94, item 3). The gate was discharged by observation on 2026-09-11: a session in another project quoted the skill's §5.1 append-only exception — text an hour old that exists nowhere on that project's disk — with the developer never naming the skill.
+
+(Written by hand: ruled in conversation on 2026-09-10, without the URULE: marker, so the capture hook did not fire.)
+
+Supersession is stated here in both directions, because the register cannot carry it: lib/index.mjs accepts only a supersedes entry whose superseded side is a section of a rule file, and the replacement is a skill outside rules/. The Supersession tables therefore stay empty, exactly as they did for 91f82d8, and the retired text quoted above points at what replaced it:
+
+- "Read the tracker for the fields you actually need…" is replaced by the skill's §5.2 Reading, bullets "Escalate; never bulk." ("The cheapest index first — titles, names, a list. Then the one compressed entry for the item. Then the full record, and only once the compressed one has actually proven insufficient.") and "Take the part, not the whole."
+- "Keep the companion entry current as the ticket moves…" is replaced by the skill's §6.5 Session continuity, row "How many pickup contexts per work item | exactly one, kept current as the item moves", and its closing prose: "a summary that no longer matches its subject is worse than none, because it is consulted first and believed… Keep it current, or delete it and let readers pay full price honestly." §5.2's "Keep the cheap stop current." says the same for the compressed entry generally.
+- The running-ledger bullet is replaced by the skill's §6.4 Outcomes, row "Whether the work actually worked | a ledger for the effort: what changed, what improved, what regressed, what is newly wrong, whether the restructuring achieved its point, and what new smells appeared". Its two distinctive items were merged there word for word in f227d47 precisely so this removal loses nothing.
+
+The `developer-friendliness` skill loads in every session from `~/.claude/rules/`, and machinery declares it a dependency, so nothing that machinery's rules stopped saying has stopped reaching a session.
+
+disposition: filed → rules/work-tracking.md — three duplicate bullets removed, two from § Reading it and keeping it current and one from § The learnings record; each is kept by the always-on developer-friendliness skill at the sections named in this entry, and the effort-lifecycle skill's step 6 was re-pointed at that skill in the same commit
