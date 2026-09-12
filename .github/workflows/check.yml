@@ -16,8 +16,15 @@ jobs:
 
       # Same command the pre-commit hook runs. CI is the backstop for the two
       # ways that hook goes missing: `git commit --no-verify`, and clones where
-      # `build-skills.mjs hooks` was never run. Make this a required status
-      # check on main, or it is only advisory.
+      # `build-skills.mjs hooks` was never run.
+      #
+      # Whether a red result here actually blocks a merge is not decided in this
+      # file. That is branch protection, which lives in the repository settings,
+      # and nothing in this repository reads or checks it. So this comment does
+      # not say whether the job is a required status check: such a claim would go
+      # stale silently the moment somebody changed the setting. Read it from the
+      # setting itself — Settings → Branches, or the `branches/main/protection`
+      # API.
       - run: node scripts/build-skills.mjs check
 
   # The ticket-pair census (#97). It lives here and NOT on the pre-commit hook by
