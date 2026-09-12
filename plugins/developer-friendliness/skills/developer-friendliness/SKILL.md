@@ -233,11 +233,14 @@ The governor on every other section.
 - **Prefer editing an entry to adding one.** Records grow by accretion unless
   something opposes it. Deleting a stale entry is maintenance, not loss.
   **One exception, and it is the only one:** a record kept as history, and
-  someone's own account of a problem, are added to and never edited or deleted.
-  Their value is that they say what was true, or what someone saw, at the time
-  they were written; editing one destroys the only copy of that and leaves
-  nothing that could disagree with today's story. Correct them by appending,
-  saying what the new entry supersedes. Every other record follows the
+  someone's own account of a problem, are added to and never edited or deleted
+  — neither an entry within one, nor the record itself. What makes a record one
+  of these is what it holds, not what it is called or where it lives. Their
+  value is that they say what was true, or what someone saw, at the time they
+  were written; editing one destroys the only copy of that, and deleting it
+  destroys every copy at once, leaving nothing that could disagree with today's
+  story. Correct them by appending, saying what the new entry supersedes. Every
+  other record — anything holding neither of those two things — follows the
   edit-or-delete rule above.
 - **The report and the record are two masters.** A message is read once, now, by
   someone with full context; a record is read later, cold, by someone with none.
@@ -436,8 +439,11 @@ usually the wrong instinct.
   eighty percent wrong is worse than no document, because it is believed by
   whoever has not yet been burned by it. The exception is §5.1's: a record kept
   as history, and someone's own account of a problem, are not yours to delete or
-  rewrite however wrong they read — being wrong is part of what they record, and
-  the person who wrote one is the only one who can say it no longer holds.
+  rewrite however wrong they read — and deleting the record outright is the
+  plainest case of that, not a way around it. Being wrong is part of what they
+  record, and the person who wrote one is the only one who can say it no longer
+  holds. Every other abandoned document is deletable, which is what makes
+  deleting repair.
 - **If there is genuinely nowhere to put things**, that is one question to the
   developer, and it is worth asking, because every later choice depends on the
   answer. Ask it once and apply the answer everywhere.
