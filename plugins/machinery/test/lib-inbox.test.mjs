@@ -43,3 +43,10 @@ test('a missing inbox file is an empty inbox', () => assert.deepEqual(pending(pa
 test('RED CHECK: a block without a disposition line is rejected as malformed', () => {
   assert.throws(() => parseInbox('## PENDING 2026-01-01T00:00:00Z PRULE s\n\ntext\n'), /malformed/);
 });
+
+// Pin, held byte-identical across the formatEntry extraction (issue tracking plan, Task 6 commit A).
+test('pin: appendEntry writes exactly this block', () => {
+  const f = tmp();
+  appendEntry(f, { marker: 'PRULE', text: '  hello\n', session: 's1' });
+  assert.match(fs.readFileSync(f, 'utf8'), /^\n## PENDING \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z PRULE s1\n\nhello\n\ndisposition: PENDING\n$/);
+});
