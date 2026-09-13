@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { rulesSource, universalInbox, universalIndex, projectInbox, projectIndex, legacyProjectIndex, markers, pluginRoot } from '../scripts/lib/config.mjs';
+import { rulesSource, universalInbox, universalIndex, projectInbox, projectIndex, legacyProjectIndex, markers, pluginRoot, globalIssueTracking, projectIssueTracking } from '../scripts/lib/config.mjs';
 
 test('defaults: rules source is the plugin rules dir; universal inbox beside it', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
@@ -39,4 +39,11 @@ test('RED CHECK: a malformed machinery.json is an error, not a silent default', 
   fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), '{oops');
   process.env.MACHINERY_HOME = home;
   assert.throws(() => rulesSource(), /machinery\.json/);
+});
+
+test('the two issue-tracking paths: the global file under the home\'s .claude/rules, the project file under the project\'s', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  process.env.MACHINERY_HOME = home;
+  assert.equal(globalIssueTracking(), path.join(home, '.claude', 'rules', 'global_issue_tracking.md'));
+  assert.equal(projectIssueTracking('R'), path.join('R', '.claude', 'rules', 'project_issue_tracking.md'));
 });

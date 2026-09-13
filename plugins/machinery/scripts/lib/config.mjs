@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, INBOX, SPEC_INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, REGISTER_DIR } from './layout.mjs';
+import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, INBOX, SPEC_INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, REGISTER_DIR, GLOBAL_ISSUE_TRACKING, PROJECT_ISSUE_TRACKING } from './layout.mjs';
 
 const home = () => process.env.MACHINERY_HOME || os.homedir();
 export function pluginRoot() {
@@ -20,6 +20,11 @@ export function rulesSource() {
 export const universalInbox = () => path.join(path.dirname(rulesSource()), INBOX);
 export const universalIndex = () => path.join(path.dirname(rulesSource()), REGISTER_DIR, RULES_INDEX);
 export const projectRules = (root) => path.join(root, '.claude', RULES_DIR);
+// The two issue-tracking files (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
+// Built here and nowhere else, so the installer that seeds them, the command that reads and records
+// them, and intake that files one all address the same bytes.
+export const globalIssueTracking = () => path.join(home(), '.claude', RULES_DIR, GLOBAL_ISSUE_TRACKING);
+export const projectIssueTracking = (root) => path.join(projectRules(root), PROJECT_ISSUE_TRACKING);
 export const projectInbox = (root) => path.join(root, '.claude', MACHINERY_DIR, INBOX);
 export const projectIndex = (root) => path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX);
 // Pre-#81 name, resolved only so the installer can migrate one and the gate can name the migration.
