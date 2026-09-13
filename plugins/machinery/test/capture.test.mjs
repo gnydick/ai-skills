@@ -97,3 +97,19 @@ test('RED CHECK: a PRULE is not silently dropped', () => {
   try { run('PRULE: kept', r.root); assert.equal(pending(path.join(r.root, '.claude', 'machinery', 'inbox.md')).length, 1); }
   finally { r.cleanup(); }
 });
+
+// Issue tracking, test 7(a1): the setup conversation asks for no mark, so a plain-words answer reaching
+// the capture hook writes nothing to either inbox, and record-project's entry is never doubled by a
+// captured one. The observer is proved alive at the end: the same hook and home, with the mark, write.
+test('RED CHECK: a plain-words issue-tracking answer, with no mark, writes nothing to either inbox (issue tracking test 7a1)', () => {
+  const r = makeRepo(); const h = home();
+  try {
+    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).rulesSource;
+    const res = run('Use GitHub Issues to track this project, for this project only.', r.root, { MACHINERY_HOME: h });
+    assert.equal(res.code, 0, res.stderr);
+    assert.ok(!fs.existsSync(path.join(r.root, '.claude', 'machinery', 'inbox.md')), 'a project inbox was written');
+    assert.ok(!fs.existsSync(path.join(path.dirname(src), 'inbox.md')), 'a universal inbox was written');
+    run('PRULE: x', r.root, { MACHINERY_HOME: h });
+    assert.equal(pending(path.join(r.root, '.claude', 'machinery', 'inbox.md')).length, 1);
+  } finally { r.cleanup(); }
+});

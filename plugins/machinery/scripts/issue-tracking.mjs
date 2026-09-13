@@ -9,9 +9,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from './lib/root.mjs';
-import { globalIssueTracking, projectIssueTracking, rulesSource } from './lib/config.mjs';
+import { globalIssueTracking, projectIssueTracking, rulesSource, projectInbox } from './lib/config.mjs';
 import { UNANSWERED, NONE } from './lib/layout.mjs';
-import { decide, readIfPresent, normalizeAnswer } from './lib/issue-tracking.mjs';
+import { appendEntry, formatEntry, newStamp, parseInbox } from './lib/inbox.mjs';
+import { decide, readIfPresent, normalizeAnswer, PROJECT_ENTRY_KIND, entryText, findRecorded, pendingIssueTracking } from './lib/issue-tracking.mjs';
 
 const VERDICT_ASK = 'issue_tracking: ask';
 const VERDICT_DO_NOT_ASK = 'issue_tracking: do not ask';
@@ -83,8 +84,54 @@ function runRecordGlobal() {
   return 0;
 }
 
-const COMMANDS = { 'decide': runDecide, 'record-global': runRecordGlobal };
-const USAGE = ['issue-tracking.mjs decide [--root <dir>]', 'issue-tracking.mjs record-global --answer "<answer>"'];
+// The one read of the session id (rules/design-invariants.md § One authority per switch).
+function resolveSession() {
+  const value = opt('--session') || process.env.CLAUDE_CODE_SESSION_ID || '';
+  if (!value) throw new CannotRun('no session id: looked at --session and $CLAUDE_CODE_SESSION_ID, and found neither');
+  if (/\s/.test(value)) throw new Refused(`the session id "${value}" contains whitespace, which an inbox heading cannot carry`);
+  return value;
+}
+
+// Ruling F, made testable (the plan's Decision 1): the assistant records the project answer as one inbox
+// entry, which intake then files. Everything that can be checked before writing is checked before
+// writing, because the inbox is append-only; the entry is then read back through the parser, because
+// the parser skips an unrecognised heading without a word.
+function runRecordProject() {
+  const answer = requireAnswer();
+  const session = resolveSession();
+  const root = resolveRoot();
+  const inbox = projectInbox(root);
+  const before = readIfPresent(inbox) ?? '';
+  let existing;
+  try { existing = parseInbox(before); }
+  catch (e) { throw new CannotRun(`${inbox} does not parse, so nothing was written: ${e.message}`); }
+  const already = pendingIssueTracking(before);
+  if (already.length) throw new Refused(`an issue-tracking answer is already recorded and pending in ${inbox} at ${already[0].stamp}; file that entry with rule intake rather than recording a second`);
+  const stamp = newStamp();
+  if (existing.some((e) => e.stamp === stamp)) throw new CannotRun(`an entry stamped ${stamp} is already in ${inbox}, and intake addresses entries by stamp; run the command again in a second`);
+  const text = entryText(answer);
+  const expected = { stamp, session, text };
+  let wouldRead = 0;
+  try { wouldRead = findRecorded(before + formatEntry({ stamp, marker: PROJECT_ENTRY_KIND, text, session }), expected).length; }
+  catch { wouldRead = 0; }
+  if (wouldRead !== 1) throw new Refused(`this answer would not read back from the inbox as exactly one entry (it would read as ${wouldRead}): a line in it looks like inbox structure, so nothing was written`);
+  appendEntry(inbox, { marker: PROJECT_ENTRY_KIND, text, session, stamp });
+  const found = findRecorded(fs.readFileSync(inbox, 'utf8'), expected).length;
+  if (found !== 1) {
+    process.stderr.write(`issue_tracking: FAILED: wrote an entry stamped ${stamp} to ${inbox}, and the inbox parser reads back ${found} matching entries, not 1. The inbox is append-only: dismiss that entry with disposition.mjs --dismissed, then record again.\n`);
+    return 1;
+  }
+  process.stdout.write(`issue_tracking: recorded 1 of 1 entry: PENDING ${stamp} ${PROJECT_ENTRY_KIND} ${session} in ${inbox}\n`
+    + `issue_tracking: next: file entry ${stamp} with rule intake, from a root session\n`);
+  return 0;
+}
+
+const COMMANDS = { 'decide': runDecide, 'record-global': runRecordGlobal, 'record-project': runRecordProject };
+const USAGE = [
+  'issue-tracking.mjs decide [--root <dir>]',
+  'issue-tracking.mjs record-global --answer "<answer>"',
+  'issue-tracking.mjs record-project --answer "<answer>" [--session <id>] [--root <dir>]',
+];
 
 function main() {
   const run = COMMANDS[argv[0]];

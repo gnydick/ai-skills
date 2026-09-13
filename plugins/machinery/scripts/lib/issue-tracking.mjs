@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import { UNANSWERED, NONE } from './layout.mjs';
 import { parseRuleFile } from './frontmatter.mjs';
+import { parseInbox } from './inbox.mjs';
 
 // What one file holds, as the table reads it. ABSENT is the file system's condition, kept apart from
 // the three contents because "absent defers to the global file, empty does not".
@@ -54,3 +55,19 @@ export function normalizeAnswer(raw) {
   catch (e) { throw new Error(`this answer would break the rules index that reads the project file: ${e.message}`); }
   return text;
 }
+
+// The project answer's inbox entry (Ruling F; the plan's Decision 1). PROJECT_ENTRY_KIND is the kind
+// lib/inbox.mjs's heading pattern accepts for a project rule; a mismatch is not silent here, because
+// record-project reads every entry back through that parser and fails unless it finds exactly one.
+export const PROJECT_ENTRY_KIND = 'PRULE';
+// rules/rule-governance.md § Dictating a rule: "written into the inbox by hand, with a note saying why
+// the automatic capture did not fire."
+export const CAPTURE_NOTE = 'Note: automatic capture did not fire. This answer was given in plain words in the issue-tracking setup conversation, which asks for no mark, and was recorded by issue-tracking.mjs record-project.';
+export const entryText = (answer) => `${answer}\n\n${CAPTURE_NOTE}`;
+
+export function findRecorded(inboxText, { stamp, session, text }) {
+  return parseInbox(inboxText).filter((e) => e.state === 'PENDING' && e.disposition === 'PENDING'
+    && e.marker === PROJECT_ENTRY_KIND && e.stamp === stamp && e.session === session && e.text === text);
+}
+
+export const pendingIssueTracking = (inboxText) => parseInbox(inboxText).filter((e) => e.state === 'PENDING' && e.text.endsWith(CAPTURE_NOTE));

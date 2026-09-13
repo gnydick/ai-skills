@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ABSENT, NO_ANSWER, DECLINED, ANSWERED, fileState, decide, readIfPresent, normalizeAnswer } from '../scripts/lib/issue-tracking.mjs';
+import { ABSENT, NO_ANSWER, DECLINED, ANSWERED, fileState, decide, readIfPresent, normalizeAnswer, CAPTURE_NOTE, entryText, findRecorded, pendingIssueTracking } from '../scripts/lib/issue-tracking.mjs';
+import { formatEntry } from '../scripts/lib/inbox.mjs';
 
 // The precedence table of docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md (Ruling G).
 // THE PROJECT FILE DECIDES WHENEVER IT EXISTS (Ruling B); the global file governs one row — no project
@@ -91,4 +92,26 @@ test('normalizeAnswer keeps an answer, normalises its line endings, and refuses 
   assert.throws(() => normalizeAnswer(null), /empty answer/);
   assert.throws(() => normalizeAnswer(' unanswered \n'), /seeded word/);
   assert.throws(() => normalizeAnswer('---\nIssue tracking: <tracker>'), /rules index/);
+});
+
+// The note rules/rule-governance.md § Dictating a rule requires: "with a note saying why the automatic
+// capture did not fire". The expectation is that rule's own words.
+test('the entry text is the answer, a blank line, and the note that automatic capture did not fire', () => {
+  assert.match(CAPTURE_NOTE, /automatic capture did not fire/);
+  assert.equal(entryText('Issue tracking: <tracker>.'), `Issue tracking: <tracker>.\n\n${CAPTURE_NOTE}`);
+});
+
+test('RED CHECK: findRecorded finds exactly one well-formed entry, none under a heading the parser does not know, and two duplicates as two', () => {
+  const want = { stamp: '2026-09-12T00:00:00Z', session: 's', text: entryText('Issue tracking: <tracker>.') };
+  const block = (marker) => formatEntry({ ...want, marker });
+  assert.equal(findRecorded(block('PRULE'), want).length, 1);
+  assert.equal(findRecorded(block('PRULEX'), want).length, 0, 'an unrecognised heading is skipped silently — the failure Decision 1 exists for');
+  assert.equal(findRecorded(block('PRULE') + block('PRULE'), want).length, 2);
+  assert.throws(() => findRecorded('## PENDING 2026-09-12T00:00:00Z PRULE s\n\nno disposition\n', want), /malformed/);
+});
+
+test('pendingIssueTracking sees a pending recorded answer and not an ordinary pending rule', () => {
+  const recorded = formatEntry({ stamp: '2026-09-12T00:00:00Z', marker: 'PRULE', session: 's', text: entryText('Issue tracking: <tracker>.') });
+  const ordinary = formatEntry({ stamp: '2026-09-12T00:00:01Z', marker: 'PRULE', session: 's', text: 'PRULE: an ordinary rule' });
+  assert.deepEqual(pendingIssueTracking(ordinary + recorded).map((e) => e.stamp), ['2026-09-12T00:00:00Z']);
 });

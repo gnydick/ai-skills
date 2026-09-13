@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseInbox, appendEntry, setDisposition, pending } from '../scripts/lib/inbox.mjs';
+import { parseInbox, appendEntry, setDisposition, pending, formatEntry, newStamp } from '../scripts/lib/inbox.mjs';
 
 const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'inbox-')), 'inbox.md');
 
@@ -49,4 +49,13 @@ test('pin: appendEntry writes exactly this block', () => {
   const f = tmp();
   appendEntry(f, { marker: 'PRULE', text: '  hello\n', session: 's1' });
   assert.match(fs.readFileSync(f, 'utf8'), /^\n## PENDING \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z PRULE s1\n\nhello\n\ndisposition: PENDING\n$/);
+});
+
+test('RED CHECK: appendEntry uses the stamp it is given, and writes exactly formatEntry\'s block', () => {
+  const f = tmp();
+  const e = appendEntry(f, { marker: 'PRULE', text: 'x', session: 's', stamp: '2026-01-02T03:04:05Z' });
+  assert.equal(e.stamp, '2026-01-02T03:04:05Z');
+  assert.equal(parseInbox(fs.readFileSync(f, 'utf8'))[0].stamp, '2026-01-02T03:04:05Z');
+  assert.equal(fs.readFileSync(f, 'utf8'), formatEntry({ stamp: '2026-01-02T03:04:05Z', marker: 'PRULE', text: 'x', session: 's' }));
+  assert.equal(newStamp(new Date('2026-01-02T03:04:05.678Z')), '2026-01-02T03:04:05Z');
 });

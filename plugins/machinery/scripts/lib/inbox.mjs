@@ -32,8 +32,7 @@ export function parseInbox(text) {
 export const newStamp = (date = new Date()) => date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 export const formatEntry = ({ stamp, marker, text, session }) => `\n## PENDING ${stamp} ${marker} ${session}\n\n${text.trim()}\n\ndisposition: PENDING\n`;
 
-export function appendEntry(file, { marker, text, session }) {
-  const stamp = newStamp();
+export function appendEntry(file, { marker, text, session, stamp = newStamp() }) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.appendFileSync(file, formatEntry({ stamp, marker, text, session }), 'utf8');
   return { state: 'PENDING', stamp, marker, session, text: text.trim(), disposition: 'PENDING' };
