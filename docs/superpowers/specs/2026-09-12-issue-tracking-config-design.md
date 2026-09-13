@@ -2,9 +2,10 @@
 
 Date: 2026-09-12. Branch and working copy: `issue-tracking-config`.
 Owner: Gabe. Design settled in a brainstorm on 2026-09-12; this records it, question by
-question, as it was decided. Revised twice on 2026-09-12: first after the owner ruled on two
-of the open questions, then after a third ruling closed the last one — see *The owner's
-rulings*. No open question arising from this design remains. Ticket #99, companion #100.
+question, as it was decided. Revised three times on 2026-09-12: first after the owner ruled on
+two of the open questions, then after a third ruling closed the last one, then after a fourth
+ruling settled a consequence of the second — see *The owner's rulings*. No open question
+arising from this design remains. Ticket #99, companion #100.
 
 ## The problem
 
@@ -29,10 +30,10 @@ to sit**, and so the one question gets asked forever.
 
 ## The owner's rulings
 
-Three things this document left open were put to the owner with the findings behind them, and
-ruled on. They are recorded here together because between them they change what the global
-file is *for* and what the prompt says, and a reader who meets only one of them will misread
-the others.
+Four things were put to the owner with the findings behind them, and ruled on: three questions
+this document left open, and one consequence of Ruling B, put to him with its cost named. They
+are recorded here together because between them they change what the global file is *for* and
+what the prompt says, and a reader who meets only one of them will misread the others.
 
 **Ruling A — "Global written directly, no capture."** (Owner, 2026-09-12, closing what the
 first draft recorded as open question 1.) The global answer is written straight into
@@ -53,6 +54,26 @@ through intake, committed in that project. Because nothing invites a mark for th
 answer, no inbox entry is created for it and there is nothing to block a commit. The shape the
 owner approved is under *The prompt*; the clauses of his own draft it supersedes are named
 there too.
+
+**Ruling D — "Leave it — keep prompting."** (Owner, 2026-09-12, settling a consequence of
+Ruling B rather than a question this document left open.) The consequence was put to him in the
+exact form in which it bites: **in an installed project, the global route can never stop the
+prompt.** A developer offered the two routes of *The prompt*, who picks the global one, gets
+`~/.claude/rules/global_issue_tracking.md` written while that project's own file still says
+`unanswered` — so the prompt fires again next session, and every session after, until someone
+files a `PRULE:` in that project. Three ways out were offered: have the global answer also write
+the project file; stop offering the global route inside a seeded project; or leave it. He ruled:
+*"Leave it — keep prompting."* Preceded by his own statement of the principle: *"it should
+always prompt if the project is unanswered."*
+
+So the global route writes the global file and nothing else, and a seeded project keeps
+prompting until its own file carries an answer. This is **a decision with a named cost, taken
+with the cost in front of the owner** — not an oversight, and not something for a later change
+to work around. The two rejected ways out are written down here precisely so that neither is
+rediscovered as an improvement: making the global write also seed the project file is the first
+of them, and it is refused. Where the cost falls is stated under *What the global file is
+actually for*, *Opt-out* and *The honest limits*; what it forbids the prompt copy from saying is
+stated under *The prompt*, point 3; test 12 asserts it.
 
 ## What this is not
 
@@ -149,11 +170,19 @@ It has exactly two jobs, and no others:
    tracker answers once and then confirms nineteen times, rather than composing the same
    answer twenty times.
 
+**Answering globally from inside a seeded project's prompt does not answer that project.** The
+global answer lands in the global file alone; that project's own file still says `unanswered`,
+so the same project prompts again next session, and every session after, until a `PRULE:` is
+filed there. Taking the global route inside an installed project therefore buys the pre-fill for
+next time and never silence — which is job 2 above doing its job, not job 1 failing. (Ruling D,
+taken with exactly this cost stated.)
+
 **"Global" in the filename overstates its reach, and that gap is the thing most likely to be
 "fixed" wrongly later.** The plausible-looking fix — "surely a global answer should stop the
 prompt; the project file is only for overrides" — is exactly the reading the owner ruled
-against. It is not an oversight to be tidied up. Anyone who wants to change it is changing
-Ruling B and needs the owner, not a refactor.
+against, **twice**: once as Ruling B, and again as Ruling D when the consequence was put back
+to him in full. It is not an oversight to be tidied up. Anyone who wants to change it is
+changing both rulings and needs the owner, not a refactor.
 
 The name is kept because it is the owner's, verbatim (see *Two files* above). What is written
 down instead of renaming it is this section.
@@ -198,8 +227,10 @@ someone's taste in wording; each was put to the owner and decided.
 | *"File a `URULE:` for issue tracking global config"*, and in the last sentence *"the appropriate `URULE:` or `PRULE:`"* | No mark at all for the global answer. The developer states the answer; the assistant writes the file. Both occurrences of `URULE:` go, and nothing replaces them with another mark. | **Ruling C.** Ruling A had already taken the global answer out of the capture pipeline, so a prompt still asking for the mark invited an inbox entry with no home — blocking commits in the repository that holds `rulesSource()` until someone dispositioned it. |
 | *"I don't see issue tracking configured globally **or** for this project"* | *"I don't see issue tracking for this project."* The trigger is the governing file alone. | **Ruling B.** A project saying `unanswered` prompts even on a machine whose global file carries an answer, so "neither is configured" would be a false sentence in exactly the case the pre-fill exists for; the honest sentence reports the answer it found and offers it for confirmation. |
 
-The `PRULE:` half of the draft stands unchanged, and so does the sense of its last sentence:
-saying the answer is what stops the asking.
+The `PRULE:` half of the draft stands unchanged, and so does the sense of its last sentence —
+in one reading only: saying the answer is what stops the asking, rather than some separate
+switch. What that sentence must not be read as saying is that *either* route stops the asking in
+this project. Under Ruling D only the `PRULE:` half ever does. See point 3 below.
 
 #### The shape the owner approved
 
@@ -230,15 +261,27 @@ them:
    *What the global file is actually for*. The exact labels are not fixed here.
 3. **The closing line ties the end of the asking to the developer saying the answer**, because
    answering is the opt-out and there is no separate switch to reach for (see *Opt-out*).
-   What that line must not do is promise more than Ruling B delivers: a global answer does
+   What that line must not do is promise more than the rulings deliver: a global answer does
    **not** silence a project whose own file says `unanswered`, so copy reading as "tell me
    once and I stop asking everywhere" would be false in exactly the common case — an installed
    project, answered globally, which prompts again next session. The illustration's line,
    *"Either way, say so in the same breath to stop asking"*, carries both a reading that holds
    ("saying the answer is what ends the asking, rather than some separate switch") and one
-   that overreaches ("either route ends the asking in this project"). **This document does not
-   pick between them**, because it does not fix copy — it fixes the constraint the copy has to
-   satisfy. Ruling B has already decided the behaviour; only the sentence is unwritten.
+   that overreaches ("either route ends the asking in this project"). Under Ruling B the
+   overreaching reading was merely unsupported. **Ruling D makes it definitively false**: the
+   owner was shown that exact consequence, was offered two ways to make the reading true, and
+   kept the prompting instead. So the constraint on the final copy is no longer a matter of
+   taste, and it is stated here as a requirement:
+
+   > **In this project, only a `PRULE:` ever stops the asking.** The final copy must not state
+   > or imply that the global route ends the prompting here — not in the closing line, not in
+   > the labels on the two routes, and not in whatever the assistant says after writing the
+   > global file. Copy that reads as "either way, we are done asking" is wrong copy.
+
+   This still fixes no copy. The owner's illustrative line is left exactly as he wrote it, for
+   the reason *The owner's first draft* gives for not quietly rewording his sentences; what is
+   fixed is the constraint above, which the sentence someone eventually writes has to satisfy.
+   Test 13 is the check over it.
 
 **Where the ready-made line comes from.** The line itself is an addition the owner approved,
 and point 2 above is the shape it takes on the screen; this is what it is built out of. It is
@@ -273,6 +316,13 @@ asks for a mark either:** under Ruling C the prompt offers none for the global a
 direct write is not competing with an instruction telling the developer to file one (see
 *The prompt*).
 
+**And it writes that one file only.** (Ruling D.) Recording a global answer never touches
+`<project>/.claude/rules/project_issue_tracking.md`, whatever that file says. A seeded project's
+`unanswered` survives the global write untouched, and that project's prompt fires again next
+session. Having the global write also seed the project file is one of the two fixes the owner
+was offered and refused, so it is not an improvement a later change may make on its own
+authority; test 12 asserts against it.
+
 **Why the two routes differ.** The capture route was the first draft's answer for both halves,
 on the reasoning that the inbox entry is the dated record of what the owner said and when — an
 assistant that writes a rule file itself produces a file with an answer in it and no account of
@@ -289,8 +339,10 @@ reason found while checking it:
 So the capture route's two destinations are both wrong for this file, and the direct write is
 what is left.
 
-**What the direct write costs, stated plainly because the owner accepted it knowingly.**
-There is **no dated record of what was said, or when, for the global answer** — which is
+**What the direct write costs in provenance, stated plainly because the owner accepted it
+knowingly.** (Its other cost — that it leaves a seeded project still prompting — is stated
+above under Ruling D.) There is **no dated record of what was said, or when, for the global
+answer** — which is
 exactly the property the capture route exists to provide. The global file holds an answer and
 no provenance: no inbox entry quoting the developer's words, no commit, no history, nothing
 that says who decided it or on what date. If the line is later found to be wrong or stale,
@@ -320,9 +372,11 @@ as improvements:
 - **"A global answer and a project `unanswered` should not prompt, because the global answer
   is an answer."** This was the first draft's reading, taken from the draft prompt wording's
   "globally **or** for this project". The owner ruled against it: each project answers for
-  itself. Its cost — every newly installed project asks once, even on a machine already
-  answered globally — is real and was accepted; the pre-fill is what makes that cost one
-  confirmation rather than one composition.
+  itself. Its cost — every newly installed project asks, even on a machine already answered
+  globally, and keeps asking until that project's own file carries an answer — is real and was
+  accepted, and Ruling D re-affirmed it with that second half spelled out. The pre-fill is what
+  makes the cost one confirmation rather than one composition; what discharges it is a `PRULE:`
+  in that project, and nothing else does.
 - **"A global tracker and a project `none` means the global one applies, since `none` carries
   less information."** No. Precedence is about which file governs, not about which file
   carries more information. `none` is an answer, and the project's answer wins.
@@ -333,13 +387,19 @@ Answering `none` **is** the opt-out. There is no separate suppression switch, no
 "don't ask again" state distinct from the answer. Turning the prompt off and answering the
 question are the same act, landing in the same file — through capture and intake for the
 project file, written directly for the global one. The approved prompt shape's closing line is
-about this same act, and *The prompt* records the one thing that line must not be read as
-promising.
+about this same act, and *The prompt*, point 3, states as a requirement the one thing that line
+must not be read as promising.
 
 Note what Ruling B does to a global `none`: it stops the prompt only in a project with no
 project file. A `none` written globally does **not** silence an installed project, because
 that project's own `unanswered` governs. Opting out for a project means answering `none` for
 that project.
+
+Ruling D settles that this is deliberate and permanent, with the cost stated: a developer who
+answers `none` globally in order to make an installed project stop asking **will be asked again
+next session**, and every session after, until they answer `none` in that project. The owner
+was offered the two ways to spare them that — the global answer also writing the project file,
+and the prompt not offering the global route inside a seeded project — and took neither.
 
 ## What the file records, and what it never records
 
@@ -454,6 +514,18 @@ whole of what this design makes mechanical.
 - **The prompt fires once per project, by design, and that is a cost not a bug.** A developer
   with twenty repositories on one tracker is asked in each of them. The pre-fill reduces that
   to twenty confirmations rather than twenty compositions, and nothing reduces it further.
+- **In an installed project, answering globally never stops that project's prompt.** The global
+  route writes the global file alone, so the project's own `unanswered` survives and the prompt
+  fires again next session, and every session after, until a `PRULE:` is filed there. A
+  developer who picks the global route from the two the prompt offers, expecting to be done,
+  is asked again tomorrow. Measured against `developer-friendliness` § 3.2's *"asked once,
+  applied everywhere afterward"*, what this design delivers is **asked once per project, and
+  remembered there afterward**; the global answer is a pre-fill, not a discharge of the
+  question. This is the sharpest cost in the design, and the owner took it with the consequence
+  in front of him (Ruling D), having been offered and having refused both ways out — the global
+  write also seeding the project file, and the prompt not offering the global route inside a
+  seeded project. It is a limit, not a defect: silencing that second prompt is a change to
+  Ruling D and needs the owner.
 - **A `none` answer is indistinguishable from an answer given to make the prompt stop.** That
   is acceptable — it is the developer's call either way — but it means the count of projects
   answering `none` says nothing about how many projects genuinely have no tracker.
@@ -524,6 +596,29 @@ the same mechanism that closes the file names.
     still matches, per `rules/design-invariants.md` § One authority per switch. Nothing in
     this list asserted the draft wording before Ruling C, so no test here is retracted by it;
     this one is new work the ruling creates.
+12. **Answering globally leaves a seeded project's file untouched, and that project still
+    prompts.** Project file `unanswered`; record a global answer; then assert both halves:
+    `<project>/.claude/rules/project_issue_tracking.md` is **byte-identical** afterwards — still
+    the single word `unanswered` — *and* the prompt condition for that project still holds. Both
+    are asserted because they are different failures and either assertion alone passes on the
+    other's failure: a later change could seed the project file from the global write (breaking
+    the first), or leave the file alone while adding an "answered globally just now" suppression
+    somewhere else (breaking the second). This is the test that catches someone "helpfully"
+    making the global write also seed the project — the exact fix the owner was offered and
+    refused under Ruling D. Distinct from test 3, which asserts what a *reader* concludes from a
+    project `unanswered`; this asserts what the *global write* does to that file and to the
+    session after it.
+13. **The prompt copy does not promise that the global route stops the asking here.** A check
+    over the artifact test 11 already covers — the issue-tracking prompt in
+    `developer-friendliness` § 3.2 and § 8 — refuses copy that attaches an end-of-asking promise
+    to the global route, which is the requirement stated under *The prompt*, point 3. Copy is
+    the only artifact that carries it, and a well-meant rewording to "tell me once and I'll stop
+    asking" is a one-line edit nothing else would catch, after which the prompt tells the
+    developer something Ruling D decided is false. The exact pattern is not fixed here, for the
+    same reason test 9's scope is not: this document writes no copy, so it cannot write the
+    literal the check matches — naming the exposure rather than picking the pattern from a
+    distance. The check ships with a case proving it still matches, per
+    `rules/design-invariants.md` § One authority per switch.
 
 ## Places in the code this touches
 
@@ -543,9 +638,11 @@ the same mechanism that closes the file names.
   routes records the answer, so the instruction stops being a claim with no mechanism. This is
   also where the prompt's final wording lives: it must follow the shape the owner approved
   under *The prompt* and differ from his first draft in the two ways named there, and it is
-  the artifact test 11 checks. **It is where the global direct write is specified too**:
+  the artifact tests 11 and 13 check. **It is where the global direct write is specified too**:
   under Ruling A no script writes that file, so the only place the behaviour can be stated is
-  the skill the assistant is reading when it asks the question.
+  the skill the assistant is reading when it asks the question — and that includes Ruling D's
+  limit on the write, that it touches the global file and never the project one, since no script
+  exists to enforce it.
 - **`plugins/machinery/scripts/lib/layout.mjs`** — the sole authority on machinery file names.
   Both file names **and both state words** are declared there, exactly as `RULES_INDEX`,
   `SPEC_INBOX` and the rest are, and none of the four is ever spelled at a call site.
@@ -581,8 +678,10 @@ How each was closed, so a later reader does not have to reconstruct it:
 | 4 — does a global answer suppress a project `unanswered` | **Ruling B**: no; each project answers for itself |
 | 5 — should detection speak up when it contradicts the answer | Moved to *Recommendations*, marked **not put to Gabe** |
 | added by the second revision — what intake should do with a `URULE:` about issue tracking | **Ruling C**: the prompt stops asking for the mark, so the entry this question was about is no longer created |
+| raised while checking Ruling B — is it acceptable that a developer who answers globally in a seeded project is asked again next session | **Ruling D**: yes; leave it and keep prompting. Both ways out were offered and refused |
 
-Two things that are **not** open questions, named here because each could be mistaken for one:
+Three things that are **not** open questions, named here because each could be mistaken for
+one:
 
 - **A developer can still type `URULE:` unprompted.** Ruling C removes the invitation, not the
   ability. What is left is an ordinary undirected rule with no home, which `rule-governance.md`
@@ -596,6 +695,7 @@ Two things that are **not** open questions, named here because each could be mis
   none of which may be reopened without the owner.
 - **What the prompt's closing line finally says.** The approved shape is illustrative and this
   document fixes no copy, so an unwritten sentence is not an open question. The behaviour
-  behind it is decided: under Ruling B a global answer does not silence a project whose own
-  file says `unanswered`. *The prompt*, point 3, states the constraint that follows, and the
-  copy is written to it.
+  behind it is decided twice over: under Ruling B a global answer does not silence a project
+  whose own file says `unanswered`, and under Ruling D that is deliberate and permanent. *The
+  prompt*, point 3, therefore states the constraint that follows as a requirement rather than
+  as a preference between two readings, test 13 checks it, and the copy is written to it.
