@@ -6,11 +6,12 @@
 //
 // Exit codes: 0 done; 1 refused (nothing written); 2 cannot run (nothing written, no verdict printed —
 // a check that could not run never reads as one that ran).
+import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from './lib/root.mjs';
-import { globalIssueTracking, projectIssueTracking } from './lib/config.mjs';
+import { globalIssueTracking, projectIssueTracking, rulesSource } from './lib/config.mjs';
 import { UNANSWERED, NONE } from './lib/layout.mjs';
-import { decide, readIfPresent } from './lib/issue-tracking.mjs';
+import { decide, readIfPresent, normalizeAnswer } from './lib/issue-tracking.mjs';
 
 const VERDICT_ASK = 'issue_tracking: ask';
 const VERDICT_DO_NOT_ASK = 'issue_tracking: do not ask';
@@ -55,8 +56,35 @@ function runDecide() {
   return 0;
 }
 
-const COMMANDS = { 'decide': runDecide };
-const USAGE = ['issue-tracking.mjs decide [--root <dir>]'];
+function requireAnswer() {
+  const raw = opt('--answer');
+  if (raw === null) throw new Refused('--answer "<answer>" is required');
+  try { return normalizeAnswer(raw); } catch (e) { throw new Refused(e.message); }
+}
+
+const real = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+const inside = (child, parent) => { const rel = path.relative(parent, child); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); };
+
+// Ruling A, made testable (the plan's Decision 1): the answer for every project on this machine is
+// written straight into the global file — no inbox entry, no intake, no commit, and never a project
+// file (Ruling D; this command resolves no project at all). The one thing it checks first is that the
+// file would not land under rulesSource(), which ships to everyone who installs machinery.
+function runRecordGlobal() {
+  const answer = requireAnswer();
+  const file = globalIssueTracking();
+  const source = rulesSource();
+  if (inside(real(path.dirname(file)), real(source))) {
+    throw new Refused(`${file} is under the rules source ${source}, which ships to everyone who installs machinery; nothing written`);
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${answer}\n`, 'utf8');
+  process.stdout.write(`issue_tracking: wrote 1 of 1 file: ${file}\n`
+    + 'issue_tracking: nothing else was written — no inbox entry, no intake, no commit, and no project file\n');
+  return 0;
+}
+
+const COMMANDS = { 'decide': runDecide, 'record-global': runRecordGlobal };
+const USAGE = ['issue-tracking.mjs decide [--root <dir>]', 'issue-tracking.mjs record-global --answer "<answer>"'];
 
 function main() {
   const run = COMMANDS[argv[0]];

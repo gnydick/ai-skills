@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ABSENT, NO_ANSWER, DECLINED, ANSWERED, fileState, decide, readIfPresent } from '../scripts/lib/issue-tracking.mjs';
+import { ABSENT, NO_ANSWER, DECLINED, ANSWERED, fileState, decide, readIfPresent, normalizeAnswer } from '../scripts/lib/issue-tracking.mjs';
 
 // The precedence table of docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md (Ruling G).
 // THE PROJECT FILE DECIDES WHENEVER IT EXISTS (Ruling B); the global file governs one row — no project
@@ -82,4 +82,13 @@ test('readIfPresent: null for a missing file, the text for a present one, and a 
     assert.equal(readIfPresent(path.join(d, 'x.md')), 'none\n');
     assert.throws(() => readIfPresent(d), /EISDIR|illegal operation on a directory/);
   } finally { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
+test('normalizeAnswer keeps an answer, normalises its line endings, and refuses what would record unanswered', () => {
+  assert.equal(normalizeAnswer('  Issue tracking: <tracker>.\r\nCheck: `<read>`.  \r\n'), 'Issue tracking: <tracker>.\nCheck: `<read>`.');
+  assert.equal(normalizeAnswer('none\n'), 'none', 'the opt-out is an answer');
+  assert.throws(() => normalizeAnswer(''), /empty answer/);
+  assert.throws(() => normalizeAnswer(null), /empty answer/);
+  assert.throws(() => normalizeAnswer(' unanswered \n'), /seeded word/);
+  assert.throws(() => normalizeAnswer('---\nIssue tracking: <tracker>'), /rules index/);
 });
