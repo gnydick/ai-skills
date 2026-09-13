@@ -7,8 +7,8 @@ import { execFileSync } from 'node:child_process';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
 import { generateIndex, generateSpecIndex } from './lib/index.mjs';
-import { pluginRoot, rulesSource } from './lib/config.mjs';
-import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, SPEC_INBOX, DOCS_DIR, SPECS_DIR } from './lib/layout.mjs';
+import { pluginRoot, rulesSource, globalIssueTracking, projectIssueTracking } from './lib/config.mjs';
+import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
@@ -34,6 +34,17 @@ function link(target, source) {
   return 'created';
 }
 
+// Issue tracking (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md, "Install seeds
+// them"): the only thing install ever does to either file is create it when there is none. The `wx`
+// flag makes "never overwritten, whatever it says — an empty file included" a property of the open
+// itself rather than of a check made a moment earlier. Returns true when it created the file.
+function seed(file) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  try { fs.writeFileSync(file, `${UNANSWERED}\n`, { flag: 'wx' }); return true; }
+  catch (e) { if (e.code === 'EEXIST') return false; throw e; }
+}
+const seedLine = (shown, created) => `${shown}: ${created ? 'created' : 'present, left as it is'}`;
+
 function installMachine() {
   const home = process.env.MACHINERY_HOME || os.homedir();
   const target = path.join(home, '.claude', 'rules', 'machinery');
@@ -42,6 +53,8 @@ function installMachine() {
   const result = link(target, src);
   if (result === 'not-a-junction') { process.stderr.write(`refusing to replace ${target}: not a junction; move it aside and rerun\n`); return 1; }
   say(`~/.claude/rules/machinery -> ${src}: ${result}`);
+  const globalFile = globalIssueTracking();
+  say(seedLine(globalFile, seed(globalFile)));
   return 0;
 }
 
@@ -71,6 +84,9 @@ function installProject() {
   // specification into a session. That is #81 Part 4 and is not built.
   const specs = path.join(root, DOCS_DIR, SPECS_DIR);
   fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true }); fs.mkdirSync(specs, { recursive: true });
+  // Seeded before the index is regenerated below, so the index this run stages already has its row.
+  const trackingFile = projectIssueTracking(root);
+  say(seedLine(path.relative(root, trackingFile), seed(trackingFile)));
   const inbox = path.join(mach, 'inbox.md');
   if (!fs.existsSync(inbox)) { fs.writeFileSync(inbox, ''); say(`created ${path.relative(root, inbox)}`); }
   const specInbox = path.join(mach, SPEC_INBOX);
