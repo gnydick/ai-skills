@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { quoteStates, splitOutside, segmentsOutside, OUTSIDE, DELIM, INSIDE, COMMENT } from '../scripts/lib/quotes.mjs';
 
-// Issue #11: the one definition of a quoted span (rules/design-invariants.md § Never re-derive a
-// fact). catalog.mjs's tokens() and classify.mjs's segment splitter both read this; neither keeps
+// Issue #11: the one definition of a quoted span — a second derivation would eventually disagree
+// with the first. catalog.mjs's tokens() and classify.mjs's segment splitter both read this; neither keeps
 // a scanner of its own. The states are per code unit, so a consumer can slice the original
 // command at positions taken from them.
 const O = OUTSIDE, D = DELIM, I = INSIDE;

@@ -11,7 +11,7 @@
 // The claims walker (I44) that once lived here was deleted by recalibration decision 49: decision 3
 // removed the prose the claims cited, and a walker over zero claims checks nothing.
 //
-// A check module is DATA to this loader (rules/design-invariants.md § External input): a malformed
+// A check module is DATA to this loader, external input that never crashes it: a malformed
 // declaration produces a named diagnostic, never a stack trace.
 import fs from 'node:fs';
 import path from 'node:path';

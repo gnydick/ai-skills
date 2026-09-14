@@ -6,5 +6,6 @@ Moved out of machinery on 2026-09-14 by recalibration decisions 19 and 24 (`docs
 - `agents/invariant-auditor.md` — was `plugins/machinery/agents/`.
 - `scripts/audit-diff.mjs`, `test/audit-diff.test.mjs` — were in `plugins/machinery/`; their `./lib/` and `./helpers/` imports still point at machinery and must be re-pointed on the move.
 - The design-skill draft stays at `docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/`.
+- `rules/design-invariants.md` — was `plugins/machinery/rules/`, including § Weak claims and the enforcement ledger. Machinery no longer depends on unbreakable: nothing shipped names it.
 
 Open when worked: A308 (the auditor's model tier).

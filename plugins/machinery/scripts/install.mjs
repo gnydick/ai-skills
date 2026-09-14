@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 // Story: gates/commit-gate.md (activation per clone, never self-installing — this is the one path that sets core.hooksPath; spec I7).
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { pluginRoot, rulesSource, globalIssueTracking, projectIssueTracking } from './lib/config.mjs';
+import { pluginRoot, projectIssueTracking } from './lib/config.mjs';
 import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
@@ -19,24 +17,10 @@ const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : nu
 const say = (s) => process.stdout.write(s + '\n');
 const version = () => JSON.parse(fs.readFileSync(path.join(pluginRoot(), '.claude-plugin', 'plugin.json'), 'utf8')).version;
 
-function link(target, source) {
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  if (fs.existsSync(target)) {
-    if (fs.realpathSync.native(target) === fs.realpathSync.native(source)) return 'already';
-    // A junction reports as a symbolic link to lstat on Windows; a real directory does not.
-    // Never delete a real directory sitting at the target path (spec: refuse, don't clobber).
-    if (!fs.lstatSync(target).isSymbolicLink()) return 'not-a-junction';
-    fs.rmSync(target, { recursive: false, force: true });
-  }
-  if (process.platform === 'win32') execFileSync('cmd', ['/c', 'mklink', '/J', target, source], { stdio: 'pipe' });
-  else fs.symlinkSync(source, target, 'dir');
-  return 'created';
-}
-
 // Issue tracking (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md, "Install seeds
-// them"): the only thing install ever does to either file is create it when there is none. The `wx`
-// flag makes "never overwritten, whatever it says — an empty file included" a property of the open
-// itself rather than of a check made a moment earlier. Returns true when it created the file.
+// them"): the only thing install ever does to the project file is create it when there is none. The
+// `wx` flag makes "never overwritten, whatever it says — an empty file included" a property of the
+// open itself rather than of a check made a moment earlier. Returns true when it created the file.
 function seed(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   try { fs.writeFileSync(file, `${UNANSWERED}\n`, { flag: 'wx' }); return true; }
@@ -44,17 +28,12 @@ function seed(file) {
 }
 const seedLine = (shown, created) => `${shown}: ${created ? 'created' : 'present, left as it is'}`;
 
-function installMachine() {
-  const home = process.env.MACHINERY_HOME || os.homedir();
-  const target = path.join(home, '.claude', 'rules', 'machinery');
-  const src = rulesSource();
-  if (!fs.existsSync(src)) { process.stderr.write(`rules source does not exist: ${src}\n`); return 1; }
-  const result = link(target, src);
-  if (result === 'not-a-junction') { process.stderr.write(`refusing to replace ${target}: not a junction; move it aside and rerun\n`); return 1; }
-  say(`~/.claude/rules/machinery -> ${src}: ${result}`);
-  const globalFile = globalIssueTracking();
-  say(seedLine(globalFile, seed(globalFile)));
-  return 0;
+// Recalibration 21, 37: the universal rules are core.md, injected by the SessionStart and
+// SubagentStart hooks of every session that has the plugin enabled. There is no per-machine
+// junction to create, so the flag that used to create one is refused by name, not ignored.
+function refuseMachine() {
+  process.stderr.write("--machine was removed: machinery's SessionStart and SubagentStart hooks load core.md; enable machinery per project with claude plugin install machinery@ai-skills --scope project\n");
+  return 2;
 }
 
 // A pre-commit that already invokes the installed gate is ours (or a prior install's) — safe to
@@ -102,7 +81,7 @@ function installProject() {
   const ignoreWritten = ensureIgnored(root, ignoreLine);
   if (ignoreWritten) say(`added ${ignoreLine} to .gitignore`);
   // An ignore entry does nothing for a file already in the index. Name it rather than let the
-  // ruling look applied when it is not (rules/design-invariants.md § Telling the user what you dropped).
+  // ruling look applied when it is not: silence here would read as success.
   if (git(['ls-files', '--error-unmatch', '--', ignoreLine], root).code === 0)
     process.stderr.write(`warning: ${ignoreLine} is tracked; it is per-machine data and should not be. Run: git rm --cached ${ignoreLine}\n`);
   const hooksDir = path.join(root, '.githooks'), gateDir = path.join(hooksDir, 'machinery');
@@ -147,4 +126,4 @@ function installProject() {
   return 0;
 }
 
-process.exitCode = argv.includes('--machine') ? installMachine() : installProject();
+process.exitCode = argv.includes('--machine') ? refuseMachine() : installProject();

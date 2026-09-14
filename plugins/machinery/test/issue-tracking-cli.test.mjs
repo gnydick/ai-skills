@@ -73,7 +73,7 @@ const walkFiles = (d) => fs.readdirSync(d, { withFileTypes: true })
   .flatMap((e) => (e.isDirectory() ? (e.name === '.git' ? [] : walkFiles(path.join(d, e.name))) : [path.join(d, e.name)]));
 const snapshot = (dir) => Object.fromEntries(walkFiles(dir).map((f) => [path.relative(dir, f), fs.readFileSync(f, 'utf8')]));
 
-// A plugin checkout standing in for rulesSource(): rules/, inbox.md, plugin.json, committed.
+// A plugin checkout standing in for universalSource(): inbox.md, plugin.json, committed.
 function pluginCheckout(home) {
   const r = makeRepo();
   const plug = path.join(r.root, 'plugins', 'machinery');

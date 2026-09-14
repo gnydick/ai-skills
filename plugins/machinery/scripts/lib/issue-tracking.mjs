@@ -56,8 +56,8 @@ export function normalizeAnswer(raw) {
 // lib/inbox.mjs's heading pattern accepts for a project rule; a mismatch is not silent here, because
 // record-project reads every entry back through that parser and fails unless it finds exactly one.
 export const PROJECT_ENTRY_KIND = 'PRULE';
-// rules/rule-governance.md § Dictating a rule: "written into the inbox by hand, with a note saying why
-// the automatic capture did not fire."
+// A rule ruled in conversation without the marker is "written into the inbox by hand, with a note
+// saying why the automatic capture did not fire."
 export const CAPTURE_NOTE = 'Note: automatic capture did not fire. This answer was given in plain words in the issue-tracking setup conversation, which asks for no mark, and was recorded by issue-tracking.mjs record-project.';
 export const entryText = (answer) => `${answer}\n\n${CAPTURE_NOTE}`;
 

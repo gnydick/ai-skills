@@ -8,14 +8,13 @@ import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const base = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/SessionStart.json'), 'utf8'));
 // Final review D: without a machinery.json, universalInbox() falls back to the plugin's OWN
-// rules/ dir — a suite that never sets rulesSource reads (and could be broken by) the REAL, live
-// plugins/machinery/inbox.md. Point every home() at its own throwaway rules source instead.
+// directory — a suite that never sets pluginSource reads (and could be broken by) the REAL, live
+// plugins/machinery/inbox.md. Point every home() at its own throwaway plugin source instead.
 const home = () => {
   const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
   fs.mkdirSync(path.join(h, '.claude'));
-  const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
-  fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: rulesDir }));
+  const source = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-'));
+  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: source }));
   return h;
 };
 const run = (cwd, env = {}) => runScript('scripts/banner.mjs', { stdin: JSON.stringify({ ...base, cwd }), cwd, env: { MACHINERY_HOME: home(), ...env } });
@@ -25,7 +24,8 @@ test('reports measured facts for an uninstalled project', () => {
   const r = makeRepo();
   try {
     const t = text(run(r.root));
-    assert.match(t, /rules source: .*rules \(junction: missing/);
+    assert.match(t, /^  core: .*core\.md \(present\)$/m);
+    assert.doesNotMatch(t, /junction|cant-break-by-design/);
     assert.match(t, /core\.hooksPath: not set — run \/machinery:install/);
     assert.match(t, /gate: not installed/);
     assert.match(t, /pending: project 0, universal 0/);
@@ -44,43 +44,6 @@ test('after install and a capture, reports hooksPath, stamp, and pending count',
     assert.match(t, /core\.hooksPath: \.githooks/);
     assert.match(t, /gate: installed \d+\.\d+\.\d+ \(plugin \d+\.\d+\.\d+\)/);
     assert.match(t, /pending: project 1/);
-  } finally { r.cleanup(); }
-});
-
-test('a rules source that does not resolve is reported loudly, exit 0', () => {
-  const r = makeRepo();
-  try {
-    const h = home(); fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: 'Z:/nope' }));
-    const res = run(r.root, { MACHINERY_HOME: h });
-    assert.equal(res.code, 0); assert.match(text(res), /rules source: .*DOES NOT EXIST/);
-  } finally { r.cleanup(); }
-});
-
-test('a plugin-installed unbreakable (installed_plugins.json, no loose skill dir) is detected (final review B)', () => {
-  const r = makeRepo();
-  try {
-    const h = home();
-    fs.mkdirSync(path.join(h, '.claude', 'plugins'), { recursive: true });
-    fs.writeFileSync(path.join(h, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({
-      version: 2,
-      plugins: { 'unbreakable@ai-skills': [{ scope: 'user', version: '0.3.1' }] },
-    }));
-    const t = text(run(r.root, { MACHINERY_HOME: h }));
-    assert.match(t, /cant-break-by-design skill \(mandatory\): installed/);
-  } finally { r.cleanup(); }
-});
-
-test('no loose skill dir and no matching installed_plugins.json entry reports NOT FOUND', () => {
-  const r = makeRepo();
-  try {
-    const h = home();
-    fs.mkdirSync(path.join(h, '.claude', 'plugins'), { recursive: true });
-    fs.writeFileSync(path.join(h, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({
-      version: 2,
-      plugins: { 'some-other-plugin@marketplace': [{ scope: 'user', version: '1.0.0' }] },
-    }));
-    const t = text(run(r.root, { MACHINERY_HOME: h }));
-    assert.match(t, /cant-break-by-design skill \(mandatory\): NOT FOUND — install the unbreakable plugin/);
   } finally { r.cleanup(); }
 });
 

@@ -26,8 +26,6 @@ export function universalSource() {
 }
 export const universalInbox = () => path.join(universalSource(), INBOX);
 export const universalCore = () => path.join(universalSource(), CORE);
-// Read only by banner, reload and install --machine; removed with them in Task A6.
-export const rulesSource = () => path.join(universalSource(), RULES_DIR);
 export const projectRules = (root) => path.join(root, '.claude', RULES_DIR);
 // The two issue-tracking files (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
 // Built here and nowhere else, so the installer that seeds them, the command that reads and records

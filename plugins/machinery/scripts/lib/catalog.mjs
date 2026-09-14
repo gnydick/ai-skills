@@ -8,7 +8,7 @@
 // which half of the catalog it came from: a learned entry carrying a regex `outcome` is dropped and
 // named wherever it sits, while a hand-written entry in the PROJECT half may still carry one.
 // lib/graduate.mjs calls the same entryProblem() before it writes, so the writer and the reader
-// cannot disagree about what a usable entry is (rules/design-invariants.md § Never re-derive a fact).
+// cannot disagree about what a usable entry is: one derivation, read by both.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pluginRoot } from './config.mjs';
@@ -51,8 +51,8 @@ export function entryProblem(entry) {
 // collision by design: the local record is the one that has actually watched the tool run here.
 // A malformed entry is dropped and the rest kept — one bad line in a hand-edited overlay must not
 // switch the whole catalog off — and the drops come back AS PART OF THE RESULT, never as a side
-// channel a caller can lose (rules/design-invariants.md § What a diagnostic and a measurement may
-// claim). A malformed project override leaves the universal entry it failed to replace in place.
+// channel a caller can lose — a separate optional output lets a caller drop the warning unnoticed.
+// A malformed project override leaves the universal entry it failed to replace in place.
 export function loadCatalogReport(root) {
   const sources = [
     ['universal', path.join(pluginRoot(), 'data', 'tool-catalog.json')],

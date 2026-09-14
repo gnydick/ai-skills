@@ -9,7 +9,7 @@
 // survives filtering is not an entry, and the proof is the point, not the file's presence. The
 // judgement itself is not made here — it is read from scripts/lib/survival.mjs, the same authority
 // test/catalog.test.mjs enforces over the universal catalog, so the gate and the suite cannot
-// drift apart (rules/design-invariants.md § Never re-derive a fact).
+// drift apart: one derivation, read by both.
 //
 // Mirrors intake.mjs's shape for the version bump: bump.mjs is resolved as this script's own
 // sibling and told which plugin to bump with --plugin, rather than being re-implemented here.
@@ -35,8 +35,7 @@ if (!id || !root) { process.stderr.write('usage: promote-tool.mjs --id <id> --ro
 if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) die(`'${id}' is not a usable catalog id: expected letters, digits, dot, dash or underscore, starting with a letter or digit`);
 
 // The project half of this data is hand-editable, and so is the universal file. A malformed one is
-// the user's input, not our invariant failing: it gets a diagnostic, never a stack trace
-// (rules/design-invariants.md § External input).
+// the user's input, not our invariant failing: it gets a diagnostic, never a stack trace.
 function readObject(file, what) {
   let text;
   try { text = fs.readFileSync(file, 'utf8'); }
@@ -93,8 +92,8 @@ say(`fixture copied to ${universalFixturePath}`);
 say(`removed '${id}' from ${projectCatalogPath}; the project copy would otherwise shadow the universal entry`);
 say(`the project fixture at ${fixturePath} was left in place`);
 say(`bumped plugin version to ${b.stdout.trim()}`);
-// Said, not enforced: warn and let the user judge (rules/design-invariants.md § Telling the user
-// what you dropped). Every hand-authored universal entry carries a `verified` note saying which
+// Said, not enforced: warn and let the user judge, because silence would read as success.
+// Every hand-authored universal entry carries a `verified` note saying which
 // version was measured and how; a promoted one derived by machine usually does not.
 if (typeof entry.verified !== 'string' || !entry.verified.trim()) {
   say(`warning: '${id}' carries no "verified" note. The universal catalog is the human-reviewed half — add one naming the tool version measured and what was observed.`);

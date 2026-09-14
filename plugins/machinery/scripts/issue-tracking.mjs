@@ -84,7 +84,7 @@ function runRecordGlobal() {
   return 0;
 }
 
-// The one read of the session id (rules/design-invariants.md § One authority per switch).
+// The one read of the session id: resolved once here, everything else reads the result.
 function resolveSession() {
   const value = opt('--session') || process.env.CLAUDE_CODE_SESSION_ID || '';
   if (!value) throw new CannotRun('no session id: looked at --session and $CLAUDE_CODE_SESSION_ID, and found neither');

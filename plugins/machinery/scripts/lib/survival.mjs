@@ -2,7 +2,7 @@
 // outcome pattern survives filtering? That is the design's Verification 7 — "an entry with no
 // fixture is not an entry" — and the point of the standard is the proof, not the file's presence.
 //
-// Two callers, one derivation (rules/design-invariants.md § Never re-derive a fact):
+// Two callers, one derivation, so they cannot disagree:
 //   - test/catalog.test.mjs enforces it over every entry already in the universal catalog;
 //   - scripts/promote-tool.mjs enforces it at the one gate where a project's own entry crosses
 //     into that catalog, so an entry the suite would reject can never land in the first place.
@@ -10,8 +10,8 @@
 // arrive as a permanently red suite nobody could attribute.
 //
 // Returns a list of problems, empty when the fixture proves it. It never throws on a malformed
-// fixture: the project half of this data is hand-editable, so a bad shape is a diagnostic
-// (rules/design-invariants.md § External input).
+// fixture: the project half of this data is hand-editable, so a bad shape is a diagnostic,
+// never a crash.
 import { select, TAIL_LINES } from './filter.mjs';
 import { outcomeMatcher } from './catalog.mjs';
 

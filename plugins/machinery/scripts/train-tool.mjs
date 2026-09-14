@@ -27,8 +27,7 @@ const say = (s) => process.stdout.write(s + '\n');
 const die = (m) => { process.stderr.write(`train-tool: ${m}\n`); process.exit(1); };
 const usage = () => { process.stderr.write('usage: train-tool.mjs identify --log <run log> --line <N> [--root <project>]\n       train-tool.mjs logs [--key <key>]\n'); process.exit(2); };
 
-// A log is external input: missing, unreadable or malformed is a diagnostic, never a stack trace
-// (rules/design-invariants.md § External input).
+// A log is external input: missing, unreadable or malformed is a diagnostic, never a stack trace.
 function readLog(file) {
   let text;
   try { text = fs.readFileSync(file, 'utf8'); }
@@ -39,7 +38,7 @@ function readLog(file) {
 // two that agree by inspection: toolKey() is the single site, so the pick lands on the record the
 // runner writes to and a graduated tool is found under its learned id. It carries WHETHER the
 // catalog matched along with the key, which is what the graduation gate needs and cannot recover
-// from the key string (rules/design-invariants.md § Never re-derive a fact).
+// from the key string — carried forward, never re-derived.
 const toolOf = (command, catalog) => toolKey(matchTool(command, catalog), command);
 
 function identifyCmd() {
@@ -95,7 +94,7 @@ function logsCmd() {
     if (want && key !== want) continue;
     say(`${file}\t${key}`); shown++;
   }
-  // The proof line (rules/tool-output.md § Proof lines and denominators): the count and its denominator.
+  // The proof line the output filter keeps: the count and its denominator.
   say(`train_tool_logs: ${shown} of ${files.length} run logs ${want ? `match '${want}'` : 'listed'} in ${logDir()}`);
 }
 

@@ -122,7 +122,7 @@ test('RED CHECK: a sufficient trial never overwrites the bare command noisy stat
 });
 
 // Final review I3: a trial run with no bare run before it used to write `noisy: false` — a stand-in
-// for "never measured" (rules/design-invariants.md § Absence and defaults) that parked the tool in
+// for "never measured" (a legal value smuggling a different concept) that parked the tool in
 // plain forever, since plain never re-observes. Absence is the signal: no bare measurement, no field.
 test('RED CHECK: a trial before any bare run never fabricates a noisy verdict — the field is absent', () => {
   const obs = recordRun({}, 'pytest', { identity: 'catalog', lineCount: 3, stdoutLines: 3, stderrLines: 0, candidate: '-q', outcomeSurvived: true });

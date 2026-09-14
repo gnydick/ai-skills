@@ -37,8 +37,8 @@ export const NONE = 'none';
 // ground and not another plugin's — in particular not `docs/superpowers/`, where this repo's own
 // machinery specification currently sits ("i don't want to mix with superpowers necessarily").
 //
-// This is not the fabricated default that rules/design-invariants.md § Absence and defaults
-// forbids. That forbids guessing at a setting whose absence means "inherit the project's own
+// This is not a fabricated default. What is forbidden is guessing at a setting whose absence
+// means "inherit the project's own
 // arrangement". This is machinery's own storage, the same kind of fact as
 // `.claude/machinery/inbox.md`, which nobody declares either.
 //
@@ -52,8 +52,8 @@ export const MACHINERY_DIR = 'machinery';
 
 // The disposition vocabulary for a filed specification (#81). Both the gate leg that refuses a bad
 // filing and the intake that writes one need this test, and neither depends on the other, so it
-// lives here rather than in either — rules/design-invariants.md § Where a distinguishing type is
-// created. Two call sites spelling the containment test themselves is exactly how they drift apart.
+// lives here rather than in either — a shared definition in a unit with no dependencies of its
+// own. Two call sites spelling the containment test themselves is exactly how they drift apart.
 
 // The path half of a `filed → <path> § <Section>` disposition, or null when the disposition is not
 // a filing at all (a dismissal, or a line no writer of ours produced).

@@ -1,7 +1,7 @@
 // The one home of the per-run log: where it lives, how a run is written into it, and how it is read
 // back. Two readers of the same bytes — quiet-run.mjs writes one after every wrapped run, and
 // train-tool.mjs reads one when the session identifies a tool's answer line in it — so the format is
-// spelled once (rules/design-invariants.md § Never re-derive a fact). The log is verbatim: a record's
+// spelled once, where the writer and the reader both read it. The log is verbatim: a record's
 // text keeps its bare \r and its ANSI, because filter.mjs's normalise() owns collapsing progress
 // frames and stripping colour, and it runs on the way OUT of the records exactly as it runs on the
 // way to the display. linesOf() is that single derivation; the runner and the trainer both call it.
@@ -30,7 +30,7 @@ export function formatRunLog(command, records) {
 const RECORD = /^(\d+\.\d{3}) (out|err)  (.*)$/s;
 export function parseRunLog(text) {
   // A one-off split of a finished blob into lines — a different fact from the streaming carry rule
-  // lib/lines.mjs owns (rules/design-invariants.md § Never re-derive a fact), so the trailing empty
+  // lib/lines.mjs owns and nothing else re-derives, so the trailing empty
   // entry a terminating \n leaves behind is dropped by a slice, not the carry rule's own pop().
   let lines = text.split('\n');
   if (lines.at(-1) === '') lines = lines.slice(0, -1);

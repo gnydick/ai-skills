@@ -4,8 +4,8 @@
 // cannot be recovered later: which stream a line came from, and when it arrived
 // relative to the others. So both streams are read separately, records are
 // pushed in the order chunks actually arrived, and every line carries an offset
-// from ONE start time read once here (rules/design-invariants.md § One
-// authority per switch; § Never re-derive a fact — nobody downstream restamps).
+// from ONE start time read once here — nobody downstream restamps, because a
+// second clock would eventually disagree with the first.
 import { spawn } from 'node:child_process';
 // The chunk-to-lines rule (carry the unterminated remainder, decode multi-byte
 // characters across chunk boundaries) lives in lib/lines.mjs, shared with

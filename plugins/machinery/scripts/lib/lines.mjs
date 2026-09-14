@@ -1,5 +1,5 @@
-// The one home of the chunk-to-lines rule (#19 fix round 1; rules/design-invariants.md
-// § Never re-derive a fact). It was typed twice — lib/capture.mjs for the quiet-output
+// The one home of the chunk-to-lines rule (#19 fix round 1): a second derivation would
+// eventually disagree with the first. It was typed twice — lib/capture.mjs for the quiet-output
 // capture, lib/git.mjs for the streamed diff — and the two would eventually have disagreed.
 // No dependencies of its own, so both can import it and the installed gate can carry it.
 //

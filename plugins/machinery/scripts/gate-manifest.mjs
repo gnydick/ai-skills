@@ -5,7 +5,7 @@
 // It lives OUTSIDE scripts/gate/ on purpose: nothing under scripts/gate/ may write to the tree
 // (spec I23, asserted by test/gate-purity.test.mjs), and this is a writer.
 //
-// The leg prints its own denominator (rules/tool-output.md § Proof lines and denominators), so a
+// The leg prints its own denominator in the proof-line shape the output filter keeps, so a
 // pass for a bad reason — an empty gate directory — is visible rather than compressed away into a
 // bare exit code.
 import fs from 'node:fs';

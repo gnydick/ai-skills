@@ -4,8 +4,9 @@ import path from 'node:path';
 import { lineSplitter } from './lines.mjs';
 
 let exe = null;
-// Resolved once (union: rules/tool-output.md § A check that cannot run fails
-// loudly). Bare `git` is fine on every platform; the loud failure names it.
+// Resolved once; a check that cannot run fails loudly rather than skipping,
+// because a skipped check reads as a pass. Bare `git` is fine on every
+// platform; the loud failure names it.
 export function gitExe() {
   if (exe) return exe;
   const probe = spawnSync('git', ['--version'], { encoding: 'utf8' });
@@ -17,8 +18,8 @@ export function gitExe() {
 // Measured incident, 2026-09-02: a real `git commit` from a LINKED WORKTREE
 // exports GIT_DIR (the worktree's admin dir under the main .git) to every
 // hook it runs, but never GIT_WORK_TREE — and, for a partial commit (explicit
-// pathspecs, this repo's own commit convention, rules/worktree-discipline.md
-// § Committing from it), GIT_INDEX_FILE points at the in-flight temp index
+// pathspecs, this repo's own commit convention: every commit names the paths
+// it commits), GIT_INDEX_FILE points at the in-flight temp index
 // holding exactly that partial-commit snapshot. Inherited as-is, a spawned
 // git with GIT_DIR set and GIT_WORK_TREE absent refuses any cwd-relative
 // pathspec (`:./path`, used by the gate's checks) with "ambiguous
@@ -39,8 +40,8 @@ function spawnEnv() {
 // spawnSync over its 1 MiB default buffer comes back status null, signal SIGTERM,
 // error.code ENOBUFS and an EMPTY stderr — reported as a bare `git diff failed:`). A
 // spawn failure (ENOENT, ENOBUFS) or a signal is appended to stderr, so every caller that
-// prints `${r.stderr}` names it without changing (rules/tool-output.md § Proof lines and
-// denominators: a check that cannot run fails loudly, naming what it could not do).
+// prints `${r.stderr}` names it without changing: a check that cannot run fails loudly,
+// naming what it could not do, because a quiet skip reads as a pass.
 function failureDetail({ error, signal }) {
   const parts = [];
   if (error) parts.push(`spawn failed: ${error.code ?? error.message}${error.code === 'ENOBUFS' ? ' (output exceeded the sync buffer; stream it with gitLines)' : ''}`);

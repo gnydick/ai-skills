@@ -9,8 +9,8 @@ import { GLOBAL_ISSUE_TRACKING, PROJECT_ISSUE_TRACKING, UNANSWERED, NONE } from 
 // Two spellings of a file name is how the installer seeds one path and the function reads another;
 // two spellings of a state word is the same failure, silent instead of loud — a machine where the
 // prompt quietly stopped firing looks exactly like one where everything was answered.
-// rules/design-invariants.md § One authority per switch: "a shared name is spelled once as one
-// shared definition", and "A check built on searching always ships a case proving it still matches."
+// A shared name is spelled once as one shared definition, and a check built on searching always
+// ships a case proving it still matches.
 
 test('the names and the state words are the owner\'s, verbatim, and the two states are different words', () => {
   assert.equal(GLOBAL_ISSUE_TRACKING, 'global_issue_tracking.md');

@@ -210,7 +210,7 @@ async function main() {
       }
       const ignored = saveObservations(root, next);
       // Said once, when it happens: the project's .gitignore just changed under the user
-      // (rules/design-invariants.md § Telling the user what you dropped — additions too).
+      // (a change made on the user's behalf is said where they see it — additions too).
       if (ignored) process.stderr.write('quiet-run: created .claude/machinery/observations.json and added it to .gitignore (per-machine measurement, never tracked)\n');
     }
   } catch { /* recording is best-effort; never fail the wrapped command over it */ }

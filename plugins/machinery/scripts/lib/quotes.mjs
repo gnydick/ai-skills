@@ -1,5 +1,5 @@
-// The one definition of a quoted span in a shell-like command line (issue #11;
-// rules/design-invariants.md § Never re-derive a fact). Two readers: catalog.mjs's tokens(), which
+// The one definition of a quoted span in a shell-like command line (issue #11; a second
+// derivation would eventually disagree with this one). Two readers: catalog.mjs's tokens(), which
 // keeps a span inside one argv token, and classify.mjs's segment splitter, which must not split on
 // a `&&` or `;` that sits inside one. Before this file each carried a scanner of its own and they
 // disagreed — `echo "a && b"` was one token to the first and two segments to the second. A unit with

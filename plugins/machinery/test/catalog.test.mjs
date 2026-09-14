@@ -87,8 +87,8 @@ test('matchedCandidate sees no token inside a # comment (#13 fix round 2)', () =
   assert.equal(matchedCandidate('git commit -m x#--quiet', ['--quiet']), null, 'a # inside a word opens no comment, and the token is x#--quiet');
 });
 
-// Issue #11: the quote rule has ONE home, scripts/lib/quotes.mjs (rules/design-invariants.md §
-// Never re-derive a fact). tokens() above and classify.mjs's segment splitter both read it. Field
+// Issue #11: the quote rule has ONE home, scripts/lib/quotes.mjs — a second derivation would
+// eventually disagree with the first. tokens() above and classify.mjs's segment splitter both read it. Field
 // privacy cannot keep a second scanner out — one more `ch === '"'` loop compiles perfectly — so
 // this is the check over the source the rule asks for: a file that compares a character against
 // a quote is scanning quotes, and exactly one file under scripts/ may.
@@ -102,8 +102,8 @@ test('matchedCandidate sees no token inside a # comment (#13 fix round 2)', () =
 // or a char-code call beside 34 / 39 / 0x22 / 0x27 on the same line.
 //
 // What it cannot see, each MEASURED unseen by the pin test below and named in the guard's own
-// title, so the title claims no more than the scan detects (rules/design-invariants.md § Weak
-// claims): a regex class mixing a quote with other members (`[\s"']`); a char code compared on a
+// title, so the title claims no more than the scan detects — a claim that outruns its mechanism
+// is the defect: a regex class mixing a quote with other members (`[\s"']`); a char code compared on a
 // later line than its call; a range comparison bracketing a quote (`ch > '!' && ch < '#'`); a
 // same-quote doubled literal stored in a variable before its membership call; and a quote computed
 // at run time — String.fromCharCode of a non-literal, or a variable holding the character whose
@@ -124,7 +124,7 @@ test('exactly one file under scripts/ names a quote character — by literal, es
 });
 // Fix round 1 for #11: the first pattern matched four spellings and a reviewer wrote six scanners
 // past it. Every spelling below is a way a second scanner has actually been written; each must be
-// SEEN, or the guard above claims more than it detects (rules/design-invariants.md § Weak claims).
+// SEEN, or the guard above claims more than it detects.
 const SPELLINGS = [
   [`if (ch === '"' || ch === "'") { quote = ch; inToken = true; continue; }`, 'the loop catalog.mjs used to carry'],
   [`const q = "'";`, 'a single quote in a double-quoted literal'],

@@ -1,9 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { PLUGIN, runScript } from './helpers/run.mjs';
+import { PLUGIN } from './helpers/run.mjs';
 
 const REPO = path.resolve(PLUGIN, '..', '..');
 // Sources are laid out bucket/plugin/skill, so this plugin's skills sit in the
@@ -25,16 +24,6 @@ test('every /machinery:<name> a skill names is a routed skill (spec I36)', () =>
 test('the markers named in skills are the ones in markers.json', () => {
   const m = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'markers.json'), 'utf8'));
   for (const d of skills()) for (const tok of text(d).matchAll(/\b[A-Z]RULE:/g)) assert.ok([m.project, m.universal].includes(tok[0]), `${d} uses ${tok[0]}`);
-});
-
-test('reload prints every universal rule file as a delimited block', () => {
-  // A throwaway home naming THIS plugin as the source: the live machinery.json is not this test's.
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  fs.mkdirSync(path.join(home, '.claude'));
-  fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: PLUGIN }));
-  const res = runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: home } });
-  assert.equal(res.code, 0, res.stderr);
-  for (const f of fs.readdirSync(path.join(PLUGIN, 'rules'))) assert.ok(res.stdout.includes(`===== rules/${f} =====`));
 });
 
 test('RED CHECK: the routed machinery skills are the recalibrated set', () => {

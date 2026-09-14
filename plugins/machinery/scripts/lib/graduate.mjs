@@ -3,7 +3,7 @@
 // Everything that can refuse happens before the first write, and the judgement is not made here: it
 // is read from survival.mjs, the same authority test/catalog.test.mjs enforces over the universal
 // catalog and promote-tool.mjs enforces at promotion, so the loop cannot land an entry the suite
-// would reject (rules/design-invariants.md § Never re-derive a fact). The entry's own loadability is
+// would reject — one derivation, read by all three. The entry's own loadability is
 // read from catalog.mjs's entryProblem() the same way — a machine-derived outcome that is not a
 // prefix or literal is refused here, at the writer, not only dropped later at the reader.
 //
@@ -29,8 +29,8 @@ export const projectFixtureFile = (root, id) => path.join(root, '.claude', 'mach
 
 // The project catalog is written back whole, so it is read raw here — not through loadCatalog(),
 // which lays it over the universal table and drops what it cannot use. A file that is present but
-// unreadable is external input: a problem, never a replacement (rules/design-invariants.md
-// § External input).
+// unreadable is external input: a problem the user is told about, never a replacement and
+// never a crash.
 function readProjectCatalog(file) {
   if (!fs.existsSync(file)) return { value: {} };
   let value;

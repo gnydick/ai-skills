@@ -1,9 +1,13 @@
-// Story: #65 — /machinery:reload printed all ten rule files on every run (69,254 bytes,
+// Story: #65 — /machinery:reload printed every universal rule file on every run (69,254 bytes,
 // ~17k tokens), and the case you most want to run it in is the one where nothing changed.
 // The delta is hashed per file against a manifest in the SESSION SCRATCHPAD directory:
 // keyed on the path the session hands it, because a skill-invoked script gets no hook
 // payload and so has no session id to read. First reload per session is a full dump, by
 // construction, and that is correct — a fresh session has seen nothing.
+//
+// Recalibration 21, 37: the universal rules are ONE file, core.md in the plugin source; the
+// project's own .claude/rules/ directory joins under --project. So the counts below are 1 (core)
+// and 11 (core plus ten project files).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,56 +17,62 @@ import { runScript } from './helpers/run.mjs';
 import { makeRepo } from './helpers/repo.mjs';
 import { reloadDelta, MANIFEST_NAME } from '../scripts/lib/reload.mjs';
 
-// Ten, so the counts the ticket names (`10 files, 0 changed`) are the counts the suite reads.
+// Ten project files, so the counts the ticket names stay readable (`11 files, 0 changed`).
 const NAMES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((n) => `${n}.md`);
 const bodyOf = (n) => `# ${n}\n\n- the body of ${n}\n`;
+const CORE_TEXT = '# Core\n\n- the core\n';
 
 function fixture() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'reload-'));
-  const rules = path.join(base, 'rules');
-  fs.mkdirSync(rules);
-  for (const n of NAMES) fs.writeFileSync(path.join(rules, n), bodyOf(n));
+  const core = path.join(base, 'core.md');
+  fs.writeFileSync(core, CORE_TEXT);
   const home = path.join(base, 'home');
   fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
   fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: base }));
   const scratch = path.join(base, 'scratchpad');
   fs.mkdirSync(scratch);
+  const repo = makeRepo();
+  const rules = path.join(repo.root, '.claude', 'rules');
+  fs.mkdirSync(rules, { recursive: true });
+  for (const n of NAMES) fs.writeFileSync(path.join(rules, n), bodyOf(n));
   return {
-    base, rules, home, scratch,
+    base, core, rules, home, scratch, project: repo.root,
     manifest: path.join(scratch, MANIFEST_NAME),
-    cleanup: () => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }),
+    cleanup: () => { repo.cleanup(); fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }); },
   };
 }
 
 const run = (f, args = [], opts = {}) =>
-  runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home }, args: ['--scratchpad', f.scratch, ...args], ...opts });
+  runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home }, args: ['--scratchpad', f.scratch, ...args], cwd: f.project, ...opts });
 
-test('ticket test 3 (positive control): with no manifest the run prints all ten and 10 files, 10 changed', () => {
+const sourcesOf = (f) => [['core.md', f.core], ['.claude/rules', f.rules]];
+
+test('ticket test 3 (positive control): with no manifest the run prints all eleven and 11 files, 11 changed', () => {
   const f = fixture();
   try {
     assert.ok(!fs.existsSync(f.manifest), 'the fixture starts with no manifest');
-    const r = run(f);
+    const r = run(f, ['--project']);
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /machinery_reload: 10 files, 10 changed/);
-    for (const n of NAMES) assert.ok(r.stdout.includes(`===== rules/${n} =====`), `${n} was not printed`);
+    assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
+    assert.ok(r.stdout.includes(`===== core.md =====\n${CORE_TEXT}`), 'core.md was not printed');
+    for (const n of NAMES) assert.ok(r.stdout.includes(`===== .claude/rules/${n} =====`), `${n} was not printed`);
     for (const n of NAMES) assert.ok(r.stdout.includes(`the body of ${n}`), `${n}'s text was not printed`);
     assert.ok(fs.existsSync(f.manifest), 'a successful print writes the manifest');
   } finally { f.cleanup(); }
 });
 
-test('ticket test 1: the second consecutive run prints 10 files, 0 changed and no rule text', () => {
+test('ticket test 1: the second consecutive run prints 11 files, 0 changed and no rule text', () => {
   const f = fixture();
   try {
-    const first = run(f);
-    assert.match(first.stdout, /machinery_reload: 10 files, 10 changed/);
-    const second = run(f);
+    const first = run(f, ['--project']);
+    assert.match(first.stdout, /machinery_reload: 11 files, 11 changed/);
+    const second = run(f, ['--project']);
     assert.equal(second.code, 0, second.stderr);
-    assert.match(second.stdout, /machinery_reload: 10 files, 0 changed/);
+    assert.match(second.stdout, /machinery_reload: 11 files, 0 changed/);
     assert.ok(!second.stdout.includes('====='), `a delimited block was printed: ${second.stdout}`);
     for (const n of NAMES) assert.ok(!second.stdout.includes(`the body of ${n}`), `${n}'s text was reprinted`);
     // Exactly one line carries the denominator, and it is in the declared proof-line shape, so the
-    // output filter keeps it instead of compressing away a pass (rules/tool-output.md § Proof lines
-    // and denominators). The pattern is lib/filter.mjs PROOF_LINE.
+    // output filter keeps it instead of compressing away a pass. The pattern is lib/filter.mjs PROOF_LINE.
     const PROOF_LINE = /(^HEARTBEAT\s|^[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?:\s+--?[\w.-]+)?:\s+\S)/;
     const proof = second.stdout.split('\n').filter((l) => /\d+ files, \d+ changed/.test(l));
     assert.equal(proof.length, 1, 'exactly one proof line');
@@ -70,16 +80,17 @@ test('ticket test 1: the second consecutive run prints 10 files, 0 changed and n
   } finally { f.cleanup(); }
 });
 
-test('ticket test 2: touching one rule file prints that file and 10 files, 1 changed', () => {
+test('ticket test 2: touching one rule file prints that file and 11 files, 1 changed', () => {
   const f = fixture();
   try {
-    run(f);
+    run(f, ['--project']);
     fs.writeFileSync(path.join(f.rules, 'c.md'), '# c.md\n\n- rewritten by the test\n');
-    const r = run(f);
+    const r = run(f, ['--project']);
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /machinery_reload: 10 files, 1 changed/);
-    assert.ok(r.stdout.includes('===== rules/c.md ====='), 'the touched file was not printed');
+    assert.match(r.stdout, /machinery_reload: 11 files, 1 changed/);
+    assert.ok(r.stdout.includes('===== .claude/rules/c.md ====='), 'the touched file was not printed');
     assert.ok(r.stdout.includes('rewritten by the test'), 'the touched file’s new text was not printed');
+    assert.ok(!r.stdout.includes('the core'), 'core.md was reprinted');
     for (const n of NAMES.filter((n) => n !== 'c.md')) assert.ok(!r.stdout.includes(`the body of ${n}`), `${n} was reprinted`);
   } finally { f.cleanup(); }
 });
@@ -87,11 +98,12 @@ test('ticket test 2: touching one rule file prints that file and 10 files, 1 cha
 test('ticket test 5: --all prints everything with a manifest present', () => {
   const f = fixture();
   try {
-    run(f);
+    run(f, ['--project']);
     assert.ok(fs.existsSync(f.manifest));
-    const r = run(f, ['--all']);
+    const r = run(f, ['--all', '--project']);
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /machinery_reload: 10 files, 10 changed/);
+    assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
+    assert.ok(r.stdout.includes('the core'), 'core.md was not printed under --all');
     for (const n of NAMES) assert.ok(r.stdout.includes(`the body of ${n}`), `${n} was not printed under --all`);
   } finally { f.cleanup(); }
 });
@@ -101,21 +113,21 @@ test('ticket test 4: an aborted print leaves the manifest untouched, so the next
   try {
     let calls = 0;
     const dying = () => { if (++calls === 3) throw new Error('injected write failure'); };
-    assert.throws(() => reloadDelta({ dirs: [['rules', f.rules]], manifestPath: f.manifest, write: dying }), /injected write failure/);
+    assert.throws(() => reloadDelta({ sources: sourcesOf(f), manifestPath: f.manifest, write: dying }), /injected write failure/);
     assert.ok(!fs.existsSync(f.manifest), 'the manifest was written despite the print dying');
-    const r = run(f);
-    assert.match(r.stdout, /machinery_reload: 10 files, 10 changed/);
+    const r = run(f, ['--project']);
+    assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
   } finally { f.cleanup(); }
 });
 
 test('an aborted print does not overwrite a manifest an earlier run left', () => {
   const f = fixture();
   try {
-    run(f);
+    run(f, ['--project']);
     const before = fs.readFileSync(f.manifest, 'utf8');
     fs.writeFileSync(path.join(f.rules, 'c.md'), '# c.md\n\n- rewritten by the test\n');
     const dying = () => { throw new Error('injected write failure'); };
-    assert.throws(() => reloadDelta({ dirs: [['rules', f.rules]], manifestPath: f.manifest, write: dying }));
+    assert.throws(() => reloadDelta({ sources: sourcesOf(f), manifestPath: f.manifest, write: dying }));
     assert.equal(fs.readFileSync(f.manifest, 'utf8'), before, 'the manifest moved on a failed print');
   } finally { f.cleanup(); }
 });
@@ -123,11 +135,11 @@ test('an aborted print does not overwrite a manifest an earlier run left', () =>
 test('a corrupt manifest is data, not a crash: every file counts as changed and the run says so', () => {
   const f = fixture();
   try {
-    run(f);
+    run(f, ['--project']);
     fs.writeFileSync(f.manifest, '{truncated');
-    const r = run(f);
+    const r = run(f, ['--project']);
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /machinery_reload: 10 files, 10 changed/);
+    assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
     assert.match(r.stdout, /machinery_reload: .*unreadable/);
     assert.ok(r.stdout.includes('the body of a.md'), 'the full dump did not happen');
   } finally { f.cleanup(); }
@@ -136,48 +148,63 @@ test('a corrupt manifest is data, not a crash: every file counts as changed and 
 test('without --scratchpad the run is a full dump and says nothing is remembered', () => {
   const f = fixture();
   try {
-    const r = runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home } });
+    const r = runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home }, args: ['--project'], cwd: f.project });
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /machinery_reload: 10 files, 10 changed/);
+    assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
     assert.match(r.stdout, /machinery_reload: no session scratchpad/);
-    const again = runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home } });
-    assert.match(again.stdout, /machinery_reload: 10 files, 10 changed/);
+    const again = runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home }, args: ['--project'], cwd: f.project });
+    assert.match(again.stdout, /machinery_reload: 11 files, 11 changed/);
   } finally { f.cleanup(); }
 });
 
 test('--project joins the same delta, and a later run without it does not forget the project rules', () => {
   const f = fixture();
-  const repo = makeRepo();
   try {
-    const pr = path.join(repo.root, '.claude', 'rules');
-    fs.mkdirSync(pr, { recursive: true });
-    fs.writeFileSync(path.join(pr, 'local.md'), '# local\n\n- a project rule\n');
-    fs.writeFileSync(path.join(pr, 'other.md'), '# other\n\n- another project rule\n');
-
-    const first = run(f, ['--project'], { cwd: repo.root });
+    const first = run(f, ['--project']);
     assert.equal(first.code, 0, first.stderr);
-    assert.match(first.stdout, /machinery_reload: 12 files, 12 changed/);
-    assert.ok(first.stdout.includes('===== .claude/rules/local.md ====='));
+    assert.match(first.stdout, /machinery_reload: 11 files, 11 changed/);
+    assert.ok(first.stdout.includes('===== .claude/rules/a.md ====='));
 
-    const second = run(f, ['--project'], { cwd: repo.root });
-    assert.match(second.stdout, /machinery_reload: 12 files, 0 changed/);
+    const second = run(f, ['--project']);
+    assert.match(second.stdout, /machinery_reload: 11 files, 0 changed/);
 
-    const withoutProject = run(f, [], { cwd: repo.root });
-    assert.match(withoutProject.stdout, /machinery_reload: 10 files, 0 changed/);
+    const withoutProject = run(f);
+    assert.match(withoutProject.stdout, /machinery_reload: 1 files, 0 changed/);
 
-    const backAgain = run(f, ['--project'], { cwd: repo.root });
-    assert.match(backAgain.stdout, /machinery_reload: 12 files, 0 changed/, 'dropping --project made the session forget the project rules');
-  } finally { repo.cleanup(); f.cleanup(); }
+    const backAgain = run(f, ['--project']);
+    assert.match(backAgain.stdout, /machinery_reload: 11 files, 0 changed/, 'dropping --project made the session forget the project rules');
+  } finally { f.cleanup(); }
+});
+
+test('RED CHECK: without --project reload prints core.md alone', () => {
+  const f = fixture();
+  try {
+    const r = run(f, ['--all']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(r.stdout.includes('===== core.md =====\n# Core\n\n- the core\n'), r.stdout);
+    assert.match(r.stdout, /^machinery_reload: 1 files, 1 changed$/m);
+  } finally { f.cleanup(); }
+});
+
+test('a missing core.md is named on the output, never silently skipped', () => {
+  const f = fixture();
+  try {
+    fs.rmSync(f.core);
+    const r = run(f, ['--all']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(r.stdout.includes(`===== core.md ===== (missing: ${f.core})`), r.stdout);
+    assert.match(r.stdout, /^machinery_reload: 0 files, 0 changed$/m);
+  } finally { f.cleanup(); }
 });
 
 test('RED CHECK: the “no rule text” observer can actually see rule text', () => {
   const f = fixture();
   try {
-    const first = run(f);
+    const first = run(f, ['--project']);
     // The assertion the no-change case rests on is `!stdout.includes(body)`. It only counts if
     // it fails when the text IS there — otherwise a run that printed nothing at all would pass.
     assert.ok(first.stdout.includes('the body of a.md'), 'the observer is alive: it sees printed rule text');
     assert.throws(() => assert.ok(!first.stdout.includes('the body of a.md')));
-    assert.throws(() => assert.match(first.stdout, /machinery_reload: 10 files, 0 changed/));
+    assert.throws(() => assert.match(first.stdout, /machinery_reload: 11 files, 0 changed/));
   } finally { f.cleanup(); }
 });

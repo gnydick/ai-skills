@@ -117,7 +117,7 @@ const render = (seg) => [...collapseRuns(seg.parts), ...[...new Set(seg.flags)].
 
 // The derivation, and the one place it happens. Returns BOTH the key and the literal leading run of
 // the command it came from, because they are one walk and a second walk would eventually disagree
-// (rules/design-invariants.md § Never re-derive a fact). The `prefix` is what a graduated catalog
+// with the first. The `prefix` is what a graduated catalog
 // entry matches on: the key now holds placeholders, so it is no longer a prefix of any command, and
 // an entry built from it would match nothing forever. It closes at the first token this derivation
 // did NOT keep verbatim — the first placeholder, the first flag, or the first operator — so it is
@@ -168,8 +168,8 @@ export const bespokeKey = (command) => generalize(command).key;
 
 // The key a run is recorded under and — inseparably — HOW it was derived. Both derivation sites
 // (quiet-run.mjs's runner, train-tool.mjs's identify and logs) already hold the answer matchTool()
-// gave them, so it is handed in rather than asked for a second time (rules/design-invariants.md
-// § Never re-derive a fact); this is the one place that turns it into the pair, so the two sites
+// gave them, so it is handed in rather than asked for a second time, which could answer
+// differently; this is the one place that turns it into the pair, so the two sites
 // can no longer derive the key differently.
 //
 // Why a pair and not the bare string: the id a bespoke key sanitizes to can COINCIDE with an
@@ -179,7 +179,7 @@ export const bespokeKey = (command) => generalize(command).key;
 // at the same string", and lib/graduate.mjs cannot recover it from the key. Both halves are read
 // off one normalized `id`, so they cannot disagree, and the pair carries a brand no other module
 // can forge: a caller cannot hand the graduation gate a `matched` it did not get from matchTool()
-// (rules/design-invariants.md § Where a distinguishing type is created).
+// — the distinguishing value is created at the one authority that reads the source of truth.
 //
 // The pair carries a third thing since #87: `prefix`, the literal leading run of THIS command, from
 // the same walk that made the key. A generalized key holds placeholders, so it is a prefix of

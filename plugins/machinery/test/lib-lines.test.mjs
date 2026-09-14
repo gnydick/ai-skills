@@ -7,8 +7,8 @@ import { lineSplitter } from '../scripts/lib/lines.mjs';
 
 // #19 fix round 1: the chunk-to-lines rule (split on '\n', pop the unterminated remainder,
 // carry it into the next chunk, decode multi-byte characters across the boundary) was typed
-// twice — lib/capture.mjs and lib/git.mjs — and rules/design-invariants.md § Never re-derive a
-// fact says a second derivation will eventually disagree. lib/lines.mjs is its one home; both
+// twice — lib/capture.mjs and lib/git.mjs — and a second derivation will eventually disagree
+// with the first. lib/lines.mjs is its one home; both
 // import it. The scan below is what keeps a third copy from appearing, and its positive control
 // is lines.mjs itself, so a scan that stopped matching cannot pass as a codebase that complies.
 
@@ -53,7 +53,7 @@ test('a text ending on a newline leaves no phantom empty line; end() returns the
 const CARRY_RULE = /split\('\\n'\)[\s\S]{0,80}\.pop\(\)/;
 const libFiles = () => fs.readdirSync(path.join(PLUGIN, 'scripts', 'lib')).filter((f) => f.endsWith('.mjs'));
 
-test('the stream line-splitting rule is spelled once, in lib/lines.mjs (rules/design-invariants.md § Never re-derive a fact)', () => {
+test('the stream line-splitting rule is spelled once, in lib/lines.mjs, and nowhere re-derived', () => {
   const owners = libFiles().filter((f) => CARRY_RULE.test(fs.readFileSync(path.join(PLUGIN, 'scripts', 'lib', f), 'utf8')));
   assert.deepEqual(owners, ['lines.mjs'], `files spelling the carry rule: ${owners.join(', ')}`);
 });

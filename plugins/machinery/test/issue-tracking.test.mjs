@@ -93,8 +93,8 @@ test('normalizeAnswer keeps an answer, normalises its line endings, and refuses 
   assert.throws(() => normalizeAnswer(' unanswered \n'), /seeded word/);
 });
 
-// The note rules/rule-governance.md § Dictating a rule requires: "with a note saying why the automatic
-// capture did not fire". The expectation is that rule's own words.
+// A rule ruled in conversation without the marker is written into the inbox by hand, "with a note
+// saying why the automatic capture did not fire". The expectation is that requirement's own words.
 test('the entry text is the answer, a blank line, and the note that automatic capture did not fire', () => {
   assert.match(CAPTURE_NOTE, /automatic capture did not fire/);
   assert.equal(entryText('Issue tracking: <tracker>.'), `Issue tracking: <tracker>.\n\n${CAPTURE_NOTE}`);

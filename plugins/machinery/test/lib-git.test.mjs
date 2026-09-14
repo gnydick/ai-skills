@@ -168,7 +168,7 @@ test('gitLines(): a git that exits non-zero rejects naming the exit code and git
   } finally { r.cleanup(); }
 });
 
-test('git() and gitLines(): a git that cannot be spawned name ENOENT — the failure says what it looked for (rules/environment-and-platform.md § Resolving a tool)', async () => {
+test('git() and gitLines(): a git that cannot be spawned name ENOENT — a tool that cannot resolve what it needs fails loudly, naming what it looked for', async () => {
   const r = makeRepo();
   const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'machinery-nopath-'));
   try {

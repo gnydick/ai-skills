@@ -7,26 +7,8 @@ import { readPayload } from './lib/stdin.mjs';
 import { context } from './lib/emit.mjs';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { markers, rulesSource, universalInbox, projectInbox, pluginRoot } from './lib/config.mjs';
+import { markers, universalInbox, projectInbox, pluginRoot } from './lib/config.mjs';
 import { pending } from './lib/inbox.mjs';
-
-// A plugin-installed unbreakable does not sit under a name a plain `plugins/` readdir would
-// see — Claude Code records it in installed_plugins.json's `plugins` map, keyed
-// `unbreakable@<marketplace>` (final review B). The loose-skill path stays as a fallback for a
-// hand-installed skill with no plugin manifest at all.
-function cbbdInstalled(home) {
-  if (fs.existsSync(path.join(home, '.claude', 'skills', 'cant-break-by-design'))) return true;
-  const manifest = path.join(home, '.claude', 'plugins', 'installed_plugins.json');
-  if (fs.existsSync(manifest)) {
-    try {
-      const installed = JSON.parse(fs.readFileSync(manifest, 'utf8'));
-      const plugins = installed?.plugins ?? installed ?? {};
-      if (Object.keys(plugins).some((k) => k.startsWith('unbreakable@'))) return true;
-    } catch { /* malformed manifest is not evidence either way — fall through */ }
-  }
-  const dir = path.join(home, '.claude', 'plugins');
-  return fs.existsSync(dir) && fs.readdirSync(dir).some((n) => n.includes('unbreakable'));
-}
 
 function banner() {
   const p = readPayload() ?? {};
@@ -34,10 +16,10 @@ function banner() {
   const home = process.env.MACHINERY_HOME || os.homedir();
   const m = markers();
   const lines = ['machinery:'];
-  const src = rulesSource();
-  const junction = path.join(home, '.claude', 'rules', 'machinery');
-  const jstate = !fs.existsSync(src) ? 'DOES NOT EXIST' : !fs.existsSync(junction) ? 'junction: missing — run /machinery:install --machine' : fs.realpathSync.native(junction) === fs.realpathSync.native(src) ? 'junction: ok' : 'junction: points elsewhere';
-  lines.push(`  rules source: ${src} (${jstate})`);
+  // The universal rules are core.md in the plugin itself, injected by the SessionStart and
+  // SubagentStart hooks (recalibration 21): measured here as present or missing, nothing more.
+  const core = path.join(pluginRoot(), 'core.md');
+  lines.push(`  core: ${core} (${fs.existsSync(core) ? 'present' : 'MISSING — reinstall machinery'})`);
   let root = null;
   try { root = projectRoot(cwd); } catch { lines.push('  project: not a git repository'); }
   let proj = 0;
@@ -54,7 +36,6 @@ function banner() {
   try { univ = pending(universalInbox()).length; } catch (e) { lines.push(`  universal inbox: MALFORMED — ${e.message}`); }
   lines.push(`  pending: project ${proj}, universal ${univ}${proj + univ ? ' — intake runs at the next prompt in an eligible session' : ''}`);
   lines.push(`  worktree hook: ${fs.existsSync(path.join(home, '.claude', 'machinery-observed-worktree')) ? 'observed firing on this machine' : 'never observed on this machine'}`);
-  lines.push(`  cant-break-by-design skill (mandatory): ${cbbdInstalled(home) ? 'installed' : 'NOT FOUND — install the unbreakable plugin'}`);
   // Issue tracking (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md; the plan's
   // Decision 3): the developer-friendliness skill finds the decide command by this line, and a session
   // with no such line is a session without machinery. Measured: a missing script is named MISSING and

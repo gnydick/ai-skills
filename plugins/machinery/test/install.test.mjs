@@ -85,43 +85,16 @@ test('--hosted writes the workflow template; default does not', () => {
   } finally { r.cleanup(); }
 });
 
-test('--machine creates the junction ~/.claude/rules/machinery → rules source (spec I11)', () => {
+// Recalibration 21, 37: the universal rules reach every session through the SessionStart and
+// SubagentStart hooks that inject core.md; there is no ~/.claude/rules junction to create.
+test('RED CHECK: --machine is refused, names what replaced it, and links nothing', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  const tempPlug = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')); const tempRules = path.join(tempPlug, 'rules'); fs.mkdirSync(tempRules);
   try {
-    fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
-    fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: tempPlug }));
     const res = runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
-    assert.equal(res.code, 0, res.stderr);
-    const link = path.join(home, '.claude', 'rules', 'machinery');
-    assert.equal(fs.realpathSync.native(link), fs.realpathSync.native(tempRules));
-    assert.equal(runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } }).code, 0); // idempotent
-  } finally {
-    fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
-    fs.rmSync(tempPlug, { recursive: true, force: true, maxRetries: 5 });
-  }
-});
-
-test('--machine refuses to replace a real directory sitting at the junction path', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  const tempPlug = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')); const tempRules = path.join(tempPlug, 'rules'); fs.mkdirSync(tempRules);
-  try {
-    fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
-    fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: tempPlug }));
-    const link = path.join(home, '.claude', 'rules', 'machinery');
-    fs.mkdirSync(link, { recursive: true });
-    fs.writeFileSync(path.join(link, 'keep.md'), 'do not delete me\n');
-    const res = runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
-    assert.notEqual(res.code, 0);
-    assert.ok(fs.existsSync(link));
-    assert.ok(fs.existsSync(path.join(link, 'keep.md')));
-    assert.equal(fs.readFileSync(path.join(link, 'keep.md'), 'utf8'), 'do not delete me\n');
-  } finally {
-    fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
-    fs.rmSync(tempPlug, { recursive: true, force: true, maxRetries: 5 });
-  }
+    assert.equal(res.code, 2);
+    assert.match(res.stderr, /--machine was removed: machinery's SessionStart and SubagentStart hooks load core\.md; enable machinery per project with claude plugin install machinery@ai-skills --scope project/);
+    assert.equal(fs.existsSync(path.join(home, '.claude', 'rules')), false);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
 test('a foreign .githooks/pre-commit that does not invoke the machinery gate is not overwritten (final review F)', () => {
@@ -275,31 +248,4 @@ test('the seed is the single state word and nothing detected about the repositor
     assert.equal(contents.trim().split(/\s+/).length, 1);
     assert.ok(!contents.includes(path.basename(r.origin)), 'the fixture remote reached the seed');
   } finally { r.cleanup(); }
-});
-
-test('--machine seeds the global issue-tracking file once and never overwrites an answer, a declined or an empty file (tests 1, 2)', () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  const tempPlug = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')); const tempRules = path.join(tempPlug, 'rules'); fs.mkdirSync(tempRules);
-  try {
-    fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
-    fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: tempPlug }));
-    const machine = () => runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
-    const first = machine();
-    assert.equal(first.code, 0, first.stderr);
-    const f = path.join(home, '.claude', 'rules', 'global_issue_tracking.md');
-    assert.equal(fs.readFileSync(f, 'utf8'), 'unanswered\n');
-    assert.match(first.stdout, /global_issue_tracking\.md: created/);
-    const second = machine();
-    assert.equal(fs.readFileSync(f, 'utf8'), 'unanswered\n');
-    assert.match(second.stdout, /global_issue_tracking\.md: present, left as it is/);
-    for (const contents of [TRACKING_ANSWER, 'none\n', '']) {
-      fs.writeFileSync(f, contents);
-      assert.equal(machine().code, 0);
-      assert.equal(fs.readFileSync(f, 'utf8'), contents, `--machine walked back over ${JSON.stringify(contents)}`);
-    }
-  } finally {
-    fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
-    fs.rmSync(tempPlug, { recursive: true, force: true, maxRetries: 5 });
-  }
 });
