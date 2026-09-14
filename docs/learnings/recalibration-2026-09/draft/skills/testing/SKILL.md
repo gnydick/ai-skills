@@ -21,7 +21,7 @@ The project's tiers are recorded in `.claude/machinery/config.json` key `tiers` 
 - `tiers.heavy`: only on request or in hosted CI.
 
 ## Writing a test
-- Declare the test's tier the way `tiers.declaration` says. If `tiers` is not recorded, run /machinery:setup tiers first.
+- For a new test you write, suggest its tier (fast, merge or heavy) and ask the developer before declaring it the way `tiers.declaration` says. If `tiers` is not recorded, run /machinery:setup tiers first.
 - Take the expectation from something the code under test never produced: the stated setting, the fixture's dimensions, the input's shape, or arithmetic.
 - A number copied out of a run is labelled in the test as a regression pin. Where no independent expectation exists yet, say so at the assertion and leave the work open.
 - A regression test uses the default setting, not only an unusual one.
