@@ -1,0 +1,4988 @@
+[
+ {
+  "id": "M1",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Which model",
+  "quote": "Quality is held by the checks on the result, never by paying for a bigger model.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "checking a dispatched agent's result",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M2",
+   "M3",
+   "M54",
+   "M77"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.3.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M2",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Which model",
+  "quote": "When a cheap agent's work fails its spot-check, redo that batch one tier up and record that you did. Never re-run it silently.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "a cheap agent's work fails its spot-check",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M1",
+   "M3",
+   "M54",
+   "M77"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.3.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M3",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "How many at once",
+  "quote": "Dispatch one, wait for it, check its result, and only then dispatch the next of that kind.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "each dispatched agent returns",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M1",
+   "M2",
+   "M54",
+   "M77"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.4.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M4",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "How many at once",
+  "quote": "Before dispatching, check what is actually running, using the view that shows live agents rather than a list of tasks.",
+  "type": "CLAIM-CHECK",
+  "stage": "ANY",
+  "trigger": "before dispatching any agent",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "AT.4.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M5",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Batching",
+  "quote": "Report how many batches there were and what each covered, so a partial failure names exactly what did not run.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "reporting a batched job",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "D8",
+   "M14",
+   "M110",
+   "MB45"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.5.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M6",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Where an agent works",
+  "quote": "An agent reviewing or exercising work that is still in progress gets its own working copy of that branch",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "reviewing or exercising in-progress work",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "reviewer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "AT.6.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M7",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Where an agent works",
+  "quote": "A stand-in service started for a piece of work runs from that work's own working copy, never the shared one",
+  "type": "E2E",
+  "stage": "POST-IMPL",
+  "trigger": "starting a stand-in service for a piece of work",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M137"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M8",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Containment is structural",
+  "quote": "replacing it with an explicit allowlist of the build, test and read-only inspection commands the agent may use.",
+  "type": "GATE",
+  "stage": "ANY",
+  "trigger": "defining an agent that builds and runs things",
+  "mode": "shape",
+  "multiplicity": "once",
+  "who": "any",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "AT.9.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M9",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Containment is structural",
+  "quote": "An agent that verifies never integrates: every command that moves a reference or mutates the working copy is forbidden by name",
+  "type": "GATE",
+  "stage": "REVIEW",
+  "trigger": "defining a verifying agent",
+  "mode": "shape",
+  "multiplicity": "once",
+  "who": "reviewer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "AT.9.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M10",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Containment is structural",
+  "quote": "An agent that judges does not touch: no reviewer creates, moves or deletes branches, merges, force-resets a shared reference, or pushes.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "defining a judging agent",
+  "mode": "shape",
+  "multiplicity": "once",
+  "who": "reviewer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "AT.9.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M11",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Containment is structural",
+  "quote": "An adversarial review pass and a person both stand between it and the shared line.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "generated content heading to the shared line",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "AT.9.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M12",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Aiming a fan-out",
+  "quote": "A triage gate sits between whatever harvests candidates — a scan, an extraction pass, a search — and whatever fans agents out to work them.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "harvested candidates before a fan-out",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "M13",
+   "M15"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.10.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M13",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Aiming a fan-out",
+  "quote": "The number kept is never the test. \"Keep the top N\" or \"keep half\" is a headcount proxy, not triage",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "triaging harvested candidates",
+  "mode": "shape",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "M12",
+   "M15"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.10.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M14",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "Aiming a fan-out",
+  "quote": "The gate reports what it dropped, by category, on every run.",
+  "type": "CLAIM-CHECK",
+  "stage": "REVIEW",
+  "trigger": "every triage-gate run",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "D8",
+   "M5",
+   "M110",
+   "MB45"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.10.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M15",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "What an agent may conclude",
+  "quote": "A flagged candidate is acted on only after a person has read the code and recorded a confirmation naming the exact place",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "a scan flags a candidate",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M12",
+   "M13",
+   "M28",
+   "MB46",
+   "MB47",
+   "MB48"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.11.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M16",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "What an agent may conclude",
+  "quote": "For each it names the authority and verifies against it, read fresh every time",
+  "type": "CLAIM-CHECK",
+  "stage": "ANY",
+  "trigger": "working across any design",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M89",
+   "M90",
+   "M126"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.11.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M17",
+  "prev_id": "M39",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/agent-topology.md",
+  "section": "What an agent may conclude",
+  "quote": "whatever does not survive the build, the tests and the relevant checks is discarded unread.",
+  "type": "GATE",
+  "stage": "POST-IMPL",
+  "trigger": "an automatically generated proposal exists",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "gate",
+  "overlaps": [
+   "M138",
+   "M139",
+   "MB51",
+   "MB52"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "AT.11.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M18",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "The mandate",
+  "quote": "Whether the rule is the right rule is a separate question, checked separately.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "rating a rule's enforcement strength",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "reviewer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "DI.2.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M19",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Where a distinguishing type is created",
+  "quote": "Move it into its own unit, and keep it there with a check over the source, because moving it back out compiles perfectly",
+  "type": "SOURCE-SCAN",
+  "stage": "IMPL",
+  "trigger": "a distinguishing type moved to its own unit",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M20",
+   "M21",
+   "M22",
+   "M23",
+   "M34",
+   "M35",
+   "M36",
+   "U8"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.3.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M20",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Where a distinguishing type is created",
+  "quote": "Block both with a private marker member whose own type supports neither, and keep a source check, because deleting that one line compiles.",
+  "type": "SOURCE-SCAN",
+  "stage": "IMPL",
+  "trigger": "type has a generated empty value or decoder",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M34",
+   "M35",
+   "M36",
+   "U8"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.3.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M21",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Where a distinguishing type is created",
+  "quote": "with proofs that the field read, the direct build and the cross-assignment each fail to compile.",
+  "type": "COMPILE-FAIL",
+  "stage": "IMPL",
+  "trigger": "privacy claim: proof 1, the field read",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M22",
+   "M23"
+  ],
+  "conflicts": [
+   {
+    "id": "M91",
+    "reason": "compile-fail proofs land in same change, not written red-first"
+   },
+   {
+    "id": "U1",
+    "reason": "invariant proof per new path vs once per new invariant"
+   }
+  ],
+  "source_items": [
+   "DI.3.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M22",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Where a distinguishing type is created",
+  "quote": "with proofs that the field read, the direct build and the cross-assignment each fail to compile.",
+  "type": "COMPILE-FAIL",
+  "stage": "IMPL",
+  "trigger": "privacy claim: proof 2, the direct build",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M21",
+   "M23"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.3.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M23",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Where a distinguishing type is created",
+  "quote": "with proofs that the field read, the direct build and the cross-assignment each fail to compile.",
+  "type": "COMPILE-FAIL",
+  "stage": "IMPL",
+  "trigger": "privacy claim: proof 3, the cross-assignment",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M21",
+   "M22"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.3.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M24",
+  "prev_id": "M29",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Weak claims and the enforcement ledger",
+  "quote": "Any tool that judges enforcement strength carries the published scale with it, so it never judges without it.",
+  "type": "META",
+  "stage": "ANY",
+  "trigger": "building a tool that judges enforcement strength",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "any",
+  "overlaps": [
+   "U10",
+   "U13",
+   "U17"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.4.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M25",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Weak claims and the enforcement ledger",
+  "quote": "The wrong form is refused mechanically, so there is nothing left to flag by eye.",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "a ledger entry is written",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "DI.4.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M26",
+  "prev_id": "M30",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Weak claims and the enforcement ledger",
+  "quote": "Continuous review of the ledger runs on request or after a merge, never on every commit.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "on request or after a merge",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "MB53",
+   "U11",
+   "U15"
+  ],
+  "conflicts": [
+   {
+    "id": "U11",
+    "reason": "auto-run after merge vs offer and accept no"
+   },
+   {
+    "id": "MB53",
+    "reason": "ledger review post-merge vs enforcement audit before merge"
+   }
+  ],
+  "source_items": [
+   "DI.4.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M27",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Weak claims and the enforcement ledger",
+  "quote": "It writes only the ledger, and only when its run was clean.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "a continuous ledger review run",
+  "mode": "shape",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "U16"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.4.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M28",
+  "prev_id": "M31",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Weak claims and the enforcement ledger",
+  "quote": "Flag anything at all that can fail catastrophically on absence. The sweep is unbounded, not limited to the sites someone already suspects.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "a continuous ledger review sweep",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M15",
+   "MB46",
+   "MB47",
+   "MB48",
+   "U18",
+   "U19"
+  ],
+  "conflicts": [
+   {
+    "id": "U15",
+    "reason": "scope only recent diff vs unbounded sweep beyond suspected sites"
+   }
+  ],
+  "source_items": [
+   "DI.4.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M29",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Never re-derive a fact",
+  "quote": "A diagnostic dump shows the values the system actually used, never a recomputed equivalent.",
+  "type": "DIAGNOSTIC",
+  "stage": "ANY",
+  "trigger": "writing a diagnostic dump",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M43",
+   "M101",
+   "M123"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.5.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M30",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Measurement and expectation",
+  "quote": "An expectation taken from the thing under test can only report that it changed, never that it is wrong.",
+  "type": "UNIT",
+  "stage": "IMPL",
+  "trigger": "writing a test's expected value",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M31",
+   "U20"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.6.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M31",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Measurement and expectation",
+  "quote": "Take the measurement from the system under test, and the expectation from something the system never produced",
+  "type": "UNIT",
+  "stage": "IMPL",
+  "trigger": "writing any assertion",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M30",
+   "U20"
+  ],
+  "conflicts": [
+   {
+    "id": "M101",
+    "reason": "capture pinned against real renderer: expectation from system under test"
+   }
+  ],
+  "source_items": [
+   "DI.6.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M32",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Measurement and expectation",
+  "quote": "A number copied out of a diagnostic run is a pin against regression, not a test.",
+  "type": "REGRESSION",
+  "stage": "IMPL",
+  "trigger": "a number copied from a diagnostic run",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M99",
+   "U13"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.6.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M33",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Measurement and expectation",
+  "quote": "Where an expectation genuinely cannot be derived yet, say so at the assertion itself and leave the work undone",
+  "type": "UNIT",
+  "stage": "IMPL",
+  "trigger": "an expectation cannot be derived yet",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M99"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M34",
+  "prev_id": "M33",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "One authority per switch",
+  "quote": "it ships a test that scans its own unit for environment reads and fails on any site but itself.",
+  "type": "SOURCE-SCAN",
+  "stage": "IMPL",
+  "trigger": "a unit resolves an environment switch",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M20",
+   "M35",
+   "M36",
+   "U8"
+  ],
+  "conflicts": [
+   {
+    "id": "U5",
+    "reason": "test/scan named as the rule's enforcement; skill says tests never enforce"
+   }
+  ],
+  "source_items": [
+   "DI.7.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M35",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "One authority per switch",
+  "quote": "a project-wide check walks every unit and fails on a second spelling.",
+  "type": "SOURCE-SCAN",
+  "stage": "IMPL",
+  "trigger": "a switch name shared across units",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M20",
+   "M34",
+   "M36",
+   "U8"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.7.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M36",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "One authority per switch",
+  "quote": "A table that mirrors where something is emitted is checked mechanically, or it is not a table but a claim",
+  "type": "SOURCE-SCAN",
+  "stage": "IMPL",
+  "trigger": "a unit has a table mirroring emission sites",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M20",
+   "M34",
+   "M35",
+   "U8"
+  ],
+  "conflicts": [
+   {
+    "id": "U12",
+    "reason": "mirror needs a generator, not a drift test; DI requires mechanical drift check"
+   }
+  ],
+  "source_items": [
+   "DI.7.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M37",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "One authority per switch",
+  "quote": "One shared check per unit, plus a project-wide sweep, so a unit that grows such a table and never opts in is still covered.",
+  "type": "SOURCE-SCAN",
+  "stage": "ANY",
+  "trigger": "project-wide sweep for unopted mirror tables",
+  "mode": "conditional",
+  "multiplicity": "once",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [
+   {
+    "id": "U12",
+    "reason": "project-wide sweep of mirror tables is a drift test"
+   }
+  ],
+  "source_items": [
+   "DI.7.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M38",
+  "prev_id": "M34",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "One authority per switch",
+  "quote": "A check built on searching always ships a case proving it still matches.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "building a search-based check",
+  "mode": "always",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M44",
+   "M66",
+   "M83",
+   "M91",
+   "M100",
+   "M105",
+   "M130",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.7.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M39",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Absence and defaults",
+  "quote": "withholding it makes that table fail to build, which is the mechanism doing the enforcing rather than a reviewer.",
+  "type": "BUILD-LINT",
+  "stage": "IMPL",
+  "trigger": "definitions declared in a build-checked table",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "U5"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.8.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M40",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Handing a resource on",
+  "quote": "The first question in an audit is which two stages both received the same resource.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "auditing a resource-handover pipeline",
+  "mode": "shape",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "MB46"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.11.9"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M41",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Spatial output",
+  "quote": "Validate a layout against what actually renders, never against the markup that produced it",
+  "type": "E2E",
+  "stage": "POST-IMPL",
+  "trigger": "a change produces or alters a layout",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M42",
+   "M102",
+   "M140",
+   "MB56"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.15.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M42",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Spatial output",
+  "quote": "Where the output is spatial, reason about the final rendered geometry.",
+  "type": "MANUAL",
+  "stage": "POST-IMPL",
+  "trigger": "the output is spatial",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M41",
+   "M102",
+   "M140",
+   "MB56"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.15.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M43",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Carrying instrumentation",
+  "quote": "Every new decision site gets a diagnostic switch or trace row that is inert until turned on, and it states its denominator in the output, prints explicit zeros",
+  "type": "DIAGNOSTIC",
+  "stage": "IMPL",
+  "trigger": "a new decision site is added",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M29",
+   "M45",
+   "M47",
+   "M101",
+   "M123",
+   "U14"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.16.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M44",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Carrying instrumentation",
+  "quote": "matches its shape to the question being asked, and ships a positive control.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "a new diagnostic switch or trace row",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M83",
+   "M91",
+   "M100",
+   "M105",
+   "M130",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.16.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M45",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "Carrying instrumentation",
+  "quote": "when this site misbehaves a year from now, can it be interrogated without editing code? If not, the change is not done.",
+  "type": "DIAGNOSTIC",
+  "stage": "POST-IMPL",
+  "trigger": "deciding a change is done",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M43",
+   "M47"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.16.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M46",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "What a diagnostic and a measurement may claim",
+  "quote": "A list kept by hand beside it is the denominator of the test that guards the format, and a missing line there compiles cleanly while quietly narrowing the guard.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "a format guard test's denominator",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "U12"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.17.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M47",
+  "prev_id": "M32",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "What a diagnostic and a measurement may claim",
+  "quote": "A unit that declares itself profiled either instruments something or is named on a declared gap list that may only shrink.",
+  "type": "DIAGNOSTIC",
+  "stage": "IMPL",
+  "trigger": "a unit declares itself profiled",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M43",
+   "M45"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.17.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M48",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "What a diagnostic and a measurement may claim",
+  "quote": "A profiler that is off by default can never be the source of a number the program itself prints.",
+  "type": "PERF",
+  "stage": "IMPL",
+  "trigger": "the program prints a cost to the user",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M115"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.17.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M49",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/design-invariants.md",
+  "section": "What a diagnostic and a measurement may claim",
+  "quote": "The counts and the total they are read against travel together inside that one value",
+  "type": "PERF",
+  "stage": "IMPL",
+  "trigger": "reporting a measurement of one run",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M119",
+   "U28"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DI.17.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M50",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/environment-and-platform.md",
+  "section": "Resolving a tool",
+  "quote": "It never skips quietly, because a skipped check reads as a pass.",
+  "type": "GATE",
+  "stage": "ANY",
+  "trigger": "a tool cannot resolve what it needs",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "any",
+  "overlaps": [
+   "M65"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "EP.3.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M51",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "Dictating a rule",
+  "quote": "Never carry an undispositioned rule across a commit. File it or dismiss it with a reason, whether or not a machine is stopping you.",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "a captured rule is still undispositioned",
+  "mode": "conditional",
+  "multiplicity": "per-commit",
+  "who": "any",
+  "overlaps": [
+   "MB58",
+   "MB63"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.2.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M52",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "Filing and closing the loop",
+  "quote": "Run the complete register check before calling a filing done. The cheap commit-time subset is not the whole check",
+  "type": "GATE",
+  "stage": "CLAIM",
+  "trigger": "calling a rule filing done",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "MB58",
+   "MB59"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.5.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M53",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "When a belief turns out false",
+  "quote": "When a stated expectation turns out false, a post-mortem is launched automatically.",
+  "type": "MANUAL",
+  "stage": "DEBUG",
+  "trigger": "a stated expectation turns out false",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M55",
+   "M72",
+   "M87"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.6.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M54",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "When a belief turns out false",
+  "quote": "The post-mortem runs as its own dispatched job on a mid-tier model, alone, and its result is verified before anything else starts.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "a post-mortem result returns",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M1",
+   "M2",
+   "M3",
+   "M77"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.6.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M55",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "When a belief turns out false",
+  "quote": "what was believed, what was actually true, where the belief entered, and which standing rule would have caught it.",
+  "type": "MANUAL",
+  "stage": "DEBUG",
+  "trigger": "writing a post-mortem",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M53",
+   "M72",
+   "M87"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.6.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M56",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "Honesty about the machinery",
+  "quote": "Editing a rule-bearing document while the register sits untouched prints a reminder to update the register in the same commit.",
+  "type": "SOURCE-SCAN",
+  "stage": "IMPL",
+  "trigger": "rule document edited, register untouched",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "gate",
+  "overlaps": [
+   "MB59"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.7.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M57",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "Honesty about the machinery",
+  "quote": "State exactly where the gate does and does not run, in the same breath as claiming it exists.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "claiming a gate exists",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "any",
+  "overlaps": [
+   "M75",
+   "M90"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "RG.7.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M58",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "Honesty about the machinery",
+  "quote": "Where a citation still names a line, that line must point at real content.",
+  "type": "SOURCE-SCAN",
+  "stage": "ANY",
+  "trigger": "a citation names a line",
+  "mode": "conditional",
+  "multiplicity": "per-commit",
+  "who": "any",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "RG.7.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M59",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/straight-talk.md",
+  "section": "Saying what you know",
+  "quote": "Every claim says whether it is measured or believed. Measured means the command and its output are shown",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "making any claim",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D1",
+   "M70",
+   "M75",
+   "M132"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "ST.2.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M60",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/straight-talk.md",
+  "section": "Saying what you know",
+  "quote": "Name a cause only once you have run the thing that isolates it.",
+  "type": "CLAIM-CHECK",
+  "stage": "DEBUG",
+  "trigger": "naming a cause",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M86"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "ST.2.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M61",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/straight-talk.md",
+  "section": "Bad news first",
+  "quote": "Report a failure or a regression in the first message after you know, at full strength.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "a failure or regression is known",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D6",
+   "D7",
+   "M72"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "ST.3.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M62",
+  "prev_id": "M35",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/tool-output.md",
+  "section": "Proof lines and denominators",
+  "quote": "A gate that runs sub-checks and sends their output to a log still prints each sub-check's own count line on its own output.",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "a gate runs sub-checks into a log",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [
+   "M63",
+   "M97",
+   "M131"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "TO.2.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M63",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/tool-output.md",
+  "section": "Proof lines and denominators",
+  "quote": "it prints an additional conforming line carrying its count — in addition to its usual report, never instead of it.",
+  "type": "GATE",
+  "stage": "IMPL",
+  "trigger": "a tool's summary mismatches the proof format",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M62"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "TO.2.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M64",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/tool-output.md",
+  "section": "Proof lines and denominators",
+  "quote": "Do not pass a tool its own quiet flag when it runs under the output filter.",
+  "type": "GATE",
+  "stage": "ANY",
+  "trigger": "running a tool under the output filter",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M96",
+   "MB42",
+   "U24"
+  ],
+  "conflicts": [
+   {
+    "id": "U24",
+    "reason": "keep proof lines for filter vs verdict-only invocation"
+   }
+  ],
+  "source_items": [
+   "TO.2.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M65",
+  "prev_id": "M36",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/tool-output.md",
+  "section": "Proof lines and denominators",
+  "quote": "A check that cannot run fails loudly, naming exactly what it could not find.",
+  "type": "GATE",
+  "stage": "ANY",
+  "trigger": "a check cannot run",
+  "mode": "always",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "gate",
+  "overlaps": [
+   "M50"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "TO.2.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M66",
+  "prev_id": "M37",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/tool-output.md",
+  "section": "Heartbeats",
+  "quote": "A heartbeat survives the filter in every mode, including when it is buried in bulk chatter far outside the tail window, and a fixture proves it.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "a tool gains a heartbeat",
+  "mode": "always",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M38"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "TO.3.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M67",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Predict before you work",
+  "quote": "Every change writes down the beliefs that make its design and its choices legitimate.",
+  "type": "CLAIM-CHECK",
+  "stage": "PLAN",
+  "trigger": "starting any change",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M68",
+   "M69",
+   "M73",
+   "U9"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.2.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M68",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Predict before you work",
+  "quote": "Every change predicts what it will affect and, just as explicitly, what it must leave alone.",
+  "type": "CLAIM-CHECK",
+  "stage": "PLAN",
+  "trigger": "starting any change",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M67",
+   "M69",
+   "M73",
+   "U9"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.2.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M69",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Predict before you work",
+  "quote": "Write the predictions before doing the work.",
+  "type": "CLAIM-CHECK",
+  "stage": "PRE-CODE",
+  "trigger": "writing the predictions",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M67",
+   "M68",
+   "M73",
+   "U9"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.2.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M70",
+  "prev_id": "M1",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Predict before you work",
+  "quote": "After the work, confirm each prediction one by one and say for each whether it held.",
+  "type": "CLAIM-CHECK",
+  "stage": "POST-IMPL",
+  "trigger": "the work is done",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "D1",
+   "M59",
+   "M71",
+   "M75"
+  ],
+  "conflicts": [
+   {
+    "id": "D5",
+    "reason": "did-it-work judged when measurable post-merge vs confirmed post-impl"
+   }
+  ],
+  "source_items": [
+   "VE.2.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M71",
+  "prev_id": "M2",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Predict before you work",
+  "quote": "A prediction left unconfirmed means the work is not finished.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "claiming the work finished",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M70"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.2.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M72",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Predict before you work",
+  "quote": "A prediction that fails is a result to report at full strength, not a mess to tidy. Say explicitly which was wrong: the work, or the belief behind it.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "a prediction fails",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "D6",
+   "D7",
+   "M53",
+   "M55",
+   "M61",
+   "M87"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.2.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M73",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Declare the standard you are claiming",
+  "quote": "A change declares in advance which standard it is claiming: identical output, because it was meant to change nothing, or structural checks",
+  "type": "CLAIM-CHECK",
+  "stage": "PLAN",
+  "trigger": "starting any change",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M67",
+   "M68",
+   "M69",
+   "U9"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.3.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M74",
+  "prev_id": "M3",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Declare the standard you are claiming",
+  "quote": "A claim that output is unchanged is measured by producing the output and comparing it.",
+  "type": "BASELINE",
+  "stage": "POST-IMPL",
+  "trigger": "claiming output is unchanged",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M107",
+   "M121",
+   "MB40",
+   "MB41"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.3.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M75",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What the check could actually see",
+  "quote": "Say what your check could actually see, in the same breath as the claim it supports.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "citing a check as evidence",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D1",
+   "M57",
+   "M59",
+   "M70",
+   "M90"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.4.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M76",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What the check could actually see",
+  "quote": "Ask why the result looks the way it does, not merely whether it looks right.",
+  "type": "MANUAL",
+  "stage": "POST-IMPL",
+  "trigger": "reading any check result",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.4.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M77",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What the check could actually see",
+  "quote": "Someone else's confidence is not evidence of coverage. Verify counts yourself",
+  "type": "CLAIM-CHECK",
+  "stage": "REVIEW",
+  "trigger": "receiving someone else's list or count",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M1",
+   "M2",
+   "M3",
+   "M54"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.4.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M78",
+  "prev_id": "M4",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What the check could actually see",
+  "quote": "List the checks a change requires before running the first one, and let no pass cancel another.",
+  "type": "TEST-PLAN",
+  "stage": "PLAN",
+  "trigger": "before running the first check",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M127",
+   "M128"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.4.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M79",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Writing \"class\", \"confirmed\", \"closed\", or naming what the tooling can do is what makes the matching check due.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "writing class, confirmed, closed, or a tooling capability",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M80",
+   "M90"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M80",
+  "prev_id": "M5",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "you owe every instance of it: search the area you changed and fix or defer each one by name before closing.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-IMPL",
+  "trigger": "calling a defect a class",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M79",
+   "M90"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M81",
+  "prev_id": "M6",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Change only the site the change is about. Then build and run the tests.",
+  "type": "BUILD-LINT",
+  "stage": "POST-IMPL",
+  "trigger": "after changing the site",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M82",
+   "M103",
+   "M136",
+   "MB55"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M82",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Never edit a site to find out whether it needed editing. The build you just ran already answered that.",
+  "type": "BUILD-LINT",
+  "stage": "IMPL",
+  "trigger": "deciding whether a site needs editing",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M81",
+   "M103",
+   "M136",
+   "MB55"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M83",
+  "prev_id": "M7",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "gets the path written down first, from the change to that site, and a test that fails there before you touch it.",
+  "type": "REGRESSION",
+  "stage": "PRE-CODE",
+  "trigger": "a believed-affected site the build did not name",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M91",
+   "M100",
+   "M105",
+   "M130",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M84",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Never edit a site to make a failure elsewhere go away. Fix what the failure names.",
+  "type": "MANUAL",
+  "stage": "DEBUG",
+  "trigger": "a failure appears elsewhere",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M111"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M85",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Show that the file is byte-identical to where it started, and say in the report that you edited and reverted it.",
+  "type": "CLAIM-CHECK",
+  "stage": "POST-IMPL",
+  "trigger": "a site was edited then reverted",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M86",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "A diagnosis is confirmed only when you can trace the path, step by step, from the real observed input to the line you are blaming.",
+  "type": "MANUAL",
+  "stage": "DEBUG",
+  "trigger": "confirming a diagnosis",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M60",
+   "M114"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M87",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "check whether the replacement quietly assumes the same thing one layer down.",
+  "type": "MANUAL",
+  "stage": "DEBUG",
+  "trigger": "the task replaces a falsified belief",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M53",
+   "M55",
+   "M72"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.9"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M88",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "A question is closed only when you can name what would have to be true, in a form a later reader can check and find false.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "closing a question",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D3"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.10"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M89",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Before doing anything that reaches outside your own working copy, get the target from the environment itself, not from a document.",
+  "type": "CLAIM-CHECK",
+  "stage": "ANY",
+  "trigger": "an action reaches outside the working copy",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M16",
+   "M90",
+   "M126"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.11"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M90",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "The word you just wrote makes a check due",
+  "quote": "Before claiming that some piece of tooling exists, blocks something, or would catch a given fault, run the check that could prove you wrong.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "claiming tooling exists, blocks, or would catch",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M16",
+   "M57",
+   "M75",
+   "M79",
+   "M80",
+   "M89",
+   "M126"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.5.12"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M91",
+  "prev_id": "M8",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "Write the failing test first and watch it fail, then write the smallest code that makes it pass.",
+  "type": "UNIT",
+  "stage": "PRE-CODE",
+  "trigger": "any fix or new code",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M100",
+   "M105",
+   "M130",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [
+   {
+    "id": "M133",
+    "reason": "test-first red step vs break-and-restore after the check exists"
+   },
+   {
+    "id": "M21",
+    "reason": "compile-fail proofs land in same change, not written red-first"
+   }
+  ],
+  "source_items": [
+   "VE.6.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M92",
+  "prev_id": "M9",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "Every fix and every new unit of code ships with its own test",
+  "type": "UNIT",
+  "stage": "IMPL",
+  "trigger": "every fix and every new unit",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M98",
+   "U1",
+   "U3"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.6.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M93",
+  "prev_id": "M10",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "something that generates its test data",
+  "type": "DATA-GEN",
+  "stage": "IMPL",
+  "trigger": "every fix and every new unit",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.6.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M94",
+  "prev_id": "M11",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "and a case added to each broader test that covers it.",
+  "type": "INTEGRATION",
+  "stage": "IMPL",
+  "trigger": "every fix and every new unit",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.6.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M95",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "When code moves, its tests move with it.",
+  "type": "UNIT",
+  "stage": "REFACTOR",
+  "trigger": "code moves",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M106"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.6.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M96",
+  "prev_id": "M12",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "Run the whole suite rather than stopping at the first failure, and never truncate its output.",
+  "type": "GATE",
+  "stage": "POST-IMPL",
+  "trigger": "running the suite",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M64",
+   "MB42",
+   "U24"
+  ],
+  "conflicts": [
+   {
+    "id": "U25",
+    "reason": "agent runs whole suite untruncated vs developer runs large-output tools"
+   },
+   {
+    "id": "U24",
+    "reason": "never truncate output vs invocation returning only a verdict or count"
+   }
+  ],
+  "source_items": [
+   "VE.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M97",
+  "prev_id": "M13",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "The full suite passes at the end of every step you would commit.",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "every step you would commit",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "implementer",
+  "overlaps": [
+   "M62",
+   "M131"
+  ],
+  "conflicts": [
+   {
+    "id": "M131",
+    "reason": "full suite at every commit vs component tests only per task commit"
+   }
+  ],
+  "source_items": [
+   "VE.6.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M98",
+  "prev_id": "M14",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "A regression test covers the default setting, not only an unusual one, or it cannot fail the way real users fail.",
+  "type": "REGRESSION",
+  "stage": "IMPL",
+  "trigger": "writing a regression test",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M92",
+   "U1",
+   "U3"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.6.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M99",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Tests",
+  "quote": "If a suite has no way to express a given failure, it is not coverage for that failure, no matter how green it is.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "citing a suite as coverage",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M32",
+   "M33",
+   "U13"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.6.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M100",
+  "prev_id": "M15",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "Asserting that something did not happen only counts if the observer was capable of seeing it happen. Say what would have proved the observer was alive.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "asserting something did not happen",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M91",
+   "M105",
+   "M130",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.7.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M101",
+  "prev_id": "M16",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "the equivalence is pinned by running both over the same input and comparing the lines.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "a test captures output for checking",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M29",
+   "M43",
+   "M123"
+  ],
+  "conflicts": [
+   {
+    "id": "M31",
+    "reason": "capture pinned against real renderer: expectation from system under test"
+   }
+  ],
+  "source_items": [
+   "VE.7.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M102",
+  "prev_id": "M17",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "say so and verify by build, lint and a hands-on run instead of pretending coverage.",
+  "type": "E2E",
+  "stage": "POST-IMPL",
+  "trigger": "a unit test cannot reach the layer",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M41",
+   "M42",
+   "M140",
+   "MB56"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.7.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M103",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "say so and verify by build, lint and a hands-on run instead of pretending coverage.",
+  "type": "BUILD-LINT",
+  "stage": "POST-IMPL",
+  "trigger": "a unit test cannot reach the layer",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M81",
+   "M82",
+   "M136",
+   "MB55"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.7.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M104",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "A test that guards how an algorithm scales asserts the work it actually did, measured against what its input entitles it to, never a time limit.",
+  "type": "PERF",
+  "stage": "IMPL",
+  "trigger": "a test guards algorithmic scaling",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M115"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.7.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M105",
+  "prev_id": "M18",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "the work count ships with a positive control, because something that never ran satisfies any upper bound for free.",
+  "type": "META",
+  "stage": "IMPL",
+  "trigger": "a work-count scaling test",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M91",
+   "M100",
+   "M130",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.7.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M106",
+  "prev_id": "M19",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "What a test can honestly claim",
+  "quote": "A refactor lands in two steps, never one: move the code with no change in behaviour and the tests still passing, then change the behaviour.",
+  "type": "REGRESSION",
+  "stage": "REFACTOR",
+  "trigger": "a refactor that also changes behaviour",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M95"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.7.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M107",
+  "prev_id": "M20",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "Judge a comparison run by diffing its failure set against a known baseline, never by its exit code.",
+  "type": "BASELINE",
+  "stage": "POST-IMPL",
+  "trigger": "judging a comparison run",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M74",
+   "M121",
+   "MB40",
+   "MB41",
+   "MB43",
+   "MB44"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M108",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "When a baseline moves unexpectedly, stop and work out why. Updating the baseline to make the check pass is never the fix.",
+  "type": "BASELINE",
+  "stage": "DEBUG",
+  "trigger": "a baseline moves unexpectedly",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M112",
+   "MB43"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M109",
+  "prev_id": "M21",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "A person reviews every regeneration line by line.",
+  "type": "MANUAL",
+  "stage": "REVIEW",
+  "trigger": "a baseline is regenerated",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "reviewer",
+  "overlaps": [
+   "MB42"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M110",
+  "prev_id": "M22",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "A skipped case is unproven, not passed, and every one of them is named in the report.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "a comparison has skipped cases",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D8",
+   "M5",
+   "M14",
+   "MB45"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M111",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "Never change the code just to make a check go green. Describe the fix and stop.",
+  "type": "GATE",
+  "stage": "ANY",
+  "trigger": "a check is red",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M84"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M112",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "Never adjust a comparison's tolerance in order to produce the finding you wanted.",
+  "type": "BASELINE",
+  "stage": "ANY",
+  "trigger": "setting a comparison tolerance",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M108",
+   "MB43"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M113",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Comparison runs and baselines",
+  "quote": "Run it again ignoring whitespace; the deletions collapsing to nothing is what tells you.",
+  "type": "BASELINE",
+  "stage": "REVIEW",
+  "trigger": "counting added lines in a code diff",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.8.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M114",
+  "prev_id": "M23",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Measure first. Instrument the thing and look, instead of reasoning about where the boundary or the defect ought to be",
+  "type": "PERF",
+  "stage": "DEBUG",
+  "trigger": "locating a boundary or a defect",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M86",
+   "U23"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M115",
+  "prev_id": "M24",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "A timer wraps the work and nothing else, never the test that decides whether the work runs.",
+  "type": "PERF",
+  "stage": "IMPL",
+  "trigger": "placing a timer",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M48",
+   "M104"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M116",
+  "prev_id": "M25",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Build both first, then alternate between them and report every round",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "comparing two performance builds",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "U26",
+   "U27"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M117",
+  "prev_id": "M26",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "A performance measurement runs against a separate working copy, never the tree you are editing.",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "taking a performance measurement",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M135"
+  ],
+  "conflicts": [
+   {
+    "id": "M135",
+    "reason": "perf only in separate copy vs measuring code in shared visible copy"
+   }
+  ],
+  "source_items": [
+   "VE.9.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M118",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Measure on a quiet machine.",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "taking a performance measurement",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M119",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Always record and state the configuration a measurement was taken under.",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "reporting a measurement",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M49",
+   "U28"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M120",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Isolate them one at a time before you trust an effect you think you have measured.",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "measuring an effect",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M121",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "It gets its own change, its own test data, and its own comparison against the known-good result.",
+  "type": "BASELINE",
+  "stage": "COMMIT",
+  "trigger": "a correctness question inside a perf change",
+  "mode": "conditional",
+  "multiplicity": "per-commit",
+  "who": "implementer",
+  "overlaps": [
+   "M74",
+   "M107",
+   "MB40",
+   "MB41"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M122",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Put the instrumentation for a performance fix in the same build as the measurement that tests it",
+  "type": "DIAGNOSTIC",
+  "stage": "IMPL",
+  "trigger": "a performance fix",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M123"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.9"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M123",
+  "prev_id": "M27",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Any instrument built to verify a change ships in the same build as the change.",
+  "type": "DIAGNOSTIC",
+  "stage": "IMPL",
+  "trigger": "an instrument built to verify a change",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M29",
+   "M43",
+   "M101",
+   "M122"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.10"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M124",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "measure what fraction of the inputs at the new site can actually be skipped.",
+  "type": "PERF",
+  "stage": "DESIGN",
+  "trigger": "reusing a work-skipping technique",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.11"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M125",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Measuring performance",
+  "quote": "Turning on a path that has never run must not multiply the cost of the most expensive thing the system already does.",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "turning on a path that has never run",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "VE.9.12"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M126",
+  "prev_id": "M28",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/verification-and-evidence.md",
+  "section": "Before you write code",
+  "quote": "make sure your design intent matches the existing infrastructure it will run against — read that infrastructure rather than recalling it.",
+  "type": "MANUAL",
+  "stage": "PRE-CODE",
+  "trigger": "before writing code",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M16",
+   "M89",
+   "M90"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "VE.10.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M127",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "Creating and shaping a pair",
+  "quote": "the dated decision and who made it, the tests required, and the exact places in the code it touches.",
+  "type": "TEST-PLAN",
+  "stage": "PLAN",
+  "trigger": "writing a full ticket",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M78",
+   "M128"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WT.3.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M128",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "Creating and shaping a pair",
+  "quote": "the shape of the fix, the decisions, the tests, and the working copy it lives in.",
+  "type": "TEST-PLAN",
+  "stage": "PLAN",
+  "trigger": "writing a companion entry",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "M78",
+   "M127"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WT.3.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M129",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "The owner's own list",
+  "quote": "is marked fixed only when the owner has seen the behaviour and said so. Your own verification does not close it.",
+  "type": "MANUAL",
+  "stage": "POST-MERGE",
+  "trigger": "fixing an item on the owner's list",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "owner",
+  "overlaps": [
+   "D4",
+   "M134"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WT.5.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M130",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "The learnings record",
+  "quote": "What never waits: each task writes its test first",
+  "type": "UNIT",
+  "stage": "PRE-CODE",
+  "trigger": "each task of a multi-task effort",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M91",
+   "M100",
+   "M105",
+   "M133",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WT.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M131",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "The learnings record",
+  "quote": "and runs its own component's tests before committing",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "each task commit of a multi-task effort",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "implementer",
+  "overlaps": [
+   "M62",
+   "M97"
+  ],
+  "conflicts": [
+   {
+    "id": "M97",
+    "reason": "full suite at every commit vs component tests only per task commit"
+   }
+  ],
+  "source_items": [
+   "WT.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M132",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "The learnings record",
+  "quote": "its per-task report is the test-result lines and deviations only.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "writing a per-task report",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M59"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WT.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M133",
+  "prev_id": "M64",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "One editable home",
+  "quote": "disturb the real file, watch the check go red, restore it exactly, and prove afterwards that the working tree is unchanged.",
+  "type": "META",
+  "stage": "POST-IMPL",
+  "trigger": "a generator that leaves one copy",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M91",
+   "M100",
+   "M105",
+   "M130",
+   "U2",
+   "U21"
+  ],
+  "conflicts": [
+   {
+    "id": "U2",
+    "reason": "proof of failure: red-first before code vs disturb-and-restore after"
+   },
+   {
+    "id": "M91",
+    "reason": "test-first red step vs break-and-restore after the check exists"
+   },
+   {
+    "id": "U21",
+    "reason": "prove-it-can-fail with no stage vs disturb-and-restore after code"
+   }
+  ],
+  "source_items": [
+   "WT.7.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M134",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/work-tracking.md",
+  "section": "Staying inside the effort",
+  "quote": "Completion is judged on the feature, not on any one ticket",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "closing a ticket",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [
+   "D4",
+   "M129",
+   "M140"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WT.8.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M135",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "Working in it",
+  "quote": "Announce temporary measuring code before you write it — the file, and a unique marker to find it by — and remove both when the measurement ends.",
+  "type": "PERF",
+  "stage": "POST-IMPL",
+  "trigger": "temporary measuring code in a visible copy",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M117"
+  ],
+  "conflicts": [
+   {
+    "id": "M117",
+    "reason": "perf only in separate copy vs measuring code in shared visible copy"
+   }
+  ],
+  "source_items": [
+   "WD.3.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M136",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "Working in it",
+  "quote": "When a build error contradicts what the source plainly says, clear the cache and rebuild before treating the error as real.",
+  "type": "BUILD-LINT",
+  "stage": "DEBUG",
+  "trigger": "a build error contradicts the source",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M81",
+   "M82",
+   "M103",
+   "MB55"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WD.3.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M137",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "Working in it",
+  "quote": "A fixture that spawns a real subprocess strips every ambient environment variable that could redirect it outside the fixture's own directory before the first invocation",
+  "type": "INTEGRATION",
+  "stage": "IMPL",
+  "trigger": "a fixture spawns a real subprocess",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M7"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WD.3.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M138",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "Merging and tearing down",
+  "quote": "Publish only when every required verification leg on it is green; a red result is discarded, never pushed.",
+  "type": "GATE",
+  "stage": "MERGE",
+  "trigger": "merging an effort",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M17",
+   "M139",
+   "MB51",
+   "MB52"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WD.5.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M139",
+  "prev_id": "M38",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "What may be merged",
+  "quote": "Only code that is not broken and will not cause problems is merged into the shared line. A green gate is necessary and not sufficient",
+  "type": "GATE",
+  "stage": "MERGE",
+  "trigger": "merging into the shared line",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M17",
+   "M138",
+   "MB51",
+   "MB52"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WD.6.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M140",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "What may be merged",
+  "quote": "this bar is about what a user can reach and what happens when they do.",
+  "type": "E2E",
+  "stage": "MERGE",
+  "trigger": "merging into the shared line",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M41",
+   "M42",
+   "M102",
+   "M134",
+   "M141",
+   "MB56"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WD.6.1"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "M141",
+  "prev_id": null,
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/worktree-discipline.md",
+  "section": "What may be merged",
+  "quote": "Incomplete code may be merged when it is unreachable: nothing in production can call it, so nothing can go wrong.",
+  "type": "MANUAL",
+  "stage": "MERGE",
+  "trigger": "merging incomplete code",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M140"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "WD.6.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U1",
+  "prev_id": "U1",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "Skill: apply can't-break-by-design to everything you write",
+  "quote": "New paths get an A/B regression test proving the invariant holds THROUGH them.",
+  "type": "REGRESSION",
+  "stage": "IMPL",
+  "trigger": "writing a new code path",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M92",
+   "M98",
+   "U3"
+  ],
+  "conflicts": [
+   {
+    "id": "M21",
+    "reason": "invariant proof per new path vs once per new invariant"
+   }
+  ],
+  "source_items": [
+   "CB.1.3",
+   "CB.6.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U2",
+  "prev_id": "U2",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "An A/B test proving the invariant holds *through* it, plus a red-check proving the test can fail.",
+  "type": "META",
+  "stage": "PRE-CODE",
+  "trigger": "writing the new path's invariant test",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M91",
+   "M100",
+   "M105",
+   "M130",
+   "M133",
+   "U21"
+  ],
+  "conflicts": [
+   {
+    "id": "M133",
+    "reason": "proof of failure: red-first before code vs disturb-and-restore after"
+   },
+   {
+    "id": "U21",
+    "reason": "prove-it-can-fail with no stage vs red-check before code"
+   }
+  ],
+  "source_items": [
+   "CB.6.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U3",
+  "prev_id": "U3",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "**Stranger test:** would a call site added by someone who read nothing still be correct?",
+  "type": "MANUAL",
+  "stage": "DESIGN",
+  "trigger": "writing a new code path",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M92",
+   "M98",
+   "U1"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.6.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U4",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "Skill: apply can't-break-by-design to everything you write",
+  "quote": "**Before writing the doc comment, check §5.**",
+  "type": "MANUAL",
+  "stage": "IMPL",
+  "trigger": "about to write an invariant doc comment",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "U10",
+   "U13"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.1.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U5",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "1. The ladder",
+  "quote": "0–4 are support structure, never the enforcement.",
+  "type": "UNIT",
+  "stage": "DESIGN",
+  "trigger": "choosing how an invariant is enforced",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M39"
+  ],
+  "conflicts": [
+   {
+    "id": "M34",
+    "reason": "test/scan named as the rule's enforcement; skill says tests never enforce"
+   }
+  ],
+  "source_items": [
+   "CB.3.12"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U6",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "3. Strongest tool per language",
+  "quote": "`assert_never`, strict mypy in CI",
+  "type": "BUILD-LINT",
+  "stage": "COMMIT",
+  "trigger": "the code is Python",
+  "mode": "conditional",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "CB.5.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U7",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "**Tripwire:** duplicating a processing step at a second call site means the design is already wrong. Build the choke-point. Never paste.",
+  "type": "MANUAL",
+  "stage": "IMPL",
+  "trigger": "duplicating a step at a second call site",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "MB46"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.6.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U8",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "shrink the trusted surface to one sealed module, back it with lints, generate the rest.",
+  "type": "BUILD-LINT",
+  "stage": "IMPL",
+  "trigger": "the language cannot enforce the invariant",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M19",
+   "M20",
+   "M34",
+   "M35",
+   "M36"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.6.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U9",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "Enumerate the invariants the feature TOUCHES and the ones it INTRODUCES.",
+  "type": "MANUAL",
+  "stage": "DESIGN",
+  "trigger": "starting a feature",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M67",
+   "M68",
+   "M69",
+   "M73"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.6.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U10",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "**Assign the rung from the mechanism, never the wording.** No named mechanism ⇒ rung 0, however confident the claim.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "assigning an invariant's rung",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "any",
+  "overlaps": [
+   "M24",
+   "U4",
+   "U13",
+   "U17"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.6.9"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U11",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "4. The process",
+  "quote": "**Offer continuous review; do not assume it.** Ask; take no as an answer.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "invariant work has landed",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "M26",
+   "MB53",
+   "U15"
+  ],
+  "conflicts": [
+   {
+    "id": "M26",
+    "reason": "auto-run after merge vs offer and accept no"
+   }
+  ],
+  "source_items": [
+   "CB.6.12"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U12",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "5. Anti-patterns",
+  "quote": "**A5.8 A mirror needs a generator, not a drift test.** *(14)* A test reports divergence after someone writes it.",
+  "type": "SOURCE-SCAN",
+  "stage": "DESIGN",
+  "trigger": "two artifacts must agree",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M46"
+  ],
+  "conflicts": [
+   {
+    "id": "M36",
+    "reason": "mirror needs a generator, not a drift test; DI requires mechanical drift check"
+   },
+   {
+    "id": "M37",
+    "reason": "project-wide sweep of mirror tables is a drift test"
+   },
+   {
+    "id": "MB59",
+    "reason": "index-vs-rule-files agreement check is a drift test over a mirror"
+   }
+  ],
+  "source_items": [
+   "CB.7.13"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U13",
+  "prev_id": "U7",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "5. Anti-patterns",
+  "quote": "**A5.11 \"By construction, pinned by a test\" is rung 3 — say so.**",
+  "type": "CLAIM-CHECK",
+  "stage": "REVIEW",
+  "trigger": "a by-construction claim backed by a test",
+  "mode": "shape",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "any",
+  "overlaps": [
+   "M24",
+   "M32",
+   "M99",
+   "U4",
+   "U10",
+   "U17"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.7.17"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U14",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "5. Anti-patterns",
+  "quote": "Identical up to N, first diverging at N+1, with the measurement. A cap without a bound is a guess.",
+  "type": "BASELINE",
+  "stage": "IMPL",
+  "trigger": "a silent bounded degrade exists",
+  "mode": "conditional",
+  "multiplicity": "per-new-invariant-or-checker",
+  "who": "implementer",
+  "overlaps": [
+   "M43"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.7.24"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U15",
+  "prev_id": "U4",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "6. Continuous review",
+  "quote": "**Scope is recently changed code** — the diff since the last update, nothing else.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "a background ledger agent runs",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M26",
+   "MB53",
+   "U11"
+  ],
+  "conflicts": [
+   {
+    "id": "M28",
+    "reason": "scope only recent diff vs unbounded sweep beyond suspected sites"
+   }
+  ],
+  "source_items": [
+   "CB.9.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U16",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "6. Continuous review",
+  "quote": "**Read-only over source.** It proposes; it does not promote.",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "a background ledger agent runs",
+  "mode": "shape",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M27"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.9.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U17",
+  "prev_id": "U6",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "6. Continuous review",
+  "quote": "**Report the mechanism, not the verdict.** \"Rung 3 — enforced by test X\" is reviewable",
+  "type": "MANUAL",
+  "stage": "POST-MERGE",
+  "trigger": "reporting a ledger review",
+  "mode": "shape",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M24",
+   "U10",
+   "U13"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.9.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U18",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "6. Continuous review",
+  "quote": "**A deleted claim is a finding.**",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "the diff removes prose the ledger cites",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M28",
+   "U19"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.9.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U19",
+  "prev_id": "U5",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/cant-break-by-design/SKILL.md",
+  "section": "6. Continuous review",
+  "quote": "**Escalate a dropped rung immediately** — a sole-constructor type gaining a `pub` field, a choke-point gaining a second caller",
+  "type": "SOURCE-SCAN",
+  "stage": "POST-MERGE",
+  "trigger": "an invariant's rung drops",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M28",
+   "U18"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "CB.9.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U20",
+  "prev_id": "U8",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.4 Visibility",
+  "quote": "Test level | where the bug would actually live, against the contract | tests of structure pin the implementation and pass while it is broken",
+  "type": "UNIT",
+  "stage": "IMPL",
+  "trigger": "choosing a test's level",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M30",
+   "M31"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "BR.17.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U21",
+  "prev_id": "U9",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.4 Visibility",
+  "quote": "Test credibility | prove it can fail | a test that cannot fail is a false claim of coverage",
+  "type": "META",
+  "stage": "ANY",
+  "trigger": "writing any test",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "implementer",
+  "overlaps": [
+   "M38",
+   "M44",
+   "M83",
+   "M91",
+   "M100",
+   "M105",
+   "M130",
+   "M133",
+   "U2"
+  ],
+  "conflicts": [
+   {
+    "id": "U2",
+    "reason": "prove-it-can-fail with no stage vs red-check before code"
+   },
+   {
+    "id": "M133",
+    "reason": "prove-it-can-fail with no stage vs disturb-and-restore after code"
+   }
+  ],
+  "source_items": [
+   "BR.17.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U22",
+  "prev_id": "U10",
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.4 Visibility",
+  "quote": "Flaky tests | a defect, fixed or deleted | tolerating one teaches people to ignore the only signal there is",
+  "type": "MANUAL",
+  "stage": "DEBUG",
+  "trigger": "a test is flaky",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [],
+  "conflicts": [],
+  "source_items": [
+   "BR.17.7"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U23",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.5 Motion",
+  "quote": "Optimization | measure first, and measure the tail | the mean is a comfort; the tail is the experience",
+  "type": "PERF",
+  "stage": "DEBUG",
+  "trigger": "optimizing",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M114"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "BR.18.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U24",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.7 Working under a context budget",
+  "quote": "Verification | the invocation that returns a verdict, a count, or a status | a full dump proves the same thing at a hundred times the price",
+  "type": "GATE",
+  "stage": "ANY",
+  "trigger": "verifying something",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M64",
+   "M96",
+   "MB42"
+  ],
+  "conflicts": [
+   {
+    "id": "M96",
+    "reason": "never truncate output vs invocation returning only a verdict or count"
+   },
+   {
+    "id": "M64",
+    "reason": "keep proof lines for filter vs verdict-only invocation"
+   }
+  ],
+  "source_items": [
+   "BR.20.21"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U25",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.7 Working under a context budget",
+  "quote": "Who runs a tool with large or repeated output | the developer, in their own environment; the assistant builds it and documents it",
+  "type": "MANUAL",
+  "stage": "ANY",
+  "trigger": "a tool with large or repeated output",
+  "mode": "shape",
+  "multiplicity": "per-feature",
+  "who": "main",
+  "overlaps": [],
+  "conflicts": [
+   {
+    "id": "M96",
+    "reason": "agent runs whole suite untruncated vs developer runs large-output tools"
+   }
+  ],
+  "source_items": [
+   "BR.20.18"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U26",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.8 Artifacts, runs, and workspace layout",
+  "quote": "Which axis discriminates comparable runs | the directory; filenames stay identical across slots",
+  "type": "BASELINE",
+  "stage": "POST-IMPL",
+  "trigger": "laying out comparable runs",
+  "mode": "shape",
+  "multiplicity": "per-effort",
+  "who": "implementer",
+  "overlaps": [
+   "M116",
+   "U27"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "BR.21.6"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U27",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.8 Artifacts, runs, and workspace layout",
+  "quote": "Re-running | write a new run directory; never overwrite",
+  "type": "BASELINE",
+  "stage": "POST-IMPL",
+  "trigger": "re-running a comparison",
+  "mode": "shape",
+  "multiplicity": "per-effort",
+  "who": "implementer",
+  "overlaps": [
+   "M116",
+   "U26"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "BR.21.8"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "U28",
+  "prev_id": null,
+  "plugin": "unbreakable",
+  "file": "plugins/unbreakable/skills/be-reasonable/SKILL.md",
+  "section": "6.8 Artifacts, runs, and workspace layout",
+  "quote": "Run metadata — inputs, versions, parameters | a file inside the run directory",
+  "type": "BASELINE",
+  "stage": "POST-IMPL",
+  "trigger": "recording a comparison run",
+  "mode": "shape",
+  "multiplicity": "per-effort",
+  "who": "implementer",
+  "overlaps": [
+   "M49",
+   "M119"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "BR.21.13"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D1",
+  "prev_id": "D1",
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.6 No surprises",
+  "quote": "What you did not verify | stated as unverified | an untested success claim is not one error but a retroactive discount on all of them",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "reporting a result",
+  "mode": "always",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D2",
+   "D9",
+   "M59",
+   "M70",
+   "M75"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.19.5"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D2",
+  "prev_id": "D2",
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "2. A session, worked",
+  "quote": "It goes in the handoff, plainly and first, and in the final message.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "a change was not tested",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "any",
+  "overlaps": [
+   "D1",
+   "D9"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.4.24"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D3",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.1 Deferred work",
+  "quote": "A fix you doubt | filed with what would confirm it",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "filing a fix you doubt",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M88"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.14.9"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D4",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.4 Outcomes",
+  "quote": "Whether the work actually worked | a ledger for the effort: what changed, what improved, what regressed, what is newly wrong",
+  "type": "BASELINE",
+  "stage": "POST-MERGE",
+  "trigger": "an effort's result becomes measurable",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "D5",
+   "M129",
+   "M134"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.17.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D5",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.4 Outcomes",
+  "quote": "When to write it | when the result is measurable, not when the change lands",
+  "type": "BASELINE",
+  "stage": "POST-MERGE",
+  "trigger": "timing the outcome ledger",
+  "mode": "shape",
+  "multiplicity": "per-effort",
+  "who": "main",
+  "overlaps": [
+   "D4"
+  ],
+  "conflicts": [
+   {
+    "id": "M70",
+    "reason": "did-it-work judged when measurable post-merge vs confirmed post-impl"
+   }
+  ],
+  "source_items": [
+   "DF.17.3"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D6",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.4 Outcomes",
+  "quote": "A regression you caused and accepted | recorded as accepted, with why",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "a regression was caused and accepted",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "D7",
+   "M61",
+   "M72"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.17.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D7",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.5 Session continuity",
+  "quote": "Left not building or running | said plainly and first",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "session boundary with build or run broken",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "any",
+  "overlaps": [
+   "D6",
+   "M61",
+   "M72"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.18.4"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D8",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "6.6 No surprises",
+  "quote": "A step skipped | named, with why",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "a step was skipped",
+  "mode": "conditional",
+  "multiplicity": "per-feature",
+  "who": "any",
+  "overlaps": [
+   "M5",
+   "M14",
+   "M110",
+   "MB45"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.19.2"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "D9",
+  "prev_id": null,
+  "plugin": "developer-friendliness",
+  "file": "plugins/developer-friendliness/skills/developer-friendliness/SKILL.md",
+  "section": "9. The process",
+  "quote": "**Before the session ends, spend one pass** on what is in flight, what is broken, what you cut, and what you did not verify.",
+  "type": "CLAIM-CHECK",
+  "stage": "CLAIM",
+  "trigger": "before the session ends",
+  "mode": "always",
+  "multiplicity": "per-effort",
+  "who": "any",
+  "overlaps": [
+   "D1",
+   "D2"
+  ],
+  "conflicts": [],
+  "source_items": [
+   "DF.24.9"
+  ],
+  "batch": "A"
+ },
+ {
+  "id": "MB40",
+  "prev_id": "M40",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/comparison-agent.md",
+  "section": "The one question",
+  "quote": "Run it before merging anything that could move the output: engine changes, algorithmic or performance rewrites, and changes to a default value.",
+  "type": "BASELINE",
+  "stage": "MERGE",
+  "trigger": "engine, algorithm, or default-value change",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M74",
+   "M107",
+   "M121",
+   "MB41"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M3",
+   "M20"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB41",
+  "prev_id": "M41",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/comparison-agent.md",
+  "section": "The one question",
+  "quote": "A default change must run this, not only the unit suite",
+  "type": "BASELINE",
+  "stage": "MERGE",
+  "trigger": "changing a default value",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M74",
+   "M107",
+   "M121",
+   "MB40"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M14"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB42",
+  "prev_id": "M42",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/comparison-agent.md",
+  "section": "Procedure",
+  "quote": "Run the harness and capture the complete output. Never truncate it.",
+  "type": "BASELINE",
+  "stage": "MERGE",
+  "trigger": "running the comparison harness",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M64",
+   "M96",
+   "M109",
+   "U24"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB43",
+  "prev_id": "M43",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/comparison-agent.md",
+  "section": "Procedure",
+  "quote": "Establish the baseline before judging anything.",
+  "type": "BASELINE",
+  "stage": "MERGE",
+  "trigger": "judging a comparison run",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M107",
+   "M108",
+   "M112",
+   "MB44"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB44",
+  "prev_id": "M44",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/comparison-agent.md",
+  "section": "Procedure",
+  "quote": "Classify every row that is not informational as newly broken, already broken, or newly fixed.",
+  "type": "BASELINE",
+  "stage": "MERGE",
+  "trigger": "reading comparison results",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M107",
+   "MB43"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M20"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB45",
+  "prev_id": "M45",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/comparison-agent.md",
+  "section": "Output",
+  "quote": "A case that did not run is unproven, never passed",
+  "type": "CLAIM-CHECK",
+  "stage": "MERGE",
+  "trigger": "reporting a comparison run",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "D8",
+   "M5",
+   "M14",
+   "M110"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M22"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB46",
+  "prev_id": "M46",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/invariant-auditor.md",
+  "section": "Procedure",
+  "quote": "Run the second-call-site tripwire as an explicit step.",
+  "type": "SOURCE-SCAN",
+  "stage": "REVIEW",
+  "trigger": "auditing a diff before merge",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M15",
+   "M28",
+   "M40",
+   "MB47",
+   "MB48",
+   "U7"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M53"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB47",
+  "prev_id": "M47",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/invariant-auditor.md",
+  "section": "Procedure",
+  "quote": "Run the weak-neighbour obligation as an explicit step.",
+  "type": "SOURCE-SCAN",
+  "stage": "REVIEW",
+  "trigger": "auditing a diff before merge",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M15",
+   "M28",
+   "MB46",
+   "MB48"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M53"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB48",
+  "prev_id": "M48",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/invariant-auditor.md",
+  "section": "Procedure",
+  "quote": "Always flag the catalog shapes, each flag citing a comparable live example",
+  "type": "SOURCE-SCAN",
+  "stage": "REVIEW",
+  "trigger": "auditing a diff before merge",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [
+   "M15",
+   "M28",
+   "MB46",
+   "MB47"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M53"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB49",
+  "prev_id": "M49",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/invariant-auditor.md",
+  "section": "Auditing invariants: the denominator",
+  "quote": "The generator is deterministic: anything unordered is sorted before it reaches the output.",
+  "type": "META",
+  "stage": "REVIEW",
+  "trigger": "generating the audit denominator",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "reviewer",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M34"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB50",
+  "prev_id": "M50",
+  "plugin": "machinery",
+  "file": "plugins/machinery/agents/invariant-auditor.md",
+  "section": "Auditing invariants: the output",
+  "quote": "every row has the declared number of columns, every identifier is unique, and every identifier exists in the denominator",
+  "type": "META",
+  "stage": "REVIEW",
+  "trigger": "checking the audit table structurally",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M34"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB51",
+  "prev_id": "M51",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/effort-lifecycle/SKILL.md",
+  "section": "End, step 8",
+  "quote": "Make the merge locally in the project root, into a private merge result, then run the merge gate on that result.",
+  "type": "GATE",
+  "stage": "MERGE",
+  "trigger": "ending an effort",
+  "mode": "always",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M17",
+   "M138",
+   "M139",
+   "MB52"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M38"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB52",
+  "prev_id": "M52",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/effort-lifecycle/SKILL.md",
+  "section": "End, step 8",
+  "quote": "run the project's own verification legs on the merged result",
+  "type": "GATE",
+  "stage": "MERGE",
+  "trigger": "merge-gate skill not yet built",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M17",
+   "M138",
+   "M139",
+   "MB51"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M38"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB53",
+  "prev_id": "M53",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/effort-lifecycle/SKILL.md",
+  "section": "End, step 8",
+  "quote": "Before merging, consider dispatching the enforcement auditor",
+  "type": "SOURCE-SCAN",
+  "stage": "MERGE",
+  "trigger": "before merging an effort",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [
+   "M26",
+   "U11",
+   "U15"
+  ],
+  "conflicts": [
+   {
+    "id": "M26",
+    "reason": "ledger review post-merge vs enforcement audit before merge"
+   }
+  ],
+  "v1_overlaps": [
+   "M46",
+   "M47",
+   "M48"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB54",
+  "prev_id": "M54",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/invariant-audit/SKILL.md",
+  "section": "step 4",
+  "quote": "Disposition every finding by name before any merge",
+  "type": "MANUAL",
+  "stage": "MERGE",
+  "trigger": "an audit finding exists",
+  "mode": "conditional",
+  "multiplicity": "per-merge",
+  "who": "main",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB55",
+  "prev_id": "M55",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/refresh-diverged-branch/SKILL.md",
+  "section": "The steps, step 7",
+  "quote": "Run the ordinary tests and checks, plus a build for the edition's own target.",
+  "type": "BUILD-LINT",
+  "stage": "POST-IMPL",
+  "trigger": "a diverged branch has been rebuilt",
+  "mode": "always",
+  "multiplicity": "per-effort",
+  "who": "implementer",
+  "overlaps": [
+   "M81",
+   "M82",
+   "M103",
+   "M136"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M6"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB56",
+  "prev_id": "M56",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/refresh-diverged-branch/SKILL.md",
+  "section": "The steps, step 7",
+  "quote": "exercise it by hand on real hardware: a clean graft can still change what a person sees",
+  "type": "E2E",
+  "stage": "POST-IMPL",
+  "trigger": "shared interface or engine code moved",
+  "mode": "conditional",
+  "multiplicity": "per-effort",
+  "who": "implementer",
+  "overlaps": [
+   "M41",
+   "M42",
+   "M102",
+   "M140"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M17"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB57",
+  "prev_id": "M57",
+  "plugin": "machinery",
+  "file": "plugins/machinery/skills/refresh-diverged-branch/SKILL.md",
+  "section": "The steps, step 7",
+  "quote": "confirm that the features the primary line added still carry their own tests",
+  "type": "CLAIM-CHECK",
+  "stage": "POST-IMPL",
+  "trigger": "rebuilding a diverged branch",
+  "mode": "always",
+  "multiplicity": "per-effort",
+  "who": "implementer",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB58",
+  "prev_id": "M58",
+  "plugin": "machinery",
+  "file": "plugins/machinery/scripts/gate/register-check.mjs",
+  "section": "declaration claims (rule-governance.md)",
+  "quote": "An undispositioned inbox entry fails the register check.",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "every commit",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [
+   "M51",
+   "M52",
+   "MB59",
+   "MB63"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M60",
+   "M13"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB59",
+  "prev_id": "M59",
+  "plugin": "machinery",
+  "file": "plugins/machinery/scripts/gate/register-check.mjs",
+  "section": "registerCheck()",
+  "quote": "the index must never disagree with the rule files being committed",
+  "type": "BASELINE",
+  "stage": "COMMIT",
+  "trigger": "a rule file or its index is staged",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [
+   "M52",
+   "M56",
+   "MB58"
+  ],
+  "conflicts": [
+   {
+    "id": "U12",
+    "reason": "index-vs-rule-files agreement check is a drift test over a mirror"
+   }
+  ],
+  "v1_overlaps": [
+   "M61"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB60",
+  "prev_id": "M60",
+  "plugin": "machinery",
+  "file": "plugins/machinery/scripts/gate/spec-check.mjs",
+  "section": "declaration claims (work-tracking.md)",
+  "quote": "An undispositioned spec entry blocks commits, exactly as an undispositioned rule entry does",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "every commit",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M58"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB61",
+  "prev_id": "M61",
+  "plugin": "machinery",
+  "file": "plugins/machinery/scripts/gate/spec-check.mjs",
+  "section": "declaration claims (work-tracking.md)",
+  "quote": "the gate refuses a disposition naming a path outside that area",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "a spec disposition names a path",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M59"
+  ],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB62",
+  "prev_id": "M62",
+  "plugin": "machinery",
+  "file": "plugins/machinery/scripts/gate/sweep-guard.mjs",
+  "section": "declaration claims (worktree-discipline.md)",
+  "quote": "An advisory backstop fires when a documentation-shaped commit also adds a brand-new non-documentation file, naming it without blocking.",
+  "type": "SOURCE-SCAN",
+  "stage": "COMMIT",
+  "trigger": "a docs-shaped commit adds a new non-doc file",
+  "mode": "conditional",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [],
+  "conflicts": [],
+  "v1_overlaps": [],
+  "v1_conflicts": [],
+  "batch": "B"
+ },
+ {
+  "id": "MB63",
+  "prev_id": "M63",
+  "plugin": "machinery",
+  "file": "plugins/machinery/rules/rule-governance.md",
+  "section": "Honesty about the machinery",
+  "quote": "Run the governance check on every commit, and again in continuous integration",
+  "type": "GATE",
+  "stage": "COMMIT",
+  "trigger": "every commit and every CI run",
+  "mode": "always",
+  "multiplicity": "per-commit",
+  "who": "gate",
+  "overlaps": [
+   "M51",
+   "MB58"
+  ],
+  "conflicts": [],
+  "v1_overlaps": [
+   "M58",
+   "M60"
+  ],
+  "v1_conflicts": [
+   "M30"
+  ],
+  "batch": "B"
+ }
+]

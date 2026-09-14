@@ -1,0 +1,45 @@
+# Recalibration 2026-09 — pickup context
+
+Goal (Gabe): split machinery + developer-friendliness rules into skills by kind, then remove the overburden, without Gabe reading every row. Unbreakable is parked (its rows stay in the data).
+
+## State (2026-09-13)
+- Rules are UNLOADED for the rework: the junctions `~/.claude/rules/machinery` and `~/.claude/rules/developer-friendliness` were removed (sources untouched). Every session in every project runs without them until restored. Restore:
+  ```
+  cmd /c mklink /J "%USERPROFILE%\.claude\rules\machinery" "I:\IdeaProjects\ai-skills\plugins\machinery\rules"
+  cmd /c mklink /J "%USERPROFILE%\.claude\rules\developer-friendliness" "I:\IdeaProjects\ai-skills\claude-code\developer-friendliness\developer-friendliness"
+  ```
+- `all-rules.json`: all 822 instructions, verbatim. `all-rules-consolidation.csv`: 168 merged groups (dedupe only, not lightened). Re-index with `node csv-index.mjs <csv>`.
+- Worktree `testing-rules-extraction` exists with no commits (from a stopped run); reuse or tear down.
+- Dreamy and remember plugins uninstalled, their data deleted.
+
+## Owner rulings so far
+- TDD order: failing test before code; never implement-then-break or break-and-restore.
+- Reports a few lines max; exhaustive only within the blast radius.
+- Out-of-scope finds: file issues with the campaign label and the follow-up label; don't chase.
+- Agents: on-demand pool of one agent per kind, reused serially, reaped when context gets large.
+
+## Principle decisions (2026-09-13)
+- Yes: (1) always-on core ≤ 15 lines, rest in skills loaded by kind; (2) one skill per kind; (5) drop per-function/per-site instrumentation duties, add when debugging or measuring; (8) one ticket per work item, companion entry only for multi-session efforts; (10) keep capture hook + inbox gate, drop register/index/supersession/status marks; (11) each check runs once per stage by one owner, main session and reviewers read output only; (12) main session does small focused work itself, pool for context-flooding or large independent work.
+- (9) Worktrees: not "all work however small" — make it a configurable project setting.
+- Rule process stays enforced through git hooks (capture + inbox gate on commit); the register (RULES_INDEX.md) and its reindex-on-commit check go.
+- (13) Merge gate moves to a `pre-push` git hook: runs only when the remote ref is main, tests the exact pushed SHA (throwaway checkout), and pre-commit is slimmed to fast checks (inbox, build/format, optionally touched component's tests). Agents never use --no-verify.
+- (14) Keep a path to hosted CI: a skill action that runs a wizard migrating the client-side gates (pre-commit/pre-push) to hosted CI.
+- Test tiers: fast (TDD, unit to light integration; red/green + pre-commit on touched components), merge (middle-weight; pre-push to main), heavy (on demand / hosted). A test's tier is declared where it lives; hooks select by declaration.
+- Pipeline tool: none. Woodpecker was chosen, then withdrawn the same evening: its server only starts pipelines from forge webhooks (needs GitHub reachable or a local Forgejo), server state covers pushed commits only, and `woodpecker-cli exec` records no state. Also looked at: Forgejo Actions (needs a forge), act/Dagger (no local GUI, Docker), Earthly (unmaintained), Argo/Tekton (Kubernetes), Jenkins/TeamCity (per-test regression tracking but heavy Java servers; unverified). Decision: use each language's own test tooling (cargo/nextest, node --test) driven by git hooks; the hosted-CI wizard (14) turns those hook commands into GitHub Actions workflows.
+- (15, revised) When tests run — two separate mechanisms, never mixed:
+  - TDD cycle (the agent, while working): (1) write a new test, run only that test (`-p <crate>` + name filter), it must fail; (2) write the code, run that same test, it must pass. The cycle never runs broader tests.
+  - Git hooks (automatic, whoever works): `git commit` runs the tests of the crates the commit touches (`-p`); `git push` to main runs the whole workspace once.
+  - Background, always on: `cargo check` (bacon's default job) on the edited crates, through a change-only filter (`grep --line-buffered` + `uniq`) into Claude Code's Monitor, one line when the error count changes. Node projects may keep a continuous test watcher as a per-project setting (tests start near-instantly). Run monitors in a small session or pooled agent: each notification wakes a turn that re-reads the context. Why: slicer compiles are long, so continuous test runs mean continuous compiles. Rejected: continuous test watchers for Rust, a self-written per-test transition tracker, CI servers.
+- (13, amended) Pre-push tests in place on the warm build: requires a clean working tree whose HEAD is the pushed SHA, instead of a throwaway checkout (a cold full build per push). Also on the table for compile time: sccache or a shared target dir across worktrees, `cargo-hakari` against feature thrash between `-p` and workspace builds.
+- (3) Prose that restates what a hook or gate enforces is deleted, with the scripts' `declaration` quotes that cite it. The refusal message is the instruction: every refusal names the cause and the command that fixes it; fix messages that don't. (A one-line pointer was rejected: it is still text the agent interprets.)
+- (4) Tests for a safeguard (a type that rejects bad values, a source-scanning check, a debug switch) are written by the change that creates or modifies it, and only that change; a change that only uses it tests its own new behaviour. The agent tells which case from its own diff (no memory). The safeguard's tests stay in the repo and the hooks keep running them. Replaces per-use re-proving (e.g. a positive control at every site using a debug switch, a test-data generator per fix).
+- (6) "Before a feature, the agent starts the TDD cycle instead of writing a prediction: write a test, run it, see it fail — then write the code. The new failing tests state what will change; the existing tests, run by the hooks, show what was left alone. A refactor meant to change no behaviour says "no behaviour change" in its commit message. Design beliefs and invariants go in the spec when one exists, not in each ticket. No report restates predictions or confirms them one by one — the test results are the confirmation."
+- (16) Every rule that implies TDD or describes a TDD step uses the word "TDD" and names the stage it fires at (red: test written and seen to fail before code; green: code written and that test seen to pass; refactor: behaviour unchanged, tests stay green).
+- (17) Post-mortem. Remove rule-governance § When a belief turns out false's claim that a post-mortem launches "automatically… mechanically" (no hook or script does it). New process at the end of a fix or debug session: evidence is the session transcripts (`~/.claude/projects/<project>/*.jsonl`, incl. agents) plus git history — the agent records nothing extra along the way. A post-mortem agent answers: what was believed, what was true, where the wrong belief entered, which guardrail (test, type, hook, check) would have caught it, citing transcript evidence. Output: a few lines; each guardrail filed as an issue with the campaign + follow-up labels. Trigger: manual only (`/postmortem`). An automatic post-mortem at merge was considered (signals: a `bug` label, a revert commit) and rejected by the owner.
+- (18) Install (machinery install) reports the current transcript retention (`cleanupPeriodDays`; default 30 days, swept after session start) and asks what the user wants, explaining that transcripts older than it are deleted, so a post-mortem of work older than the period has no evidence.
+- (7) "Record a learning when an expectation proved wrong or an unknown had to be investigated. Ordinary coding and routine problem solving are not learnings. One place: the ticket." Learnings: a library/tool/compiler/environment behaved differently than assumed; a bug's cause had to be tracked down by testing guesses; an approach failed for a non-obvious reason; the owner corrected a belief. Not learnings: writing already-understood behaviour, fixing a compile error right away, normal TDD red → green, looking up an API. Whether it is visible in the code does not matter (owner). Along-the-way notes are not needed; the post-mortem reads transcripts.
+- Parked with unbreakable: A308 (invariant auditor's model tier — its file says "judgement tier", its output is verdicts, and it declares no `model:` so it runs on the dispatching session's model). Also noted for that topic: the auditor only assesses invariants stated in comments/doc comments or ledger rows, only within a supplied diff, and cannot compile a bypass attempt.
+- Open: Worktree `testing-rules-extraction` (no commits) — delete or reuse. Branch `remove-postmortem-claim` (b65da6a, machinery 0.1.113) — merge now or with the rework.
+
+## Next
+Owner answers the principle decisions; agents apply them to the 822 items and produce the core + per-kind skills; owner reviews counts and examples, not rows.
