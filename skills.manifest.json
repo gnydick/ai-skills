@@ -40,9 +40,7 @@
       "implemented": true,
       "note": "Per-skill link back to the bucket source, the same shape as claude-personal — the repo stays the sole source of truth. The link is to the skill's DIRECTORY, not to SKILL.md: on Windows this is a directory junction, which cannot link a file, and the directory holds exactly one file, so exactly that file loads.",
       "$comment": "WHY A RULES ENTRY EXISTS AT ALL: installed is not loaded. A skill under ~/.claude/skills loads only when it is invoked or judged relevant; a file under ~/.claude/rules loads into context in EVERY session. developer-friendliness was installed as a skill the whole time and did nothing until someone typed its name, and the ruling (#94, 2026-09-10) is that the whole skill loads every session. MEMBERSHIP IS DECLARED, never inferred: buckets[].targets says which compatibility class MAY have a rules entry, and the per-skill list below says who actually gets one — the same declared-not-derived rule as targets[\"claude-plugin\"].routes. A name here that no bucket holds, or whose bucket does not declare this target, is a hard build error. This list is deliberately not everything in the claude-code bucket: every entry adds its bytes to every session, forever.",
-      "skills": [
-        "developer-friendliness"
-      ]
+      "skills": []
     },
     "claude-plugin": {
       "kind": "plugin",
@@ -55,12 +53,6 @@
           "skills": [
             "be-reasonable",
             "cant-break-by-design"
-          ]
-        },
-        "developer-friendliness": {
-          "path": "plugins/developer-friendliness",
-          "skills": [
-            "developer-friendliness"
           ]
         },
         "dreamy": {
