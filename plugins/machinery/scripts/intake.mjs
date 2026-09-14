@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 // Story: skills/rule-intake/SKILL.md — the mechanical steps. Two pipelines, each one commit in one repo (spec I30).
-import fs from 'node:fs';
 import path from 'node:path';
 import { git, realDir } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
-import { projectInbox, projectIndex, projectRules, projectSpecs, projectSpecInbox, projectSpecIndex, universalInbox, universalIndex, rulesSource } from './lib/config.mjs';
+import { projectInbox, projectRules, projectSpecs, projectSpecInbox, universalInbox, rulesSource } from './lib/config.mjs';
 import { pending, setDisposition } from './lib/inbox.mjs';
-import { generateIndex, generateSpecIndex } from './lib/index.mjs';
 import { insideSpecArea } from './lib/layout.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -33,26 +31,26 @@ function list() {
 function commit() {
   const kind = opt('--kind'), stamp = opt('--stamp'), home = opt('--home');
   if (!['project', 'universal', 'spec'].includes(kind) || !stamp || !home) die('usage: intake commit --kind project|universal|spec [--root <dir>] --stamp <stamp> --home "<file § Section>"');
-  let repo, inbox, index, rules, extra = [];
+  let repo, inbox, rules, extra = [];
   // #81: a specification is filed exactly like a project rule — root session, one commit, one repo —
-  // but into the spec area, with the spec index regenerated. The home is checked against that area
-  // HERE as well as at the gate, so the intake cannot write the very disposition the gate rejects.
+  // but into the spec area. The home is checked against that area HERE as well as at the gate, so
+  // the intake cannot write the very disposition the gate rejects.
   if (kind === 'spec') {
     const cwd = opt('--root') || process.cwd();
     if (!isRootSession(cwd)) die('a specification is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
-    repo = projectRoot(cwd); inbox = projectSpecInbox(repo); index = projectSpecIndex(repo); rules = projectSpecs(repo);
+    repo = projectRoot(cwd); inbox = projectSpecInbox(repo); rules = projectSpecs(repo);
     const filed = home.split(' § ')[0].trim();
     if (!insideSpecArea(repo, rules, filed)) die(`refusing to file a specification outside the spec area: '${filed}' is not under ${rules}. The spec area is declared by /machinery:install and never guessed.`);
   } else if (kind === 'project') {
     const cwd = opt('--root') || process.cwd();
     if (!isRootSession(cwd)) die('a project rule is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
-    repo = projectRoot(cwd); inbox = projectInbox(repo); index = projectIndex(repo); rules = projectRules(repo);
+    repo = projectRoot(cwd); inbox = projectInbox(repo); rules = projectRules(repo);
   } else {
     // Story: spec I30, each pipeline is one commit in one repo — the universal
     // kind's repo is the top level of the checkout that HOLDS rulesSource()
     // (which may be configured outside the plugin), never the main checkout
     // a worktree's common dir would resolve to (projectRoot()).
-    rules = rulesSource(); inbox = universalInbox(); index = universalIndex();
+    rules = rulesSource(); inbox = universalInbox();
     const rulesDir = realDir(rules);
     const top = git(['rev-parse', '--show-toplevel'], rulesDir);
     if (top.code !== 0) die(`not inside a git repository: ${rules}`);
@@ -67,10 +65,8 @@ function commit() {
     extra.push(path.join(plug, '.claude-plugin', 'plugin.json'));
     process.stdout.write(`bumped plugin version to ${b.stdout.trim()}\n`);
   }
-  fs.mkdirSync(path.dirname(index), { recursive: true });
-  fs.writeFileSync(index, kind === 'spec' ? generateSpecIndex(rules) : generateIndex(rules), 'utf8');
   setDisposition(inbox, stamp, { state: 'FILED', detail: `filed → ${home}` });
-  const files = [rules, index, inbox, ...extra].map((f) => path.relative(repo, f).split(path.sep).join('/'));
+  const files = [rules, inbox, ...extra].map((f) => path.relative(repo, f).split(path.sep).join('/'));
   const add = git(['add', '--', ...files], repo);
   if (add.code !== 0) die(`git add failed: ${add.stderr}`);
   const subject = `${kind === 'spec' ? 'spec' : 'rule'}: ${entry.text.split('\n')[0].slice(0, 72)}`;

@@ -1,19 +1,15 @@
-// Story: ticket #73 — the gate's composition is DERIVED from the check modules' own declarations,
-// and a check cannot be unwired while a claim about it survives.
+// Story: ticket #73 — the gate's composition is DERIVED from the check modules' own declarations.
 //
-// On 2026-09-05 the citation-target check was unwired by owner ruling (#29) and five dependents
-// survived it intact: a rules bullet still said it blocked, the installer still shipped it, a flag
-// only it read was still parsed, and the ledger rows still described a mechanism nobody ran. The
-// gate's list of checks was typed in one file and every claim about that list lived in four others,
-// so nothing could notice the disagreement.
+// On 2026-09-05 a check was unwired by owner ruling (#29) and its dependents survived it intact:
+// the installer still shipped it and a flag only it read was still parsed. The gate's list of
+// checks was typed in one file, so nothing could notice the disagreement.
 //
-// Two invariants come out of this module:
+// One invariant comes out of this module:
 //   I43 — gate/manifest.mjs is GENERATED from the declarations below, never typed. Spec I24 ("closed
 //         check array; no config extension point") is preserved exactly: generation happens at BUILD
 //         time and the runtime array stays a frozen literal. Nothing is discovered at run time.
-//   I44 — every claim a check ships is walked, and a claim citing a `wired: false` check is red. The
-//         unwiring is REFUSED while a dependent exists; the gate is never made to tolerate a missing
-//         check (owner, 2026-09-06).
+// The claims walker (I44) that once lived here was deleted by recalibration decision 49: decision 3
+// removed the prose the claims cited, and a walker over zero claims checks nothing.
 //
 // A check module is DATA to this loader (rules/design-invariants.md § External input): a malformed
 // declaration produces a named diagnostic, never a stack trace.
@@ -43,10 +39,6 @@ function validate(file, d, mod) {
   if (typeof d.blocking !== 'boolean') return `${file}: \`blocking\` must be a boolean, got ${q(d.blocking)}`;
   if (typeof d.wired !== 'boolean') return `${file}: \`wired\` must be a boolean, got ${q(d.wired)}`;
   if (!d.wired && (typeof d.reason !== 'string' || !d.reason.trim())) return `${file}: an unwired check must carry the \`reason\` and the ruling that unwired it`;
-  if (!Array.isArray(d.claims)) return `${file}: \`claims\` must be an array (empty is a real answer; missing is not)`;
-  for (const [i, c] of d.claims.entries()) {
-    if (!c || typeof c.file !== 'string' || typeof c.quote !== 'string' || !c.quote.trim()) return `${file}: claims[${i}] must be {file, quote} with a non-empty quote`;
-  }
   return null;
 }
 
@@ -94,31 +86,4 @@ export function renderManifest(declarations) {
     `export const CHECK_FILES = Object.freeze([${wired.map((d) => `'${d.file}'`).join(', ')}]);`,
     '',
   ].join('\n');
-}
-
-// Prose wraps; a claim's quote must survive being reflowed across lines, so both sides collapse
-// runs of whitespace to one space before comparison.
-const flat = (s) => s.replace(/\s+/g, ' ');
-
-// Walks every claim every check ships. `root` is the repository root the claim paths are relative
-// to. Returns what it walked — the denominator — alongside the failures, so a run that found
-// nothing is distinguishable from one that found nothing wrong.
-export function walkClaims(declarations, root) {
-  const walked = [];
-  const failures = [];
-  for (const d of declarations) {
-    for (const c of d.claims) {
-      walked.push({ check: d.id, file: c.file, quote: c.quote });
-      const f = path.join(root, c.file);
-      let text;
-      try { text = fs.readFileSync(f, 'utf8'); }
-      catch { failures.push(`${d.id}: claim site ${c.file} does not exist — amend the claim list or restore the file`); continue; }
-      if (!flat(text).includes(flat(c.quote))) {
-        failures.push(`${d.id}: ${c.file} no longer carries the claim ${q(c.quote)} — amend the claim list to what the file now says`);
-        continue;
-      }
-      if (!d.wired) failures.push(`${d.id} is declared \`wired: false\`, but ${c.file} still claims it: ${q(c.quote)} — amend every claim BEFORE unwiring a check (#73, I44)`);
-    }
-  }
-  return { walked, failures };
 }

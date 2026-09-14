@@ -6,14 +6,13 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { makeRepo } from './helpers/repo.mjs';
 import { runScript, PLUGIN } from './helpers/run.mjs';
-import { loadDeclarations, renderManifest, walkClaims, NOT_A_CHECK, MANIFEST_FILE } from '../scripts/lib/manifest.mjs';
+import { loadDeclarations, renderManifest, NOT_A_CHECK, MANIFEST_FILE } from '../scripts/lib/manifest.mjs';
 
-// Story: ticket #73. A check left the gate on 2026-09-05 (#29) and five claims about it survived
-// intact, because the gate's composition was typed in one file and every claim about it lived in
-// four others. Two invariants, both proved here:
+// Story: ticket #73. A check left the gate on 2026-09-05 (#29) and its dependents survived intact,
+// because the gate's composition was typed in one file. One invariant, proved here:
 //   I43 — the gate's composition is DERIVED from the check modules' own declarations (rung 6),
 //         backed by a build-time regenerate-and-compare (rung 4).
-//   I44 — a check cannot be marked `wired: false` while a claim still cites it (rung 4/6).
+// The claims walker that once rode beside it (I44) was deleted by recalibration decision 49.
 
 const REPO = path.resolve(PLUGIN, '..', '..');
 const GATE = path.join(PLUGIN, 'scripts', 'gate');
@@ -26,7 +25,7 @@ const GATE = path.join(PLUGIN, 'scripts', 'gate');
 // renderManifest() in process, above, and again by `node scripts/build-skills.mjs check`.
 const CHECK_SRC = (fn, id, blocking) =>
   `export function ${fn}() { return true; }\n`
-  + `export const declaration = Object.freeze({ id: '${id}', run: '${fn}', blocking: ${blocking}, wired: true, claims: Object.freeze([]) });\n`;
+  + `export const declaration = Object.freeze({ id: '${id}', run: '${fn}', blocking: ${blocking}, wired: true });\n`;
 
 function synthGate() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gatedir-'));
@@ -44,7 +43,7 @@ const manifestCheck = (dir, root = REPO) => runScript('scripts/gate-manifest.mjs
 test('every module under scripts/gate declares itself; the two structural files are the only exemptions (I43)', async () => {
   const { declarations, problems } = await loadDeclarations(GATE);
   assert.deepEqual(problems, []);
-  assert.deepEqual(declarations.map((d) => d.id).sort(), ['citation_target', 'register_check', 'spec_check', 'sweep_guard']);
+  assert.deepEqual(declarations.map((d) => d.id).sort(), ['register_check', 'spec_check', 'sweep_guard']);
   assert.deepEqual([...NOT_A_CHECK], ['gate.mjs', MANIFEST_FILE]);
   const files = fs.readdirSync(GATE).filter((f) => f.endsWith('.mjs'));
   assert.equal(files.length, declarations.length + NOT_A_CHECK.length, `scripts/gate holds ${files.length} module(s): ${files.join(', ')}`);
@@ -108,60 +107,15 @@ test('a malformed declaration is a diagnostic, never a stack trace (external inp
   } finally { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }); }
 });
 
-// ------------------------------------------------------- I44: a cited check cannot be unwired
+// ------------------------------------------------ the claims mechanism is gone (recalibration 49)
 
-test('every claim in the tree cites a wired check, and the walker states its own denominator (I44)', () => {
+test('the manifest check prints gate_manifest and no gate_claims line (recalibration 49)', () => {
   const res = manifestCheck(GATE);
   assert.equal(res.code, 0, res.stdout + res.stderr);
-  const m = /^gate_claims: (\d+) of (\d+) /m.exec(res.stdout);
-  assert.ok(m, `no gate_claims proof line in:\n${res.stdout}`);
-  assert.equal(m[1], '0');
-  // POSITIVE CONTROL: a walker that found nothing must be distinguishable from one that found
-  // nothing wrong. The denominator is the claims actually walked, and it is not zero.
-  assert.ok(Number(m[2]) >= 6, `the walker only saw ${m[2]} claim(s) — a near-empty claims list passes vacuously`);
-});
-
-test('RED CHECK: unwiring a check while a claim cites it is red; removing the claim is green (I44)', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'claims-'));
-  try {
-    fs.writeFileSync(path.join(tmp, 'r.md'), 'The register check\nblocks every commit.\n');
-    const claim = { file: 'r.md', quote: 'The register check blocks every commit.' };
-    const wired = [{ id: 'register_check', wired: true, claims: [claim] }];
-    let out = walkClaims(wired, tmp);
-    assert.deepEqual(out.failures, []);
-    assert.equal(out.walked.length, 1, 'the walker must have actually walked the claim');
-
-    const unwired = [{ id: 'register_check', wired: false, claims: [claim] }];
-    out = walkClaims(unwired, tmp);
-    assert.equal(out.failures.length, 1, 'unwiring a cited check must be red');
-    assert.match(out.failures[0], /register_check is declared `wired: false`/);
-    assert.match(out.failures[0], /r\.md/);
-
-    const amended = [{ id: 'register_check', wired: false, claims: [] }];
-    out = walkClaims(amended, tmp);
-    assert.deepEqual(out.failures, [], 'with the claim amended away, the unwiring is allowed');
-    assert.equal(out.walked.length, 0);
-  } finally { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 }); }
-});
-
-test('a claim whose text is gone is red — the claims list cannot rot into a list of phantoms (I44)', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'claims-'));
-  try {
-    fs.writeFileSync(path.join(tmp, 'r.md'), 'nothing of the sort\n');
-    const out = walkClaims([{ id: 'register_check', wired: true, claims: [{ file: 'r.md', quote: 'blocks every commit' }] }], tmp);
-    assert.equal(out.failures.length, 1);
-    assert.match(out.failures[0], /no longer carries/);
-    const gone = walkClaims([{ id: 'register_check', wired: true, claims: [{ file: 'nope.md', quote: 'x' }] }], tmp);
-    assert.match(gone.failures[0], /does not exist/);
-  } finally { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 }); }
-});
-
-test('the unwired citation check carries its ruling and cites nothing (#29, I44)', async () => {
-  const { declarations } = await loadDeclarations(GATE);
-  const d = declarations.find((x) => x.id === 'citation_target');
-  assert.equal(d.wired, false);
-  assert.match(d.reason, /#29/);
-  assert.deepEqual([...d.claims], [], 'an unwired check must have no surviving claim');
+  assert.match(res.stdout, /^gate_manifest: 0 of 3 /m, 'the manifest leg still states its denominator');
+  // Decision 3 removed the prose the claims cited; a walker over zero claims checks nothing, and a
+  // `0 of 0` line passes for a bad reason. The line must not exist at all.
+  assert.doesNotMatch(res.stdout, /^gate_claims:/m, `a gate_claims line survived in:\n${res.stdout}`);
 });
 
 // ------------------------------------------------------------------ the manifest is the whole truth

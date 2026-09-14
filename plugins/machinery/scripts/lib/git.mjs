@@ -21,7 +21,7 @@ export function gitExe() {
 // § Committing from it), GIT_INDEX_FILE points at the in-flight temp index
 // holding exactly that partial-commit snapshot. Inherited as-is, a spawned
 // git with GIT_DIR set and GIT_WORK_TREE absent refuses any cwd-relative
-// pathspec (`:./path`, used by gate/citation-target.mjs) with "ambiguous
+// pathspec (`:./path`, used by the gate's checks) with "ambiguous
 // argument" — confirmed by reproducing it directly. Stripping GIT_DIR (and
 // GIT_WORK_TREE, in case something else ever sets it inconsistently) lets git
 // rediscover the real worktree from `cwd` the normal way; GIT_INDEX_FILE is

@@ -40,7 +40,7 @@ function main() {
     appendEntry(inbox, { marker: 'SPEC', text: prompt, session });
     const specs = projectSpecs(root);
     lines.push(rootSession
-      ? `SPEC captured verbatim to ${inbox} (PENDING). Run the spec intake now (skill: machinery:spec-intake): file it into the specification under ${specs} that owns the subsystem, regenerate SPEC_INDEX.md, disposition the entry, commit. Commits are blocked until then.`
+      ? `SPEC captured verbatim to ${inbox} (PENDING). Run the spec intake now (skill: machinery:spec-intake): file it into the specification under ${specs} that owns the subsystem, disposition the entry, commit. Commits are blocked until then.`
       : `SPEC captured verbatim to the project root's spec inbox ${inbox} (PENDING). This session is inside an isolated working copy, so it will be filed from a root session; the root's commits stay blocked until then.`);
   } else if (head.startsWith(m.ambiguous.toLowerCase())) {
     lines.push(`Ambiguous marker: nothing was captured. Dictate a project rule with ${m.project} or a universal rule with ${m.universal}.`);

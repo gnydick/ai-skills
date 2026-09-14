@@ -8,23 +8,16 @@
 // runs is in that one array, blocking and advisory alike: the manifest is the whole truth about
 // what runs.
 //
-// The citation-target check is unwired (#29; owner, 2026-09-05: "let's unwire citation audit and
-// gating" — citations are to anchor on a symbol name, never a line number, so the line-and-heading
-// validator is the wrong mechanism, and it is removed rather than repaired). Nothing validates
-// citations at commit or merge time. ./citation-target.mjs still ships in the PLUGIN for a future
-// sweep tool, declared `wired: false` with that ruling, and test/gate.test.mjs keeps it measured
-// through a driver — but it is no longer imported here and no longer installed into a project.
-//
 // `--merge` is declared surface with no reader: it is parsed and handed to every check in the
-// context below, and no wired check reads it today (citation-target, unwired, was the only one).
-// It stays because the merge step invokes the gate with it.
+// context below, and no wired check reads it today. It stays because the merge step invokes the
+// gate with it.
 import path from 'node:path';
 import { CHECKS } from './manifest.mjs';
 import { projectRoot } from '../lib/root.mjs';
 // File names come from the one place that spells them (#81). This module builds its own layout
 // rather than importing lib/config.mjs because it ships standalone into an adopting project and
 // must never point back at the plugin cache (spec I6) — but the NAMES are still declared once.
-import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, SPEC_INBOX, INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, REGISTER_DIR } from '../lib/layout.mjs';
+import { SPEC_INBOX, INBOX, DOCS_DIR, SPECS_DIR, MACHINERY_DIR } from '../lib/layout.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
@@ -33,16 +26,11 @@ const mergeMode = argv.includes('--merge');
 const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd());
 
 // The spec half is the rule half's mirror (#81, owner ruling 2026-09-07: "make spec: work just like
-// rules"): its own area, its own inbox, its own generated index, resolved the same way in both modes.
-// The two GENERATED INDEXES sit together — .claude/machinery/ for a project, register/ for the
-// universal checkout (owner, 2026-09-07: "just make consistency between where indexes live"). The
-// specifications themselves stay in docs/dictated-specs; only the index moved, and legacySpecIndex
-// is where it used to be, so the gate can name the migration rather than report a missing file.
+// rules"): its own area and its own inbox, resolved the same way in both modes. The generated
+// indexes are gone (recalibration decision 10).
 const layout = universal
-  ? { rulesDir: path.join(root, RULES_DIR), inbox: path.join(root, INBOX), index: path.join(root, REGISTER_DIR, RULES_INDEX), legacyIndex: path.join(root, REGISTER_DIR, LEGACY_RULES_INDEX),
-      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, SPEC_INBOX), specIndex: path.join(root, REGISTER_DIR, SPEC_INDEX), legacySpecIndex: path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX) }
-  : { rulesDir: path.join(root, '.claude', RULES_DIR), inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), index: path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX), legacyIndex: path.join(root, '.claude', MACHINERY_DIR, LEGACY_RULES_INDEX),
-      specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX), specIndex: path.join(root, '.claude', MACHINERY_DIR, SPEC_INDEX), legacySpecIndex: path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX) };
+  ? { inbox: path.join(root, INBOX), specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, SPEC_INBOX) }
+  : { inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX) };
 
 // One context, handed to every check. Each check destructures what it needs, so the manifest can
 // generate a uniform call and a new leg slots into the closed list without changing this loop.

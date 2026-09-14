@@ -47,7 +47,7 @@ test('bump patch-increments plugin.json', () => {
   assert.equal(JSON.parse(fs.readFileSync(path.join(d, '.claude-plugin', 'plugin.json'), 'utf8')).version, '0.1.10');
 });
 
-test('intake list shows pending project entries; commit files, reindexes, dispositions, commits in the root (spec I29, I30)', () => {
+test('intake list shows pending project entries; commit files, dispositions, commits in the root (spec I29, I30)', () => {
   const h = home(); const r = projectWithPending(h);
   try {
     const list = runScript('scripts/intake.mjs', { args: ['list', '--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
@@ -84,7 +84,6 @@ test('universal intake bumps the plugin version in the same commit (spec I31)', 
     fs.writeFileSync(path.join(plug, 'rules', 'straight-talk.md'), '# S\n\n## Claims\n\n- a\n');
     fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
     fs.writeFileSync(path.join(plug, 'inbox.md'), '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'RULES_INDEX.md')] });
     g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'plugin');
     fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
     withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: say less', session: 's' }));
@@ -110,7 +109,6 @@ test('intake commit --kind universal commits in the rules source\'s own checkout
     fs.writeFileSync(path.join(plug, 'rules', 't.md'), '# T\n\n## Claims\n\n- a\n');
     fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
     fs.writeFileSync(path.join(plug, 'inbox.md'), '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(plug, 'rules'), '--out', path.join(plug, 'register', 'RULES_INDEX.md')] });
     g(wt, 'add', '-A'); g(wt, 'commit', '-q', '-m', 'plugin');
     fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
     withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: file it where it lives', session: 's' }));
@@ -122,6 +120,18 @@ test('intake commit --kind universal commits in the rules source\'s own checkout
     assert.equal(res.code, 0, res.stderr + res.stdout);
     assert.match(g(wt, 'log', '-1', '--format=%s'), /^rule:/);
     assert.equal(g(r.root, 'rev-parse', 'HEAD'), mainHeadBefore);
+  } finally { r.cleanup(); }
+});
+
+test('install and project intake write no index, and the filing commit is the rule file and the inbox (decision 10)', () => {
+  const h = home(); const r = projectWithPending(h);
+  try {
+    for (const f of ['RULES_INDEX.md', 'SPEC_INDEX.md']) assert.equal(fs.existsSync(path.join(r.root, '.claude', 'machinery', f)), false, f);
+    const stamp = runScript('scripts/intake.mjs', { args: ['list', '--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } }).stdout.trim().split('\t')[0];
+    runScript('scripts/place.mjs', { args: ['--file', path.join(r.root, '.claude', 'rules', 'straight-talk.md'), '--section', 'Claims', '--text', 'Never guess a path.'] });
+    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'project', '--root', r.root, '--stamp', stamp, '--home', '.claude/rules/straight-talk.md § Claims'], cwd: r.root, env: { MACHINERY_HOME: h } });
+    assert.equal(res.code, 0, res.stderr);
+    assert.deepEqual(g(r.root, 'show', '--name-only', '--format=', 'HEAD').split('\n').filter(Boolean).sort(), ['.claude/machinery/inbox.md', '.claude/rules/straight-talk.md']);
   } finally { r.cleanup(); }
 });
 

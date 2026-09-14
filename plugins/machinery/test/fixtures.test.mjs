@@ -6,7 +6,7 @@ import os from 'node:os';
 import { PLUGIN } from './helpers/run.mjs';
 
 const DIR = path.join(PLUGIN, 'test', 'fixtures', 'payloads');
-const REQUIRED = ['SessionStart', 'UserPromptSubmit', 'PreToolUse-Bash', 'PreToolUse-PowerShell', 'PostToolUse-Edit', 'WorktreeCreate', 'SubagentStart'];
+const REQUIRED = ['SessionStart', 'UserPromptSubmit', 'PreToolUse-Bash', 'PreToolUse-PowerShell', 'WorktreeCreate', 'SubagentStart'];
 
 for (const name of REQUIRED) {
   test(`recorded payload exists and is scrubbed: ${name}`, () => {

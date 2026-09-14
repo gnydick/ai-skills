@@ -15,7 +15,7 @@ test('project install creates the layout, copies the gate, sets hooksPath, stamp
   try {
     const res = install(r.root);
     assert.equal(res.code, 0, res.stderr);
-    for (const f of ['.claude/rules', '.claude/machinery/inbox.md', '.claude/machinery/RULES_INDEX.md', '.githooks/pre-commit', '.githooks/machinery/gate.mjs', '.githooks/machinery/lib/inbox.mjs', '.githooks/machinery/VERSION'])
+    for (const f of ['.claude/rules', '.claude/machinery/inbox.md', '.githooks/pre-commit', '.githooks/machinery/gate.mjs', '.githooks/machinery/lib/inbox.mjs', '.githooks/machinery/VERSION'])
       assert.ok(fs.existsSync(path.join(r.root, f)), f);
     assert.equal(fs.readFileSync(path.join(r.root, '.githooks/machinery/VERSION'), 'utf8').trim(), version);
     assert.equal(execFileSync('git', ['config', 'core.hooksPath'], { cwd: r.root, encoding: 'utf8' }).trim(), '.githooks');
@@ -43,7 +43,7 @@ test('the installed gate runs standalone from the project (no plugin path baked 
 // there goes unwalked.
 //
 // #73: WHAT ships is now derived from the generated manifest's CHECK_FILES, so an unwired module
-// cannot reach a project at all. citation-target.mjs was copied into every adopting project from
+// cannot reach a project at all. An unwired check was copied into every adopting project from
 // 2026-09-05 to 2026-09-06 with nothing importing it — a dead payload that this very test used to
 // hold in place. The assertion below is that claim reversed, not deleted.
 test('every relative import reachable from any installed gate file resolves inside .githooks/machinery', () => {
@@ -61,7 +61,6 @@ test('every relative import reachable from any installed gate file resolves insi
     };
     const roots = fs.readdirSync(dir).filter((f) => f.endsWith('.mjs'));
     for (const f of roots) walk(path.join(dir, f));
-    assert.ok(!roots.includes('citation-target.mjs'), 'an unwired check must not be installed into a project that will never run it (#73)');
     assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs'], 'exactly the generated CHECK_FILES, plus the runner and the manifest');
     assert.ok(seen.size >= 5,`the walk saw ${seen.size} files — the observer must see the gate's own imports`);
     assert.deepEqual(missing, []);
@@ -165,7 +164,7 @@ test('RED CHECK: outside a git repository the project install refuses', () => {
 });
 
 // Task 9: the two tool-assimilation project files. Ruling (2026-09-05): tool-catalog.json is a team
-// decision and is tracked like inbox.md/INDEX.md; observations.json is per-machine measurement and
+// decision and is tracked like inbox.md; observations.json is per-machine measurement and
 // is gitignored, never staged.
 test('install creates an empty project tool catalog and observation record', () => {
   const r = makeRepo();
@@ -224,95 +223,11 @@ test('an observations.json already tracked from before the ruling is named, not 
   } finally { r.cleanup(); }
 });
 
-// Ticket #81 (owner, 2026-09-07: "move INDEX.md to RULES_INDEX.md and create a SPEC_INDEX.md for
-// specs"). Every project that installed the machinery before this has .claude/machinery/INDEX.md on
-// disk and tracked. Left alone, the renamed gate looks for RULES_INDEX.md, does not find it, and
-// reports an unstaged index — an error pointing at the wrong problem. The installer migrates, and an
-// orphaned INDEX.md sitting beside a new RULES_INDEX.md is a failure of the ticket, not a leftover.
-test('migration: an already-installed project has INDEX.md renamed to RULES_INDEX.md, said out loud, with no orphan left (#81)', () => {
-  const r = makeRepo();
-  try {
-    fs.mkdirSync(path.join(r.root, '.claude', 'rules'), { recursive: true });
-    fs.mkdirSync(path.join(r.root, '.claude', 'machinery'), { recursive: true });
-    fs.writeFileSync(path.join(r.root, '.claude', 'rules', 't.md'), '# T\n\n## S\n\n- a rule\n');
-    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'inbox.md'), '');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/INDEX.md')] });
-    execFileSync('git', ['add', '-A'], { cwd: r.root });
-    execFileSync('git', ['commit', '-q', '-m', 'installed before #81'], { cwd: r.root });
-    const before = fs.readdirSync(path.join(r.root, '.claude', 'machinery')).sort();
-    assert.deepEqual(before, ['INDEX.md', 'inbox.md'], 'the fixture really is a pre-#81 install');
-
-    const res = install(r.root);
-    assert.equal(res.code, 0, res.stderr);
-    const after = fs.readdirSync(path.join(r.root, '.claude', 'machinery')).sort();
-    assert.ok(after.includes('RULES_INDEX.md'), after.join(', '));
-    assert.ok(!after.includes('INDEX.md'), `an orphaned INDEX.md survived the migration: ${after.join(', ')}`);
-    assert.match(res.stdout, /INDEX\.md/);
-    assert.match(res.stdout, /RULES_INDEX\.md/);
-    // The removal is STAGED, not left as an unstaged deletion. git reports it as a rename (R100)
-    // when the content is unchanged and as D+A when it is not, so the assertion is on the index
-    // itself: the old path is gone from what the next commit will carry, by whichever spelling.
-    const staged = execFileSync('git', ['diff', '--cached', '--name-status'], { cwd: r.root, encoding: 'utf8' });
-    assert.match(staged, /\.claude\/machinery\/RULES_INDEX\.md/, staged);
-    assert.match(staged, /\.claude\/machinery\/INDEX\.md/, `the old name is not mentioned in the staged change at all:\n${staged}`);
-    const tracked = execFileSync('git', ['ls-files', '--cached', '--', '.claude/machinery'], { cwd: r.root, encoding: 'utf8' });
-    assert.doesNotMatch(tracked, /^\.claude\/machinery\/INDEX\.md$/m, `the old index is still tracked after the migration:\n${tracked}`);
-    assert.match(tracked, /^\.claude\/machinery\/RULES_INDEX\.md$/m, tracked);
-    const gate = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root });
-    assert.equal(gate.code, 0, gate.stdout + gate.stderr);
-  } finally { r.cleanup(); }
-});
-
-// The same ticket, second migration. A project installed since #81 has the spec index INSIDE the
-// area it indexes — docs/dictated-specs/SPEC_INDEX.md — on disk and tracked. The owner ruled
-// 2026-09-07 ("we don't need to change anything. if anything, just make consistency between where
-// indexes live") that the two generated indexes live in one place, so the spec index moves to
-// .claude/machinery/ beside the rules index. Left behind, the old file is worse than an orphan: the
-// generator no longer excludes that name, so it would be indexed as a specification. Same shape as
-// the INDEX.md migration above — the installer moves it, says so, and stages both sides.
-test('migration: an already-installed project has docs/dictated-specs/SPEC_INDEX.md moved to .claude/machinery/, with no orphan left (#81)', () => {
-  const r = makeRepo();
-  try {
-    fs.mkdirSync(path.join(r.root, '.claude', 'rules'), { recursive: true });
-    fs.mkdirSync(path.join(r.root, '.claude', 'machinery'), { recursive: true });
-    fs.mkdirSync(path.join(r.root, 'docs', 'dictated-specs'), { recursive: true });
-    fs.writeFileSync(path.join(r.root, '.claude', 'rules', 't.md'), '# T\n\n## S\n\n- a rule\n');
-    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'inbox.md'), '');
-    fs.writeFileSync(path.join(r.root, '.claude', 'machinery', 'spec-inbox.md'), '');
-    fs.writeFileSync(path.join(r.root, 'docs', 'dictated-specs', 'tooling.md'), '# Tooling\n\n## Resolving a tool\n\n- x\n');
-    runScript('scripts/reindex.mjs', { args: ['--rules', path.join(r.root, '.claude/rules'), '--out', path.join(r.root, '.claude/machinery/RULES_INDEX.md')] });
-    runScript('scripts/reindex.mjs', { args: ['--kind', 'specs', '--rules', path.join(r.root, 'docs/dictated-specs'), '--out', path.join(r.root, 'docs/dictated-specs/SPEC_INDEX.md')] });
-    execFileSync('git', ['add', '-A'], { cwd: r.root });
-    execFileSync('git', ['commit', '-q', '-m', 'installed with the spec index in the spec area'], { cwd: r.root });
-    assert.deepEqual(fs.readdirSync(path.join(r.root, 'docs', 'dictated-specs')).sort(), ['SPEC_INDEX.md', 'tooling.md'], 'the fixture really has the index inside the spec area');
-
-    const res = install(r.root);
-    assert.equal(res.code, 0, res.stderr);
-    assert.deepEqual(fs.readdirSync(path.join(r.root, 'docs', 'dictated-specs')).sort(), ['tooling.md'], 'an orphaned SPEC_INDEX.md survived the migration on disk');
-    assert.ok(fs.existsSync(path.join(r.root, '.claude', 'machinery', 'SPEC_INDEX.md')));
-    assert.match(res.stdout, /docs\/dictated-specs\/SPEC_INDEX\.md/, res.stdout);
-    assert.match(res.stdout, /\.claude\/machinery\/SPEC_INDEX\.md/, res.stdout);
-    const stagedSpec = execFileSync('git', ['diff', '--cached', '--name-status'], { cwd: r.root, encoding: 'utf8' });
-    assert.match(stagedSpec, /\.claude\/machinery\/SPEC_INDEX\.md/, stagedSpec);
-    assert.match(stagedSpec, /docs\/dictated-specs\/SPEC_INDEX\.md/, `the old path is not mentioned in the staged change at all:\n${stagedSpec}`);
-    const trackedSpec = execFileSync('git', ['ls-files', '--cached'], { cwd: r.root, encoding: 'utf8' });
-    assert.doesNotMatch(trackedSpec, /^docs\/dictated-specs\/SPEC_INDEX\.md$/m, `the old spec index is still tracked after the migration:\n${trackedSpec}`);
-    assert.match(trackedSpec, /^\.claude\/machinery\/SPEC_INDEX\.md$/m, trackedSpec);
-    // And the migrated index really is the one the gate now reads: it carries the spec that stayed
-    // behind, and never a row for itself.
-    const idx = fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'SPEC_INDEX.md'), 'utf8');
-    assert.match(idx, /^\| dictated-specs\/tooling\.md \|/m, idx);
-    assert.doesNotMatch(idx, /SPEC_INDEX/, idx);
-    const gateRes = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root });
-    assert.equal(gateRes.code, 0, gateRes.stdout + gateRes.stderr);
-  } finally { r.cleanup(); }
-});
-
 // Issue tracking configuration (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md,
 // "Install seeds them", tests 1, 2 and 10). Fixture answers use visible placeholders (Ruling H).
 const TRACKING_ANSWER = 'Issue tracking: <tracker> on `<project>`, reached with `<tool>`.\nCheck: `<status command>` and `<one-item read command>`.\n';
 
-test('project install seeds the project issue-tracking file once, indexes and stages it, and the gate passes (test 1)', () => {
+test('project install seeds the project issue-tracking file once, stages it, and the gate passes (test 1)', () => {
   const r = makeRepo();
   try {
     const res = install(r.root);
@@ -320,8 +235,6 @@ test('project install seeds the project issue-tracking file once, indexes and st
     const f = path.join(r.root, '.claude', 'rules', 'project_issue_tracking.md');
     assert.equal(fs.readFileSync(f, 'utf8'), 'unanswered\n');
     assert.match(res.stdout, /\.claude[\\/]rules[\\/]project_issue_tracking\.md: created/);
-    const idx = fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'RULES_INDEX.md'), 'utf8');
-    assert.match(idx, /^\| rules\/project_issue_tracking\.md \| 🟢 \| 0 \|  \|$/m, idx);
     const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: r.root, encoding: 'utf8' });
     assert.match(staged, /^\.claude\/rules\/project_issue_tracking\.md$/m, staged);
     const gate = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root });

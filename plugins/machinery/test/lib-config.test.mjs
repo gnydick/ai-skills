@@ -4,14 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { rulesSource, universalInbox, universalIndex, projectInbox, projectIndex, legacyProjectIndex, markers, pluginRoot, globalIssueTracking, projectIssueTracking } from '../scripts/lib/config.mjs';
+import { rulesSource, universalInbox, projectInbox, markers, pluginRoot, globalIssueTracking, projectIssueTracking } from '../scripts/lib/config.mjs';
 
 test('defaults: rules source is the plugin rules dir; universal inbox beside it', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
   process.env.MACHINERY_HOME = home; process.env.CLAUDE_PLUGIN_ROOT = PLUGIN;
   assert.equal(rulesSource(), path.join(PLUGIN, 'rules'));
   assert.equal(universalInbox(), path.join(PLUGIN, 'inbox.md'));
-  assert.equal(universalIndex(), path.join(PLUGIN, 'register', 'RULES_INDEX.md'));
 });
 
 test('~/.claude/machinery.json overrides the source', () => {
@@ -25,10 +24,6 @@ test('~/.claude/machinery.json overrides the source', () => {
 
 test('project paths sit outside the rules directory (spec I12)', () => {
   assert.equal(projectInbox('R'), path.join('R', '.claude', 'machinery', 'inbox.md'));
-  assert.equal(projectIndex('R'), path.join('R', '.claude', 'machinery', 'RULES_INDEX.md'));
-  // #81: the pre-rename name is resolvable ONLY so the installer can migrate one and the gate can
-  // name the migration. It is not an alias — nothing else resolves to it.
-  assert.equal(legacyProjectIndex('R'), path.join('R', '.claude', 'machinery', 'INDEX.md'));
 });
 
 test('markers come from markers.json', () => assert.deepEqual(markers(), { project: 'PRULE:', universal: 'URULE:', spec: 'SPEC:', ambiguous: 'RULE:' }));

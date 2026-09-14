@@ -19,8 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { makeRepo, addWorktree } from './helpers/repo.mjs';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 import { pending, parseInbox, appendEntry } from '../scripts/lib/inbox.mjs';
-import { projectIndex, projectSpecs, projectSpecInbox, projectSpecIndex, legacyProjectSpecIndex } from '../scripts/lib/config.mjs';
-import { generateIndex, generateSpecIndex } from '../scripts/lib/index.mjs';
+import { projectSpecs, projectSpecInbox } from '../scripts/lib/config.mjs';
 
 const g = (root, ...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const write = (root, rel, text) => { const f = path.join(root, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text); };
@@ -60,8 +59,6 @@ function installedProject() {
   write(r.root, '.claude/machinery/inbox.md', '');
   write(r.root, '.claude/machinery/spec-inbox.md', '');
   fs.mkdirSync(path.join(r.root, 'docs', 'dictated-specs'), { recursive: true });
-  write(r.root, '.claude/machinery/RULES_INDEX.md', generateIndex(path.join(r.root, '.claude/rules')));
-  write(r.root, '.claude/machinery/SPEC_INDEX.md', generateSpecIndex(path.join(r.root, 'docs/dictated-specs')));
   g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'install');
   return r;
 }
@@ -136,150 +133,14 @@ test('adding a third mark leaves the two existing marks exactly as they were (#8
   } finally { r.cleanup(); }
 });
 
-// ------------------------------------------------------- the RULES_INDEX.md rename's migration
-//
-// A project that has not re-run /machinery:install after the rename still has
-// .claude/machinery/INDEX.md staged and no RULES_INDEX.md at all. The gate cannot write, so it
-// cannot migrate — but "index not staged (generated but not added)" would send the user to
-// `git add` a file the rename made obsolete. It names the rename instead.
-test('the pre-#81 index name is named as a migration, not reported as a missing index (#81)', () => {
-  const r = makeRepo();
-  try {
-    write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n');
-    write(r.root, '.claude/machinery/inbox.md', '');
-    write(r.root, '.claude/machinery/INDEX.md', generateIndex(path.join(r.root, '.claude/rules')));
-    g(r.root, 'add', '-A');
-    const res = gate(r.root);
-    assert.equal(res.code, 1, res.stdout + res.stderr);
-    assert.match(res.stdout, /register_check: 1 of 1 index comparison\(s\) failed/, 'the failure still carries its denominator');
-    assert.match(res.stdout, /RULES_INDEX\.md/);
-    assert.match(res.stdout, /machinery:install/, 'the remedy named is the migration, not a git add');
-  } finally { r.cleanup(); }
-});
-
-// A project installed between #81 and the index move has docs/dictated-specs/SPEC_INDEX.md tracked
-// and nothing at .claude/machinery/SPEC_INDEX.md. "spec index not staged (generated but not added)"
-// would send the user to git add a file that does not exist yet, and leave the old one sitting in
-// the spec area where the generator now indexes it as a specification. The gate cannot write (spec
-// I23), so it names the migration instead — the same shape register_check uses for INDEX.md.
-test('the pre-move spec index location is named as a migration, not reported as a missing index (#81)', () => {
-  const r = makeRepo();
-  try {
-    write(r.root, '.claude/rules/t.md', '# T\n\n## S\n\n- a rule\n');
-    write(r.root, '.claude/machinery/inbox.md', '');
-    write(r.root, '.claude/machinery/spec-inbox.md', '');
-    write(r.root, '.claude/machinery/RULES_INDEX.md', generateIndex(path.join(r.root, '.claude/rules')));
-    write(r.root, 'docs/dictated-specs/tooling.md', '# Tooling\n\n## Resolving a tool\n\n- x\n');
-    write(r.root, 'docs/dictated-specs/SPEC_INDEX.md', generateSpecIndex(path.join(r.root, 'docs/dictated-specs')));
-    g(r.root, 'add', '-A');
-    const res = gate(r.root);
-    assert.equal(res.code, 1, res.stdout + res.stderr);
-    assert.match(res.stdout, /spec_check: 1 of 1 spec index comparison\(s\) failed/, 'the failure still carries its denominator');
-    assert.match(res.stdout, /machinery:install/, 'the remedy named is the migration, not a git add');
-  } finally { r.cleanup(); }
-});
-
-// ------------------------------------------------------------------ Part 2: one fixed location
-
-test('the spec layout is resolvable: BOTH generated indexes live in .claude/machinery, the specs themselves do not (#81)', () => {
-  // The specifications THEMSELVES do not move: docs/dictated-specs stays their one fixed home.
-  assert.equal(projectSpecs('R'), path.join('R', 'docs', 'dictated-specs'));
-  // Owner, 2026-09-07: "we don't need to change anything. if anything, just make consistency
-  // between where indexes live." RULES_INDEX.md cannot live with its rules — .claude/rules/ is
-  // auto-loaded by Claude Code, so a generated index there would be injected into every session as
-  // if it were an instruction, and it would index itself. That constraint is real, so consistency
-  // has exactly one available direction: the spec index moves to machinery's generated-state
-  // directory, beside the rules index.
-  assert.equal(projectSpecIndex('R'), path.join('R', '.claude', 'machinery', 'SPEC_INDEX.md'));
-  assert.equal(path.dirname(projectSpecIndex('R')), path.dirname(projectIndex('R')), 'the two generated indexes live in one directory');
-  // The inbox was already there and stays: it holds raw dictations nobody has decided anything
-  // about yet, and an unfiled capture landing in the documentation tree would be wrong.
-  assert.equal(projectSpecInbox('R'), path.join('R', '.claude', 'machinery', 'spec-inbox.md'));
-  // The pre-move location, resolved only so the installer can migrate one.
-  assert.equal(legacyProjectSpecIndex('R'), path.join('R', 'docs', 'dictated-specs', 'SPEC_INDEX.md'));
-});
-
-// Before the move the generator had to exclude SPEC_INDEX.md by name, because the index sat inside
-// the directory it indexes and would otherwise have grown a row for itself and never reached a
-// fixed point. Separated, that self-exclusion has no reason to exist and is gone. What replaces the
-// old guarantee is structural: the index is not in the directory, so it cannot be read as one of
-// its own inputs — and a file genuinely named SPEC_INDEX.md that someone puts in the spec area is
-// now just another document there, indexed like any other.
-test('the spec index is outside the area it indexes, so it cannot index itself, and regeneration is a fixed point (#81)', () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'specs-'));
-  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'machinery-'));
-  try {
-    fs.writeFileSync(path.join(d, 'tooling.md'), '# Tooling\n\n## Resolving a tool\n\n- x\n');
-    const first = generateSpecIndex(d);
-    fs.writeFileSync(path.join(out, 'SPEC_INDEX.md'), first);
-    assert.match(first, /^\| dictated-specs\/tooling\.md \|/m, first);
-    assert.doesNotMatch(first, /SPEC_INDEX/, 'the index cannot carry a row for itself: it is not in the directory');
-    assert.equal(generateSpecIndex(d), first, 'and it is a fixed point: regenerating over its own output changes nothing');
-    // The self-exclusion is really gone, not merely unreachable: a file with that name IN the spec
-    // area is indexed like any other document.
-    fs.writeFileSync(path.join(d, 'SPEC_INDEX.md'), '# Stray\n\n## Left behind\n\n- x\n');
-    assert.match(generateSpecIndex(d), /^\| dictated-specs\/SPEC_INDEX\.md \| 1 \| Left behind \|$/m, generateSpecIndex(d));
-  } finally { for (const p of [d, out]) fs.rmSync(p, { recursive: true, force: true, maxRetries: 5 }); }
-});
-
-// The spec area is outside .claude/ entirely, so a filed specification is never seen by anything
-// that reads the rules directory: not the rules index, not the register check, not the nudge.
-test('the spec index is generated, never authored, and a filed specification never appears among the dictated rules (#81)', () => {
-  const r = installedProject();
-  try {
-    // Frontmatter parseRuleFile() would refuse outright, so a spec reaching the rule generator
-    // would not merely produce a wrong row — it would throw.
-    write(r.root, 'docs/dictated-specs/tooling.md', '---\ntitle: Tooling\n---\n# Tooling\n\n## Resolving a tool\n\n- resolve by explicit path\n');
-    // Hand-edited first: the spec index is generated, never authored, and the gate says so — at its
-    // new address, .claude/machinery/, beside the rules index.
-    write(r.root, '.claude/machinery/SPEC_INDEX.md', 'edited by hand');
-    g(r.root, 'add', '-A');
-    let res = gate(r.root);
-    assert.equal(res.code, 1, res.stdout + res.stderr);
-    assert.match(res.stdout, /spec_check: 1 of 1 spec index comparison\(s\) failed — spec index is stale/, res.stdout);
-
-    // Regenerated through the real script, with the --kind that picks the spec generator. The
-    // generator still reads docs/dictated-specs; only the output moved.
-    runScript('scripts/reindex.mjs', { args: ['--kind', 'specs', '--rules', path.join(r.root, 'docs/dictated-specs'), '--out', path.join(r.root, '.claude/machinery/SPEC_INDEX.md')] });
-    g(r.root, 'add', '.claude/machinery/SPEC_INDEX.md');
-    const rulesIndex = fs.readFileSync(path.join(r.root, '.claude/machinery/RULES_INDEX.md'), 'utf8');
-    assert.match(rulesIndex, /\| rules\/t\.md \|/, rulesIndex);
-    assert.doesNotMatch(rulesIndex, /tooling/, 'a specification must never appear as a row among dictated rules');
-    res = gate(r.root);
-    assert.equal(res.code, 0, res.stdout + res.stderr);
-    assert.match(res.stdout, /register_check: 0 of 1 index comparison\(s\) failed/, res.stdout);
-    assert.match(res.stdout, /spec_check: 0 of 1 spec index comparison\(s\) failed/, res.stdout);
-  } finally { r.cleanup(); }
-});
-
-test('the spec index is generated from the spec files and never authored; a spec with unknown frontmatter is data, not a crash (#81)', () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'specs-'));
-  try {
-    // Frontmatter keys the rule parser has never heard of. parseRuleFile() would throw on these;
-    // a specification is somebody else's document and the index still has to come out.
-    fs.writeFileSync(path.join(d, 'b-tooling.md'), '---\ntitle: Tooling\nowner: nobody\n---\n# Tooling\n\n## Resolving a tool\n\n- x\n\n## Heartbeats\n\n- y\n');
-    fs.writeFileSync(path.join(d, 'a-gate.md'), '# Gate\n\n## Checks\n\n```\n## not a heading, it is in a fence\n```\n');
-    const out = generateSpecIndex(d);
-    assert.equal(out, generateSpecIndex(d), 'the generator is deterministic');
-    assert.match(out, /^\| dictated-specs\/a-gate\.md \| 1 \| Checks \|$/m, out);
-    assert.match(out, /^\| dictated-specs\/b-tooling\.md \| 2 \| Resolving a tool; Heartbeats \|$/m, out);
-    assert.doesNotMatch(out, /not a heading/, 'a fenced ## is not a section');
-    assert.equal(generateSpecIndex(path.join(d, 'nope')), generateSpecIndex(fs.mkdtempSync(path.join(os.tmpdir(), 'empty-'))), 'a missing spec area indexes as empty, not as a throw');
-  } finally { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5 }); }
-});
-
-test('install creates the spec layout and stages the spec index alongside the rules one (#81)', () => {
+test('install creates the spec layout and stages the spec inbox (#81)', () => {
   const r = makeRepo();
   try {
     const res = runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root });
     assert.equal(res.code, 0, res.stderr);
     assert.ok(fs.existsSync(projectSpecs(r.root)), 'docs/dictated-specs');
     assert.equal(fs.readFileSync(projectSpecInbox(r.root), 'utf8'), '');
-    assert.equal(fs.readFileSync(projectSpecIndex(r.root), 'utf8'), generateSpecIndex(projectSpecs(r.root)));
-    // The index is in the generated-state directory, not in the spec area it indexes.
-    assert.ok(!fs.existsSync(path.join(r.root, 'docs', 'dictated-specs', 'SPEC_INDEX.md')), 'no index is written into the spec area');
     const staged = g(r.root, 'diff', '--cached', '--name-only');
-    assert.match(staged, /\.claude\/machinery\/SPEC_INDEX\.md/, staged);
     assert.match(staged, /\.claude\/machinery\/spec-inbox\.md/, staged);
   } finally { r.cleanup(); }
 });
@@ -345,7 +206,7 @@ test('a malformed spec inbox is a diagnostic, not a stack trace (external input)
 
 // ------------------------------------------------------------------------------------- the intake
 
-test('spec intake refuses a home outside the spec area, then files, reindexes and commits in one commit in the root (#81)', () => {
+test('spec intake refuses a home outside the spec area, then files and commits in one commit in the root (#81)', () => {
   const r = installedProject();
   try {
     const inbox = projectSpecInbox(r.root);

@@ -91,7 +91,6 @@ test('normalizeAnswer keeps an answer, normalises its line endings, and refuses 
   assert.throws(() => normalizeAnswer(''), /empty answer/);
   assert.throws(() => normalizeAnswer(null), /empty answer/);
   assert.throws(() => normalizeAnswer(' unanswered \n'), /seeded word/);
-  assert.throws(() => normalizeAnswer('---\nIssue tracking: <tracker>'), /rules index/);
 });
 
 // The note rules/rule-governance.md § Dictating a rule requires: "with a note saying why the automatic

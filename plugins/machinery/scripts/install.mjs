@@ -6,9 +6,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { generateIndex, generateSpecIndex } from './lib/index.mjs';
 import { pluginRoot, rulesSource, globalIssueTracking, projectIssueTracking } from './lib/config.mjs';
-import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
+import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
@@ -84,7 +83,6 @@ function installProject() {
   // specification into a session. That is #81 Part 4 and is not built.
   const specs = path.join(root, DOCS_DIR, SPECS_DIR);
   fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true }); fs.mkdirSync(specs, { recursive: true });
-  // Seeded before the index is regenerated below, so the index this run stages already has its row.
   const trackingFile = projectIssueTracking(root);
   say(seedLine(path.relative(root, trackingFile), seed(trackingFile)));
   const inbox = path.join(mach, 'inbox.md');
@@ -107,29 +105,6 @@ function installProject() {
   // ruling look applied when it is not (rules/design-invariants.md § Telling the user what you dropped).
   if (git(['ls-files', '--error-unmatch', '--', ignoreLine], root).code === 0)
     process.stderr.write(`warning: ${ignoreLine} is tracked; it is per-machine data and should not be. Run: git rm --cached ${ignoreLine}\n`);
-  // #81 migration. A project installed before the rename has .claude/machinery/INDEX.md tracked.
-  // Regenerating under the new name and walking away leaves an orphan the gate will never look at,
-  // and the gate cannot migrate it itself because nothing under scripts/gate/ writes (spec I23). So
-  // the install is the migration: rename it, say so where the user sees it, and stage the removal
-  // alongside the addition so the very next commit carries both halves.
-  const legacyIndexPath = path.join(mach, LEGACY_RULES_INDEX);
-  const migrated = fs.existsSync(legacyIndexPath);
-  if (migrated) fs.rmSync(legacyIndexPath, { force: true });
-  fs.writeFileSync(path.join(mach, RULES_INDEX), generateIndex(rules));
-  say(`regenerated .claude/machinery/${RULES_INDEX}`);
-  if (migrated) say(`migrated .claude/machinery/${LEGACY_RULES_INDEX} → .claude/machinery/${RULES_INDEX} (#81); the old name is staged as removed`);
-  // The same ticket's second migration, same shape. Between #81 and the owner's 2026-09-07 ruling
-  // ("just make consistency between where indexes live") the spec index sat inside the spec area it
-  // indexes; both generated indexes now live here, in .claude/machinery/. The specifications
-  // themselves do NOT move — docs/dictated-specs stays their one fixed home. Left behind, the old
-  // file is worse than an orphan: the generator no longer excludes that name, so it would be
-  // indexed as a specification. So the install is the migration here too.
-  const legacySpecIndexPath = path.join(specs, SPEC_INDEX);
-  const specMigrated = fs.existsSync(legacySpecIndexPath);
-  if (specMigrated) fs.rmSync(legacySpecIndexPath, { force: true });
-  fs.writeFileSync(path.join(mach, SPEC_INDEX), generateSpecIndex(specs));
-  say(`regenerated .claude/machinery/${SPEC_INDEX}`);
-  if (specMigrated) say(`migrated ${DOCS_DIR}/${SPECS_DIR}/${SPEC_INDEX} → .claude/machinery/${SPEC_INDEX} (#81); the old location is staged as removed`);
   const hooksDir = path.join(root, '.githooks'), gateDir = path.join(hooksDir, 'machinery');
   fs.rmSync(gateDir, { recursive: true, force: true });
   // The gate files import '../lib/...'; installed alongside gateDir/lib, so rewrite that prefix
@@ -137,8 +112,8 @@ function installProject() {
   fs.mkdirSync(gateDir, { recursive: true });
   // WHAT gets copied is derived from the generated manifest, never a hand-kept list and no longer
   // "whatever is in the directory" (#73, I43). Before this the installer shipped every module under
-  // scripts/gate/ into every adopting project, including citation-target.mjs — unwired since
-  // 2026-09-05 (#29) and imported by nothing there: a dead payload with a test holding it in place.
+  // scripts/gate/ into every adopting project, including an unwired check imported by nothing
+  // there (#29, 2026-09-05): a dead payload with a test holding it in place.
   // An unwired check is now structurally unable to reach a project that will never run it.
   for (const f of ['gate.mjs', 'manifest.mjs', ...CHECK_FILES]) {
     const src = fs.readFileSync(path.join(pluginRoot(), 'scripts', 'gate', f), 'utf8').replaceAll("'../lib/", "'./lib/");
@@ -149,7 +124,7 @@ function installProject() {
   // imports and fails on any that does not resolve, so a lib added to git.mjs (lines.mjs, #19
   // fix round 1) and forgotten here is caught mechanically rather than at a project's next commit.
   fs.mkdirSync(path.join(gateDir, 'lib'), { recursive: true });
-  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'frontmatter.mjs', 'index.mjs', 'report.mjs', 'layout.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'report.mjs', 'layout.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   fs.writeFileSync(path.join(gateDir, 'VERSION'), version() + '\n');
   fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install. Runs the machinery commit gate on every commit.\nexec node .githooks/machinery/gate.mjs\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755); } catch {}
@@ -163,17 +138,11 @@ function installProject() {
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);
   say(`hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none (the local merge gate is the sole blocking backstop)'}`);
   // Final review A1(c): stage exactly the layout this run created/updated, so the first commit
-  // after install has something to actually commit — the gate's register check otherwise sees
-  // a generated-but-unstaged index and rejects a remedy (reindex) that would produce nothing new.
+  // after install has something to actually commit.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
   // not swept into the next commit. observations.json is deliberately absent from this list.
-  // `docs/dictated-specs` is recursive, so the removal of a migrated spec index inside it is carried
-  // whether or not the old path is named below; it is named anyway, so the staging is explicit
-  // rather than resting on `git add <dir>` also staging deletions.
-  git(['add', '--', '.claude/rules', `${DOCS_DIR}/${SPECS_DIR}`, '.claude/machinery/inbox.md', `.claude/machinery/${RULES_INDEX}`,
-       `.claude/machinery/${SPEC_INBOX}`, `.claude/machinery/${SPEC_INDEX}`,
-       ...(migrated ? [`.claude/machinery/${LEGACY_RULES_INDEX}`] : []),
-       ...(specMigrated ? [`${DOCS_DIR}/${SPECS_DIR}/${SPEC_INDEX}`] : []),
+  git(['add', '--', '.claude/rules', `${DOCS_DIR}/${SPECS_DIR}`, '.claude/machinery/inbox.md',
+       `.claude/machinery/${SPEC_INBOX}`,
        '.claude/machinery/tool-catalog.json', ...(ignoreWritten ? ['.gitignore'] : []), '.githooks'], root);
   return 0;
 }

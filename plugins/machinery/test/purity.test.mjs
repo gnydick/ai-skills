@@ -11,7 +11,7 @@ import { PLUGIN } from './helpers/run.mjs';
 // INDEX/inbox files (which read a rules directory to build their content, so "rules" appears in
 // their write call's arguments too) are named exceptions, not a loophole — they never write a
 // rule FILE, only the derived index/inbox beside it.
-const EXEMPT = new Set(['place.mjs', path.join('lib', 'inbox.mjs'), 'reindex.mjs', 'intake.mjs', 'install.mjs']);
+const EXEMPT = new Set(['place.mjs', path.join('lib', 'inbox.mjs'), 'intake.mjs', 'install.mjs']);
 const WRITE_CALL = /fs\.(write|append)\w*\([^\n]*/g;
 
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));

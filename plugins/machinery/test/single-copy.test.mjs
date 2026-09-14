@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { generateIndex } from '../scripts/lib/index.mjs';
 import { pending } from '../scripts/lib/inbox.mjs';
 
 const REPO = path.resolve(PLUGIN, '..', '..');
@@ -16,10 +15,6 @@ test('the ten rule files exist in the plugin and nowhere else in the repo (spec 
   const titles = new Set(mine.map((f) => h1(path.join(PLUGIN, 'rules', f))));
   const elsewhere = walk(path.join(REPO, 'combine-projects-machinery')).filter((f) => /[\\/]rules[\\/][^\\/]+\.md$/.test(f) && !f.includes(path.join('ferrislicer', 'docs')) && !f.includes(path.join('dwc-ng', 'docs')));
   for (const f of elsewhere) assert.ok(!titles.has(h1(f)), `duplicate rule file outside the plugin: ${f}`);
-});
-
-test('the register index is exactly the generated one (spec I2)', () => {
-  assert.equal(fs.readFileSync(path.join(PLUGIN, 'register', 'RULES_INDEX.md'), 'utf8'), generateIndex(path.join(PLUGIN, 'rules')));
 });
 
 test('agents carry plugin agent frontmatter', () => {

@@ -12,8 +12,8 @@ import { git, gitRaw, gitLines } from '../scripts/lib/git.mjs';
 // runs, never GIT_WORK_TREE, and — for the partial commits this repo's own
 // convention requires (explicit pathspecs) — GIT_INDEX_FILE pointing at the
 // in-flight temp index. Inherited as-is by a spawned git, GIT_DIR without
-// GIT_WORK_TREE breaks every `:./relative` pathspec gate/citation-target.mjs
-// depends on; GIT_INDEX_FILE must still be honoured, or a partial commit's
+// GIT_WORK_TREE breaks every `:./relative` pathspec the gate's checks
+// depend on; GIT_INDEX_FILE must still be honoured, or a partial commit's
 // check silently reads the wrong (whole-worktree) snapshot.
 
 function withEnv(key, value, fn) {
@@ -28,7 +28,7 @@ function withEnv(key, value, fn) {
 }
 
 // The bug needs cwd to be a SUBDIRECTORY of the worktree, not the worktree
-// root itself — citation-target.mjs always calls git() with `root` set to
+// root itself — the gate's checks always call git() with `root` set to
 // e.g. `<worktree>/plugins/machinery`. From the worktree root itself the
 // (wrong) "cwd is the work-tree top" assumption GIT_DIR-without-GIT_WORK_TREE
 // makes happens to hold, so a test at the worktree root would pass on the

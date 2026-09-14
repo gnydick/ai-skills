@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RULES_INDEX, LEGACY_RULES_INDEX, SPEC_INDEX, INBOX, SPEC_INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, REGISTER_DIR, GLOBAL_ISSUE_TRACKING, PROJECT_ISSUE_TRACKING } from './layout.mjs';
+import { INBOX, SPEC_INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, GLOBAL_ISSUE_TRACKING, PROJECT_ISSUE_TRACKING } from './layout.mjs';
 
 const home = () => process.env.MACHINERY_HOME || os.homedir();
 export function pluginRoot() {
@@ -18,7 +18,6 @@ export function rulesSource() {
   return c.rulesSource ? path.resolve(c.rulesSource) : path.join(pluginRoot(), RULES_DIR);
 }
 export const universalInbox = () => path.join(path.dirname(rulesSource()), INBOX);
-export const universalIndex = () => path.join(path.dirname(rulesSource()), REGISTER_DIR, RULES_INDEX);
 export const projectRules = (root) => path.join(root, '.claude', RULES_DIR);
 // The two issue-tracking files (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
 // Built here and nowhere else, so the installer that seeds them, the command that reads and records
@@ -26,25 +25,10 @@ export const projectRules = (root) => path.join(root, '.claude', RULES_DIR);
 export const globalIssueTracking = () => path.join(home(), '.claude', RULES_DIR, GLOBAL_ISSUE_TRACKING);
 export const projectIssueTracking = (root) => path.join(projectRules(root), PROJECT_ISSUE_TRACKING);
 export const projectInbox = (root) => path.join(root, '.claude', MACHINERY_DIR, INBOX);
-export const projectIndex = (root) => path.join(root, '.claude', MACHINERY_DIR, RULES_INDEX);
-// Pre-#81 name, resolved only so the installer can migrate one and the gate can name the migration.
-export const legacyProjectIndex = (root) => path.join(root, '.claude', MACHINERY_DIR, LEGACY_RULES_INDEX);
 // The spec layout, by symmetry with the rule layout (ticket #81, owner ruling 2026-09-07). The
 // location is FIXED and known — there is no resolver, no config key and no per-project declaration,
 // because there is nothing per-project to declare. See lib/layout.mjs for why that is not the
 // fabricated default the design invariants forbid.
 export const projectSpecs = (root) => path.join(root, DOCS_DIR, SPECS_DIR);
 export const projectSpecInbox = (root) => path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX);
-// BOTH generated indexes live in machinery's generated-state directory (owner, 2026-09-07: "we
-// don't need to change anything. if anything, just make consistency between where indexes live").
-// The specifications themselves do not move; only this index does.
-//
-// Why the consistency runs in this direction and not the other: RULES_INDEX.md cannot live with its
-// rules, because Claude Code auto-loads .claude/rules/ — a generated index sitting there would be
-// injected into every session as if it were an instruction, and it would index itself. That
-// constraint is on the rules side and cannot be lifted, so the spec index is the half that moves.
-export const projectSpecIndex = (root) => path.join(root, '.claude', MACHINERY_DIR, SPEC_INDEX);
-// Where the spec index sat between #81 and the move, resolved only so the installer can migrate one
-// and the gate can name the migration. Not an alias: nothing resolves to it.
-export const legacyProjectSpecIndex = (root) => path.join(root, DOCS_DIR, SPECS_DIR, SPEC_INDEX);
 export function markers() { return JSON.parse(fs.readFileSync(path.join(pluginRoot(), 'markers.json'), 'utf8')); }

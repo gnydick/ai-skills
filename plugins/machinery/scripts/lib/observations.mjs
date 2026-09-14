@@ -62,7 +62,7 @@ export function saveObservations(root, obs) {
 // placeholder to preserving a distinction of doubtful value.
 
 // After a generic runner the first value-shaped token is the tool's IDENTITY, not a parameter (#15
-// requirement 2): `node scripts/bump.mjs` and `node scripts/reindex.mjs` are two tools, and `node
+// requirement 2): `node scripts/bump.mjs` and `node scripts/install.mjs` are two tools, and `node
 // %p` would merge every script in a project into one record. The runner's own name carries no
 // identity at all, which is what makes it the exception rather than a special case.
 export const GENERIC_RUNNERS = new Set([

@@ -5,7 +5,6 @@
 // lib/layout.mjs and are never spelled here.
 import fs from 'node:fs';
 import { UNANSWERED, NONE } from './layout.mjs';
-import { parseRuleFile } from './frontmatter.mjs';
 import { parseInbox } from './inbox.mjs';
 
 // What one file holds, as the table reads it. ABSENT is the file system's condition, kept apart from
@@ -45,14 +44,11 @@ export function readIfPresent(file) {
 }
 
 // The one validator for a recorded answer, shared by record-global, record-project and intake. An empty
-// answer and the seeded word would each record the UNANSWERED state, and an answer the rules-index parser
-// throws on would break the index that reads the project file.
+// answer and the seeded word would each record the UNANSWERED state.
 export function normalizeAnswer(raw) {
   const text = String(raw ?? '').replace(/\r\n/g, '\n').trim();
   if (text === '') throw new Error(`an empty answer is read as ${UNANSWERED}, so recording it records nothing`);
   if (text === UNANSWERED) throw new Error(`${UNANSWERED} is the seeded word, not an answer`);
-  try { parseRuleFile(text, 'answer'); }
-  catch (e) { throw new Error(`this answer would break the rules index that reads the project file: ${e.message}`); }
   return text;
 }
 

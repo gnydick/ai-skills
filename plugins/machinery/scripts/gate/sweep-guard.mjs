@@ -10,11 +10,6 @@ export const declaration = Object.freeze({
   run: 'sweepGuard',
   blocking: false,
   wired: true,
-  claims: Object.freeze([
-    { file: 'plugins/machinery/rules/worktree-discipline.md', quote: 'An advisory backstop fires when a documentation-shaped commit also adds a brand-new non-documentation file, naming it without blocking.' },
-    { file: 'docs/superpowers/specs/2026-09-02-machinery-plugin-core-design.md', quote: 'The advisory sweep guard is outside this claim' },
-    { file: 'combine-projects-machinery/union/plugin/gates/commit-gate.md', quote: 'plus the advisory warning; nothing validates citations at commit or merge time' },
-  ]),
 });
 
 const DOCS = /^(CLAUDE\.md$|docs\/|\.claude\/rules\/|\.claude\/machinery\/)/;
