@@ -27,7 +27,7 @@ Example: "Give every piece of work its own worktree." Values: `always` (every pi
 Example: "Compare output before every push to main." Values: `push-to-main`; `on-request`; `output-paths` (also record `comparisonPaths`, the paths whose changes can move output); or the developer's own description, word for word. Tell the developer before they choose: a git hook cannot launch an agent, so `push-to-main` and `output-paths` are carried out by Claude as a step before pushing, not enforced by the pre-push hook.
 
 ## review (key `reviewBeforeMain`)
-Example: "I review everything before it reaches main." Values: `none`; `person` (the owner approves the change before the merge to main); `agent` (an adversarial review agent reviews the change before the merge); `person-and-agent`.
+Example: "I review everything before it reaches main." Values: `no-review`; `person` (the owner approves the change before the merge to main); `agent` (an adversarial review agent reviews the change before the merge); `person-and-agent`.
 
 ## retention (Claude Code's `cleanupPeriodDays`)
 1. Read `cleanupPeriodDays` from `~/.claude/settings.json`; absent means 30 days.

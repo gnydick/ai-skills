@@ -49,6 +49,9 @@ export const RULES_DIR = 'rules';
 export const DOCS_DIR = 'docs';
 export const SPECS_DIR = 'dictated-specs';
 export const MACHINERY_DIR = 'machinery';
+// The project's recorded settings (recalibration decisions 22, 39, 41): written by setup.mjs
+// through lib/settings.mjs, read by the hooks and skills that need an answer.
+export const CONFIG = 'config.json';
 
 // The disposition vocabulary for a filed specification (#81). Both the gate leg that refuses a bad
 // filing and the intake that writes one need this test, and neither depends on the other, so it
