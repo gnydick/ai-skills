@@ -17,7 +17,7 @@ Settings live in `.claude/machinery/config.json`. Show them: `node "${CLAUDE_PLU
 Example: "Give every piece of work its own worktree." Values: `always` (every piece of work gets its own worktree); `multi-commit` (only work expected to take more than one commit; before a second commit in the checkout, stop and move the work into a worktree); `never`.
 
 ## tiers (key `tiers`)
-1. If the developer set up the tests, ask them which tests belong to each tier (steps 2–3). If Claude set up the tests, suggest the tiers (step 4) and ask the developer to accept or change them.
+1. Lead with questions, each with your recommendation first: who sets up this project's tests (the developer, Claude, or both); whether to decide the tiers together (steps 2–3) or have Claude measure the suite and propose them (step 4); and how a new test gets its tier from now on — Claude asks per test, Claude proposes the tiers for a commit's new tests in one question, or Claude decides and says so in the report. Record the last answer as `tiers.assignment`.
 2. Ask the longest wait the developer accepts for tests at each commit, and at each push to main.
 3. Together: the developer names which tests belong to fast (each commit, touched components), merge (each push to main) and heavy (on request or hosted CI), and how a test declares its tier (for example a directory, name pattern or attribute).
 4. Measure: run the full suite with per-test timings, save the output to a file, and list tests by duration. Propose fast = tests that finish within the commit wait for one component; merge = the whole-workspace run within the push wait; heavy = the rest. Show the measured numbers, the command and the machine configuration they came from.
