@@ -140,6 +140,51 @@ test('install and project intake write no index, and the filing commit is the ru
   } finally { r.cleanup(); }
 });
 
+// Plan Task B6 (recalibration 33, 36; #99 Task 7): the issue-tracking answer is a project rule that
+// replaces the whole project file, and a re-run replaces the answer with a commit naming old and new.
+const ANSWER_1 = 'Issue tracking: <tracker> on `<project>`, reached with `<tool>`.';
+const ANSWER_2 = 'Issue tracking: <other tracker> on `<project>`, reached with `<other tool>`.';
+const recordProject = (root, h, answer) => runScript('scripts/issue-tracking.mjs', { args: ['record-project', '--answer', answer, '--root', root], cwd: root, env: { MACHINERY_HOME: h, CLAUDE_CODE_SESSION_ID: 's' } });
+// record-project stamps entries to the second and refuses a second stamp in the same second, so two
+// records in one test are separated by a wait for the clock to tick.
+const nextSecond = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000 - (Date.now() % 1000) + 1);
+
+test('an issue-tracking entry is filed as the whole project file, and a re-run replaces it naming old and new', () => {
+  const h = home(); const r = makeRepo();
+  try {
+    runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'install');
+    const file = path.join(r.root, '.claude', 'rules', 'project_issue_tracking.md');
+    for (const [answer, old] of [[ANSWER_1, 'unanswered'], [ANSWER_2, ANSWER_1]]) {
+      if (old !== 'unanswered') nextSecond();
+      const rec = recordProject(r.root, h, answer);
+      assert.equal(rec.code, 0, rec.stderr);
+      const [entry] = pending(projectInbox(r.root));
+      const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'project', '--root', r.root, '--stamp', entry.stamp, '--home', '.claude/rules/project_issue_tracking.md § Issue tracking'], cwd: r.root, env: { MACHINERY_HOME: h } });
+      assert.equal(res.code, 0, res.stderr + res.stdout);
+      assert.equal(fs.readFileSync(file, 'utf8'), `${answer}\n`);
+      assert.equal(g(r.root, 'log', '-1', '--format=%s'), `rule: issue tracking: ${old.slice(0, 40)} → ${answer.slice(0, 40)}`);
+      assert.equal(g(r.root, 'status', '--porcelain'), '');
+    }
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: an issue-tracking entry with any other home is refused, naming the home', () => {
+  const h = home(); const r = makeRepo();
+  try {
+    runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'install');
+    assert.equal(recordProject(r.root, h, ANSWER_1).code, 0);
+    const [entry] = pending(projectInbox(r.root));
+    const before = g(r.root, 'rev-parse', 'HEAD');
+    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'project', '--root', r.root, '--stamp', entry.stamp, '--home', '.claude/rules/a.md § S'], cwd: r.root, env: { MACHINERY_HOME: h } });
+    assert.equal(res.code, 1);
+    assert.match(res.stderr, /an issue-tracking entry is filed only to \.claude\/rules\/project_issue_tracking\.md — run again with --home "\.claude\/rules\/project_issue_tracking\.md"/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), before);
+    assert.equal(pending(projectInbox(r.root)).length, 1, 'the entry was dispositioned despite the refusal');
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: intake commit with an unknown stamp fails and commits nothing', () => {
   const h = home(); const r = projectWithPending(h);
   try {

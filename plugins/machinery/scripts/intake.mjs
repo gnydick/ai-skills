@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Story: skills/rule-intake/SKILL.md — the mechanical steps. Two pipelines, each one commit in one repo (spec I30).
+import fs from 'node:fs';
 import path from 'node:path';
 import { git, realDir } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
-import { projectInbox, projectRules, projectSpecs, projectSpecInbox, universalInbox, universalSource, universalCore } from './lib/config.mjs';
+import { projectInbox, projectRules, projectSpecs, projectSpecInbox, projectIssueTracking, universalInbox, universalSource, universalCore } from './lib/config.mjs';
 import { pending, setDisposition } from './lib/inbox.mjs';
-import { insideSpecArea } from './lib/layout.mjs';
+import { insideSpecArea, UNANSWERED } from './lib/layout.mjs';
+import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -29,7 +31,8 @@ function list() {
 }
 
 function commit() {
-  const kind = opt('--kind'), stamp = opt('--stamp'), home = opt('--home');
+  const kind = opt('--kind'), stamp = opt('--stamp');
+  let home = opt('--home');
   if (!['project', 'universal', 'spec'].includes(kind) || !stamp || !home) die('usage: intake commit --kind project|universal|spec [--root <dir>] --stamp <stamp> --home "<file § Section>"');
   let repo, inbox, rules, extra = [];
   // #81: a specification is filed exactly like a project rule — root session, one commit, one repo —
@@ -66,6 +69,23 @@ function commit() {
   }
   const entry = pending(inbox).find((e) => e.stamp === stamp);
   if (!entry) die(`no PENDING entry with stamp ${stamp} in ${inbox}`);
+  let subject = `${kind === 'spec' ? 'spec' : 'rule'}: ${entry.text.split('\n')[0].slice(0, 72)}`;
+  // An issue-tracking answer (recalibration 33, 36; #99): recorded by issue-tracking.mjs
+  // record-project with CAPTURE_NOTE, it is filed as the WHOLE project file — one current answer,
+  // never a history — and only there; a re-run replaces it, and the commit names old and new so git
+  // holds the history the file does not.
+  if (kind === 'project' && entry.text.endsWith(CAPTURE_NOTE)) {
+    const toPosix = (p) => p.split(path.sep).join('/');
+    const file = projectIssueTracking(repo);
+    const rel = toPosix(path.relative(repo, file));
+    if (home.split(' § ')[0].trim() !== rel) die(`an issue-tracking entry is filed only to ${rel} — run again with --home "${rel}"`);
+    const answer = normalizeAnswer(entry.text.slice(0, -CAPTURE_NOTE.length));
+    const old = (readIfPresent(file) ?? UNANSWERED).trim().split('\n')[0];
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `${answer}\n`, 'utf8');
+    home = rel; // the disposition is `filed → <file>`: the whole file, no section
+    subject = `rule: issue tracking: ${old.slice(0, 40)} → ${answer.split('\n')[0].slice(0, 40)}`;
+  }
   if (kind === 'universal') {
     const source = universalSource();
     if (/^claude-code\//.test(home)) {
@@ -83,7 +103,6 @@ function commit() {
   const files = [rules, inbox, ...extra].map((f) => path.relative(repo, f).split(path.sep).join('/'));
   const add = git(['add', '--', ...files], repo);
   if (add.code !== 0) die(`git add failed: ${add.stderr}`);
-  const subject = `${kind === 'spec' ? 'spec' : 'rule'}: ${entry.text.split('\n')[0].slice(0, 72)}`;
   const c = git(['commit', '-q', '-m', `${subject}\n\nFiled → ${home}\nInbox entry ${stamp} (${entry.marker})`, '--', ...files], repo);
   if (c.code !== 0) die(`git commit failed: ${c.stderr}\n${c.stdout}`);
   process.stdout.write(`committed in ${repo}: ${subject}\n`);

@@ -107,6 +107,18 @@ test('record-global writes the global file and nothing else: no inbox entry, no 
   } finally { plugin.cleanup(); proj.cleanup(); }
 });
 
+// Recalibration 37: nothing seeds the global file at install any more; record-global creates it —
+// and the directory above it — the first time someone answers for every project.
+test('record-global creates the global file and its directory when neither exists (recalibration 37)', () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-')); const r = makeRepo();
+  try {
+    assert.ok(!fs.existsSync(path.join(h, '.claude')), 'the fixture must start with no .claude at all');
+    const res = cli(['record-global', '--answer', ANSWER], { cwd: r.root, home: h });
+    assert.equal(res.code, 0, res.stderr);
+    assert.equal(fs.readFileSync(globalFile(h), 'utf8'), ANSWER);
+  } finally { r.cleanup(); }
+});
+
 // TEST 12, both halves: the first against record-global (Decision 1), the second against decide.
 test('RED CHECK: answering for every project leaves a seeded project file byte-identical, and that project still asks (test 12)', () => {
   const h = tempHome(); const r = makeRepo();

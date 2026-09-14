@@ -30,7 +30,7 @@ test('reports measured facts for an uninstalled project', () => {
     assert.match(t, /gate: not installed/);
     assert.match(t, /pending: project 0, universal 0/);
     assert.match(t, /markers: PRULE: \(project\) URULE: \(universal\)/);
-    assert.match(t, /hosted check: none — the pre-push hook is the blocking check before main/);
+    assert.match(t, /hosted check: none — the pre-push hook is the blocking check before main; \/machinery:install --hosted-ci writes one$/m);
   } finally { r.cleanup(); }
 });
 
