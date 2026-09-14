@@ -41,14 +41,6 @@ Setup extends #99 rather than starting a second conversation: its `issue-trackin
 15. `banner.mjs` (13): hosted-check line still says "local merge gate"; reword to the pre-push hook.
 
 ## Open questions
-Closed since the last draft: core loading (21), worktree setting (22), tier declaration (23), design placement (24), sweep-guard (25), comparison timing (26), review before main (27), `--no-verify` (29), M270 (30).
-1. Is `reload.mjs` still needed once the core arrives only at session and subagent start (a URULE filed to `core.md` mid-session)? M380.
-2. Does `SubagentStart` also reach the built-in Explore and Plan agents (21, unverified)? M342.
-3. #99 conflict, skill: #99 § What this is not rejected a machinery wizard skill with its own lifecycle (`/machinery:tracker`); 28 orders `/machinery:setup`. Does 28 supersede that rejection for issue tracking?
-4. #99 conflict, recording: setup writes `config.json` directly (22, 28); #99 records the project answer as an inbox entry filed by intake into `.claude/rules/project_issue_tracking.md` for dated provenance, and its intake step regenerates the rules index that 10 drops. Which route for which items?
-5. #99 conflict, timing and home: #99's plan runs the conversation lazily at first tracker need (its Decision 2, pending owner confirmation) with its copy in developer-friendliness § 3.2/§ 8, now tabled; 23 and 26 run setup at install. Where does the copy live and when does it run?
-6. #99 conflict, re-run and `--machine`: #99 has no path to change a recorded answer (`record-project` refuses a second pending entry), while 28 requires re-run per item; #99 seeds `~/.claude/rules/global_issue_tracking.md` in `install --machine`, whose core job 21 removes. Does `--machine` stay? M342, M475.
-7. Defaults: only `worktree` has one (`always`, 22). The draft makes skills stop and run `/machinery:setup <item>` when `tiers`, `comparisonAgent` or `reviewBeforeMain` is not recorded. M36, M417, M222.
-8. Shape of `tiers` (draft: `declaration` plus one command per tier, fast taking `<components>`). M222, M223, M275.
-9. `comparisonAgent` = `push-to-main`: a git hook cannot dispatch an agent, so the draft makes it an instruction in `testing`. M417, M418.
-10. Retention is Claude Code's machine-wide `cleanupPeriodDays`, not project config: the draft sets it in `~/.claude/settings.json` and records nothing in `config.json`. M339.
+None. All closed in STATUS.md: core loading and Explore/Plan coverage (21), worktree setting (22), tiers (23, 41), design placement (24), sweep-guard (25), comparison timing (26, 42), review before main (27), setup skill allowed (32), issue tracking as a rule with environment setup (33), conversation out of developer-friendliness (34), ask on first need (35), replace on re-run (36), `install --machine` dropped (37), `/machinery:reload` kept (38), no defaults (39), retention (42).
+
+New mechanism implied by these: `record-project` accepts a replacement (36); `record-global` creates the global file on demand and `install --machine` is removed (37); `tiers.assignment` validated by `setup.mjs` (41).

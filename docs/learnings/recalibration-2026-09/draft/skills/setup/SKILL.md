@@ -24,14 +24,14 @@ Example: "Give every piece of work its own worktree." Values: `always` (every pi
 5. Record `tiers.declaration` (how a test declares its tier) and `tiers.fast`, `tiers.merge`, `tiers.heavy` (the command that runs exactly that tier; fast takes `<components>`). The git hooks run these commands.
 
 ## comparison-agent (key `comparisonAgent`)
-Example: "Compare output before every push to main." Values: `push-to-main`; `on-request`; `output-paths` (also record `comparisonPaths`, the paths whose changes can move output); or the developer's own description, word for word.
+Example: "Compare output before every push to main." Values: `push-to-main`; `on-request`; `output-paths` (also record `comparisonPaths`, the paths whose changes can move output); or the developer's own description, word for word. Tell the developer before they choose: a git hook cannot launch an agent, so `push-to-main` and `output-paths` are carried out by Claude as a step before pushing, not enforced by the pre-push hook.
 
 ## review (key `reviewBeforeMain`)
 Example: "I review everything before it reaches main." Values: `none`; `person` (the owner approves the change before the merge to main); `agent` (an adversarial review agent reviews the change before the merge); `person-and-agent`.
 
 ## retention (Claude Code's `cleanupPeriodDays`)
 1. Read `cleanupPeriodDays` from `~/.claude/settings.json`; absent means 30 days.
-2. Tell the developer: transcripts older than that are deleted after a session starts, so `/postmortem` has no evidence for work older than the period.
+2. Tell the developer: transcripts older than that are deleted after a session starts, so `/postmortem` has no evidence for work older than the period; and the setting is machine-wide, covering every project on this computer, not just this one.
 3. Ask what period they want. Change the key only to their answer; if they keep it, write nothing.
 
 ## issue-tracking (#99)
