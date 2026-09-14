@@ -55,6 +55,12 @@ function banner() {
   lines.push(`  pending: project ${proj}, universal ${univ}${proj + univ ? ' — intake runs at the next prompt in an eligible session' : ''}`);
   lines.push(`  worktree hook: ${fs.existsSync(path.join(home, '.claude', 'machinery-observed-worktree')) ? 'observed firing on this machine' : 'never observed on this machine'}`);
   lines.push(`  cant-break-by-design skill (mandatory): ${cbbdInstalled(home) ? 'installed' : 'NOT FOUND — install the unbreakable plugin'}`);
+  // Issue tracking (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md; the plan's
+  // Decision 3): the developer-friendliness skill finds the decide command by this line, and a session
+  // with no such line is a session without machinery. Measured: a missing script is named MISSING and
+  // never offered as runnable. Printing the path runs nothing.
+  const trackingCommand = path.join(pluginRoot(), 'scripts', 'issue-tracking.mjs');
+  lines.push(`  issue tracking command: ${fs.existsSync(trackingCommand) ? `node "${trackingCommand}"` : `MISSING — expected at ${trackingCommand}`}`);
   lines.push(`  markers: ${m.project} (project) ${m.universal} (universal); a bare ${m.ambiguous} captures nothing`);
   return lines.join('\n');
 }

@@ -307,3 +307,86 @@ test('migration: an already-installed project has docs/dictated-specs/SPEC_INDEX
     assert.equal(gateRes.code, 0, gateRes.stdout + gateRes.stderr);
   } finally { r.cleanup(); }
 });
+
+// Issue tracking configuration (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md,
+// "Install seeds them", tests 1, 2 and 10). Fixture answers use visible placeholders (Ruling H).
+const TRACKING_ANSWER = 'Issue tracking: <tracker> on `<project>`, reached with `<tool>`.\nCheck: `<status command>` and `<one-item read command>`.\n';
+
+test('project install seeds the project issue-tracking file once, indexes and stages it, and the gate passes (test 1)', () => {
+  const r = makeRepo();
+  try {
+    const res = install(r.root);
+    assert.equal(res.code, 0, res.stderr);
+    const f = path.join(r.root, '.claude', 'rules', 'project_issue_tracking.md');
+    assert.equal(fs.readFileSync(f, 'utf8'), 'unanswered\n');
+    assert.match(res.stdout, /\.claude[\\/]rules[\\/]project_issue_tracking\.md: created/);
+    const idx = fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'RULES_INDEX.md'), 'utf8');
+    assert.match(idx, /^\| rules\/project_issue_tracking\.md \| 🟢 \| 0 \|  \|$/m, idx);
+    const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: r.root, encoding: 'utf8' });
+    assert.match(staged, /^\.claude\/rules\/project_issue_tracking\.md$/m, staged);
+    const gate = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root });
+    assert.equal(gate.code, 0, gate.stdout + gate.stderr);
+    const before = fs.readFileSync(f);
+    const again = install(r.root);
+    assert.equal(again.code, 0, again.stderr);
+    assert.deepEqual(fs.readFileSync(f), before, 'the second run changed the seeded file');
+    assert.match(again.stdout, /\.claude[\\/]rules[\\/]project_issue_tracking\.md: present, left as it is/);
+  } finally { r.cleanup(); }
+});
+
+// Asserted apart from test 1: "does not create twice" and "does not reset an answer" are different
+// failures, and one assertion passes on either.
+test('RED CHECK: an answered, a declined and an empty project file each survive a re-run of install byte-identical (test 2)', () => {
+  const r = makeRepo();
+  try {
+    install(r.root);
+    const f = path.join(r.root, '.claude', 'rules', 'project_issue_tracking.md');
+    for (const contents of [TRACKING_ANSWER, 'none\n', '']) {
+      fs.writeFileSync(f, contents);
+      const res = install(r.root);
+      assert.equal(res.code, 0, res.stderr);
+      assert.equal(fs.readFileSync(f, 'utf8'), contents, `install walked back over ${JSON.stringify(contents)}`);
+    }
+  } finally { r.cleanup(); }
+});
+
+// Test 10: the whole seed is the single state word, so a later change that seeds a detected remote, a
+// token path or an account name fails rather than ships. The fixture HAS a remote, so there is
+// something for such a change to leak.
+test('the seed is the single state word and nothing detected about the repository (test 10)', () => {
+  const r = makeRepo({ withOrigin: true });
+  try {
+    install(r.root);
+    const contents = fs.readFileSync(path.join(r.root, '.claude', 'rules', 'project_issue_tracking.md'), 'utf8');
+    assert.equal(contents, 'unanswered\n');
+    assert.equal(contents.trim().split(/\s+/).length, 1);
+    assert.ok(!contents.includes(path.basename(r.origin)), 'the fixture remote reached the seed');
+  } finally { r.cleanup(); }
+});
+
+test('--machine seeds the global issue-tracking file once and never overwrites an answer, a declined or an empty file (tests 1, 2)', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const tempRules = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  try {
+    fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
+    fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: tempRules }));
+    const machine = () => runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
+    const first = machine();
+    assert.equal(first.code, 0, first.stderr);
+    const f = path.join(home, '.claude', 'rules', 'global_issue_tracking.md');
+    assert.equal(fs.readFileSync(f, 'utf8'), 'unanswered\n');
+    assert.match(first.stdout, /global_issue_tracking\.md: created/);
+    const second = machine();
+    assert.equal(fs.readFileSync(f, 'utf8'), 'unanswered\n');
+    assert.match(second.stdout, /global_issue_tracking\.md: present, left as it is/);
+    for (const contents of [TRACKING_ANSWER, 'none\n', '']) {
+      fs.writeFileSync(f, contents);
+      assert.equal(machine().code, 0);
+      assert.equal(fs.readFileSync(f, 'utf8'), contents, `--machine walked back over ${JSON.stringify(contents)}`);
+    }
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
+    fs.rmSync(tempRules, { recursive: true, force: true, maxRetries: 5 });
+  }
+});

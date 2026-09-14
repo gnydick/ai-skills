@@ -101,3 +101,28 @@ test('RED CHECK: the gate line names a version only when the VERSION stamp exist
     assert.doesNotMatch(installed, /gate: not installed/);
   } finally { r.cleanup(); }
 });
+
+// Issue tracking, this plan's choice 1 and Decision 3: the developer-friendliness skill finds the decide
+// command by this line, and a session without the line is one without machinery.
+test('names the issue-tracking command by an absolute path that exists', () => {
+  const r = makeRepo();
+  try {
+    const m = /issue tracking command: node "([^"]+)"/.exec(text(run(r.root)));
+    assert.ok(m, 'the banner does not name the issue-tracking command');
+    assert.ok(path.isAbsolute(m[1]), m[1]);
+    assert.equal(fs.realpathSync.native(m[1]), fs.realpathSync.native(path.join(PLUGIN, 'scripts', 'issue-tracking.mjs')));
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: a plugin root without the command is reported MISSING, never offered as runnable', () => {
+  const fake = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-'));
+  const r = makeRepo();
+  try {
+    fs.mkdirSync(path.join(fake, '.claude-plugin'));
+    fs.copyFileSync(path.join(PLUGIN, '.claude-plugin', 'plugin.json'), path.join(fake, '.claude-plugin', 'plugin.json'));
+    fs.copyFileSync(path.join(PLUGIN, 'markers.json'), path.join(fake, 'markers.json'));
+    const t = text(run(r.root, { CLAUDE_PLUGIN_ROOT: fake }));
+    assert.match(t, /issue tracking command: MISSING — expected at .*issue-tracking\.mjs/);
+    assert.doesNotMatch(t, /issue tracking command: node /);
+  } finally { r.cleanup(); fs.rmSync(fake, { recursive: true, force: true, maxRetries: 5 }); }
+});

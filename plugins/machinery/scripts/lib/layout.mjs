@@ -19,6 +19,22 @@ export const LEGACY_RULES_INDEX = 'INDEX.md';
 export const SPEC_INDEX = 'SPEC_INDEX.md';
 export const INBOX = 'inbox.md';
 export const SPEC_INBOX = 'spec-inbox.md';
+// Issue tracking configuration (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
+// Two files hold the developer's one answer about where issue tracking lives. Three units name them
+// and none can import another — install.mjs seeds them, lib/issue-tracking.mjs reads them through
+// config.mjs, intake.mjs routes to one — which is the condition this file exists for.
+//
+// The NAMES are the owner's, verbatim, underscores included; renaming them to kebab-case is a change
+// to what the owner dictated, not a tidy-up.
+//
+// The STATE WORDS: UNANSWERED means install seeded the file and nobody has been asked (an empty file
+// reads the same); NONE means asked and answered, no issue tracking here. They are distinct states,
+// neither merged into the other nor into absence of the file. Install writes the word and the
+// precedence function compares against it, so a mismatch between the two would fail SILENTLY.
+export const GLOBAL_ISSUE_TRACKING = 'global_issue_tracking.md';
+export const PROJECT_ISSUE_TRACKING = 'project_issue_tracking.md';
+export const UNANSWERED = 'unanswered';
+export const NONE = 'none';
 // Project-relative directories. Captured specifications persist at ONE fixed, known location —
 // `docs/dictated-specs` at the project root — and nothing resolves, declares or guesses it per
 // project (owner, 2026-09-07: "we just need a unique location to persist those specs", then "i
