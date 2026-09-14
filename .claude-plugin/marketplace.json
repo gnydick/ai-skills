@@ -16,7 +16,7 @@
     {
       "name": "machinery",
       "source": "./plugins/machinery",
-      "description": "The union of two projects' Claude process machinery, made to run: always-on universal rules, a PRULE:/URULE: rule-capture loop with automatic intake, a quiet-output filter, a worktree-create hook, and a per-project commit gate installed by /machinery:install."
+      "description": "Claude process machinery: an always-on core loaded into every session and subagent, skills by kind, PRULE:/URULE:/SPEC: capture with an inbox gate, a quiet-output filter, a worktree-create hook, and per-project git hooks negotiated by /machinery:setup."
     }
   ]
 }

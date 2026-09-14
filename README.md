@@ -45,11 +45,17 @@ Node scripts to do it.
 
 ### `machinery` — Claude Code only
 
-Keeps a set of universal process rules always-on across every project,
-captures new rules as they're dictated mid-session, files them through a
-mechanical intake pipeline, and installs a per-project commit gate. See
-`plugins/machinery/README.md` for the plugin's own account of its hooks and
-rule-filing sequence.
+Loads a short always-on core (`plugins/machinery/core.md`) into every session
+and every subagent through its SessionStart and SubagentStart hooks, ships the
+rest of the process as the skills below, captures `PRULE:`/`URULE:`/`SPEC:`
+prompts into an inbox that the commit gate holds until they are filed, and
+installs per-project git hooks — pre-commit (gate, build check, fast tests for
+the touched components) and pre-push to main (merge tests) — whose commands
+`/machinery:setup` negotiates with the developer; `/machinery:install
+--hosted-ci` turns those into a GitHub Actions workflow. Install it per project
+(`claude plugin install machinery@ai-skills --scope project`, then
+`/machinery:install` and `/machinery:setup`). See `plugins/machinery/README.md`
+for the hooks and where the rules live.
 
 | Skill | For |
 |---|---|
@@ -101,7 +107,13 @@ node scripts/build-skills.mjs hooks     # enable .githooks (once per clone)
 node scripts/build-skills.mjs deny …    # add an identifier that must never ship
 ```
 
-Run `hooks` after cloning — git never installs hooks automatically.
+Run `hooks` after cloning — git never installs hooks automatically. This
+repo's own `.githooks/pre-commit` runs the universal inbox gate, then the
+tiers recorded in `.claude/machinery/config.json` (`checks.commit` =
+`build-skills.mjs check`; the fast tier runs the suite of each component the
+commit touches, `plugins/machinery/test` or `scripts/test`, through
+`scripts/test-tier.mjs`); `.githooks/pre-push` runs both suites and the check
+before a push to `main`.
 
 `check` enforces sixteen relationships that would otherwise rely on someone
 remembering them:

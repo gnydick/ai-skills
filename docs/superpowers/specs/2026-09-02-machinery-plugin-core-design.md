@@ -1,5 +1,7 @@
 # Machinery Plugin — Core — Design
 
+> Superseded in part by the 2026-09 recalibration (docs/learnings/recalibration-2026-09/STATUS.md decisions 1–3, 10, 13, 21, 37): the rules index, citation gate, junction install and rule files it describes no longer exist.
+
 2026-09-02. Approved in session by Gabe. Spec 1 of 2 (spec 2: merge gate and
 ratchets, depends on this one).
 

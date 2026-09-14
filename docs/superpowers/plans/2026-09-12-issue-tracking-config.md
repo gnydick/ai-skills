@@ -1403,6 +1403,8 @@ git commit -m "issue tracking: record-project writes one inbox entry and reads i
 
 ## Task 7: Intake files a project issue-tracking answer into its named home
 
+> Superseded 2026-09-14: replaced by docs/superpowers/plans/2026-09-14-machinery-rewrite.md Tasks B6 and B7.
+
 **Files:**
 - Modify: `plugins/machinery/scripts/intake.mjs:7` (config import), after `:10` (new import), `:34-36` (head of `commit()`), `:49` (project branch), before `:70` (the write)
 - Modify: `claude-code/machinery/rule-intake/SKILL.md` (step 2); regenerate `plugins/machinery/skills/rule-intake/SKILL.md` with `node scripts/build-skills.mjs build` — never by hand
@@ -1964,6 +1966,8 @@ git commit -m "developer-friendliness: the issue-tracking setup conversation, an
 ---
 
 ## Task 9: Documentation — the spec amended, the ledger, the README (once, after the last coding task)
+
+> Superseded 2026-09-14: replaced by docs/superpowers/plans/2026-09-14-machinery-rewrite.md Tasks B6 and B7.
 
 Per `plugins/machinery/rules/work-tracking.md` § The learnings record, the repeats each task would otherwise carry are done here once: the effort ledger, the spec amendment for the three decisions, and the README. **No register row is owed:** no file under `plugins/machinery/rules/` changes (prediction 2 confirms it).
 

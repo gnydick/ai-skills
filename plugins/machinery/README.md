@@ -1,74 +1,99 @@
 # machinery
 
-A Claude Code plugin that keeps a set of universal process rules always-on across
-every project, captures new rules as they get dictated mid-session, files them
-through a mechanical intake pipeline, and installs a per-project commit gate that
-checks staged work against the current rule set before it lands. It also quiets
-noisy build/test output in the transcript and creates git worktrees with an
-unprefixed branch name.
+A Claude Code plugin that loads a short always-on core into every session and
+every subagent, ships the rest of the process as skills by kind, captures rules
+and specifications as they are dictated mid-session, and installs per-project git
+hooks whose checks are negotiated with the developer. It also quiets noisy
+build/test output in the transcript and creates git worktrees with an unprefixed
+branch name.
 
 ## Install
 
-- **Per machine, once:** `node "${CLAUDE_PLUGIN_ROOT}/scripts/install.mjs" --machine`, or run `/machinery:install --machine`. Creates `~/.claude/rules/machinery` as a junction/symlink to the rules source, so every session on the machine loads the universal rules.
-- **Per project:** `/machinery:install` (add `--hosted` only if the project has hosted CI that should also block on the check). Installs the commit gate, the `.claude/machinery/` inbox and index, the project's own `tool-catalog.json` (tracked: the team's entries for tools the universal catalog does not know) and `observations.json` (gitignored: this machine's measurements of how noisy each tool is here), and sets `core.hooksPath`.
+Per project — machinery is enabled where it is installed, and the core arrives
+with it:
 
-Both are idempotent; re-run after a plugin update to refresh the gate.
+```
+claude plugin install machinery@ai-skills --scope project   # or --scope local
+/machinery:install
+/machinery:setup
+```
+
+`/machinery:install` (`scripts/install.mjs`) copies the commit gate and the tier
+runner into `.githooks/machinery/`, writes the `pre-commit` and `pre-push` hooks,
+creates the project's inboxes, `tool-catalog.json` (tracked) and
+`observations.json` (gitignored, per-machine), and sets `core.hooksPath`. It is
+idempotent; re-run it after a plugin update. `/machinery:setup` records the
+project's answers in `.claude/machinery/config.json` — worktree policy,
+components, build check, test tiers, comparison agent, review before main,
+transcript retention, issue tracking — one item at a time or all of them;
+`/machinery:setup <item>` re-negotiates one. `/machinery:install --hosted-ci`
+turns the recorded hook commands into a GitHub Actions workflow.
 
 ## Markers
 
 A prompt starting with `PRULE:` captures a project rule; `URULE:` captures a
-universal rule; a bare `RULE:` captures nothing and asks which. The three tokens
-are defined once, in `markers.json`.
+universal rule; `SPEC:` captures a specification; a bare `RULE:` captures nothing
+and asks which. The tokens are defined once, in `markers.json`.
 
-## The five hooks
+## Hooks
 
-- **SessionStart** — prints a banner of facts it measured this session (junction state, hooksPath, gate version, pending counts, whether the worktree hook has ever fired, whether the `unbreakable` plugin is installed); never a claim it didn't check.
-- **UserPromptSubmit** — captures a `PRULE:`/`URULE:`-marked prompt to the right inbox and nudges to run intake now if anything is pending.
-- **PreToolUse** — rewrites a noisy or infra-signal Bash/PowerShell command to run through `quiet-run`, so its transcript stays short; read (`cat`, `grep`, `git log` and the other byte-movers), piped and redirected commands are left untouched. A plain command — one nothing recognises — is run once verbatim and measured, then wrapped on later runs only if its own record says it was noisy here; a tool the catalog knows is first told its documented quiet flag instead of being filtered.
-- **WorktreeCreate** — creates the worktree with the branch name unprefixed (a leading `worktree-` is stripped), and records that the event fired, on this machine, for the banner to report.
+Claude Code hooks (`hooks/hooks.json`):
+
+- **SessionStart** — prints a banner of facts measured this session (core present,
+  `core.hooksPath`, gate version, hosted check, pending counts, whether the
+  worktree hook has ever fired, the issue-tracking command, the markers), then
+  injects `core.md` as context.
+- **SubagentStart** — injects the same `core.md` into every subagent, built-in
+  agents included.
+- **UserPromptSubmit** — captures a marked prompt to the right inbox, word for
+  word, before the assistant replies, and says to run `/machinery:rule-process`
+  when anything is pending.
+- **PreToolUse** (Bash, PowerShell) — rewrites a noisy or infra-signal command to
+  run through `quiet-run`, so its transcript stays short; a command carrying
+  `--no-verify` stops at a permission prompt.
+- **WorktreeCreate** — creates the worktree with the branch name unprefixed (a
+  leading `worktree-` is stripped) and records that the event fired, for the
+  banner.
+
+Installed git hooks (per project, by `/machinery:install`):
+
+- **pre-commit** — the gate: pending inbox entries and undispositioned spec
+  entries refuse the commit, a filed spec outside `docs/dictated-specs/` refuses
+  it, and the sweep guard warns (never blocks) when a documentation-shaped commit
+  adds a brand-new non-documentation file; then the recorded `checks.commit`, then
+  `tiers.fast` for the recorded components the staged paths touch.
+- **pre-push** — `tiers.merge`, in place on a clean tree whose HEAD is the pushed
+  commit, only for a push to `main`.
+
+Every refusal names its cause and the command that fixes it.
+
+## Skills
+
+One skill per kind of work, at `claude-code/machinery/<kind>/SKILL.md` (staged
+into `skills/` by `scripts/build-skills.mjs`): `agents`, `install`,
+`instrumentation`, `postmortem`, `refresh-diverged-branch`, `reload`,
+`rule-process`, `setup`, `testing`, `tickets`, `tooling`, `train-tool`,
+`worktree`. Each description says when to load it. `agents/comparison-agent.md`
+is the one agent definition.
 
 ## Where the rules live
 
-One copy only. Universal rules live in this plugin's `rules/`, project rules in
-`.claude/rules/`. Each has an inbox (`inbox.md` beside the universal rules,
-`.claude/machinery/inbox.md` for a project) that holds captured entries until
-intake files them. A rule's substance is never duplicated outside its one home.
-There is no generated index of either (recalibration decision 10).
+- `core.md` — the always-on universal core, a few lines.
+- `claude-code/machinery/<kind>/SKILL.md` — the universal rules of that kind.
+- `.claude/rules/` — a project's own rules, one file each.
+- Inboxes: `inbox.md` beside `core.md` for universal captures;
+  `.claude/machinery/inbox.md` and `.claude/machinery/spec-inbox.md` for a
+  project's rule and specification captures.
+- `docs/dictated-specs/` — filed specifications, one fixed location every
+  project shares. `docs/` is outside `.claude/`, so nothing loads a filed
+  specification into a session; that is separate work.
 
-Specifications follow the same shape (#81): `docs/dictated-specs/` for the
-documents and `.claude/machinery/spec-inbox.md` for captured `SPEC:` prompts. The
-spec inbox sits in `.claude/machinery/` because it holds raw dictations nobody has
-filed yet, and those do not belong in the docs tree.
-
-## Filing a universal rule
-
-`/machinery:rule-intake` runs the sequence: a `URULE:` prompt is **captured** to
-the universal inbox; the skill **places** the wording as a bullet under the right
-file and section; `intake.mjs commit` **bumps** the
-plugin version, **dispositions** the inbox entry, and lands all of it in **one
-commit** in the rules source's own checkout; `/machinery:reload` then puts the new
-rule into the current session's context. A project rule (`PRULE:`) follows the
-same shape without the version bump, committed in the project's own root
-checkout.
-
-## Filing a specification
-
-A `SPEC:` prompt is a specification handed down, and it moves through the same
-machinery a rule does (#81): captured word for word to `.claude/machinery/spec-inbox.md`
-before the assistant replies, filed by `/machinery:spec-intake` into the
-specification under `docs/dictated-specs/` that owns the subsystem, and
-dispositioned in one commit.
-
-An undispositioned spec entry blocks the commit, and a disposition naming a path
-outside `docs/dictated-specs/` is refused. That location is fixed and known —
-one address every project shares, with no config key, no declaration and nothing
-to resolve, the same kind of fact as `.claude/machinery/inbox.md`.
-
-Two limits, stated rather than glossed. Which specification file owns a given
-subsystem is a judgement no mechanism makes: the area, and that the filing lands
-inside it, are what is enforced. And `docs/` is outside `.claude/`, so nothing
-puts a filed specification into a session's context — making one reach a session
-is separate work that does not exist yet.
+`/machinery:rule-process` files a captured entry into its home — a `URULE:` into
+`core.md` or a skill's bucket source, with the plugin version bumped; a `PRULE:`
+into `.claude/rules/`; a `SPEC:` into the specification under
+`docs/dictated-specs/` that owns the subsystem — dispositions the entry, and lands
+it in one commit. `/machinery:reload` puts the current `core.md` into the running
+session.
 
 ## Teaching it a tool
 
@@ -97,14 +122,7 @@ elision, which names itself in the output. It goes back into training on its own
 nothing in a run, when a run fails with no error block, or when the output's shape moves; the state
 of that training lives in `observations.json` and is per-machine like the rest of it.
 
-## Dependency
-
-The commit gate assumes invariants are enforced the way `cant-break-by-design`
-describes (unrepresentable-by-construction, not caller discipline) — install the
-`unbreakable` plugin alongside this one. The SessionStart banner reports whether
-it finds that skill installed; it never blocks on its absence.
-
 ## More
 
-- The two-project design this plugin unions: `combine-projects-machinery/union/`.
+- The 2026-09 recalibration that produced this shape: `docs/learnings/recalibration-2026-09/STATUS.md`.
 - How the hook payload fixtures under `test/fixtures/payloads/` were produced, and how to re-record them from a real session: `test/fixtures/payloads/README.md`.
