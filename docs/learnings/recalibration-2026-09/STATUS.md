@@ -9,7 +9,6 @@ Goal (Gabe): split machinery + developer-friendliness rules into skills by kind,
   cmd /c mklink /J "%USERPROFILE%\.claude\rules\developer-friendliness" "I:\IdeaProjects\ai-skills\claude-code\developer-friendliness\developer-friendliness"
   ```
 - `all-rules.json`: all 822 instructions, verbatim. `all-rules-consolidation.csv`: 168 merged groups (dedupe only, not lightened). Re-index with `node csv-index.mjs <csv>`.
-- Worktree `testing-rules-extraction` exists with no commits (from a stopped run); reuse or tear down.
 - Dreamy and remember plugins uninstalled, their data deleted.
 
 ## Owner rulings so far
@@ -39,7 +38,7 @@ Goal (Gabe): split machinery + developer-friendliness rules into skills by kind,
 - (18) Install (machinery install) reports the current transcript retention (`cleanupPeriodDays`; default 30 days, swept after session start) and asks what the user wants, explaining that transcripts older than it are deleted, so a post-mortem of work older than the period has no evidence.
 - (7) "Record a learning when an expectation proved wrong or an unknown had to be investigated. Ordinary coding and routine problem solving are not learnings. One place: the ticket." Learnings: a library/tool/compiler/environment behaved differently than assumed; a bug's cause had to be tracked down by testing guesses; an approach failed for a non-obvious reason; the owner corrected a belief. Not learnings: writing already-understood behaviour, fixing a compile error right away, normal TDD red → green, looking up an API. Whether it is visible in the code does not matter (owner). Along-the-way notes are not needed; the post-mortem reads transcripts.
 - Parked with unbreakable: A308 (invariant auditor's model tier — its file says "judgement tier", its output is verdicts, and it declares no `model:` so it runs on the dispatching session's model). Also noted for that topic: the auditor only assesses invariants stated in comments/doc comments or ledger rows, only within a supplied diff, and cannot compile a bypass attempt.
-- Open: Worktree `testing-rules-extraction` (no commits) — delete or reuse. Branch `remove-postmortem-claim` (b65da6a, machinery 0.1.113) — merge now or with the rework.
+- Done 2026-09-13: post-mortem claim removed on main (b65da6a, machinery 0.1.113); this folder committed on main; extra worktrees removed. Work continues directly on main in the main checkout. Nothing pushed yet.
 
 ## Next
 Owner answers the principle decisions; agents apply them to the 822 items and produce the core + per-kind skills; owner reviews counts and examples, not rows.
