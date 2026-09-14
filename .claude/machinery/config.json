@@ -1,0 +1,22 @@
+{
+  "worktree": "always",
+  "components": {
+    "machinery": "plugins/machinery/",
+    "build": "scripts/"
+  },
+  "checks": {
+    "commit": "node scripts/build-skills.mjs check"
+  },
+  "tiers": {
+    "declaration": "by directory: plugins/machinery/test and scripts/test",
+    "fast": "node scripts/test-tier.mjs fast <components>",
+    "merge": "node scripts/test-tier.mjs merge",
+    "heavy": "node scripts/test-tier.mjs merge",
+    "assignment": "claude-decides"
+  },
+  "comparisonAgent": "on-request",
+  "comparisonPaths": [
+    "plugins/machinery/skills"
+  ],
+  "reviewBeforeMain": "person"
+}
