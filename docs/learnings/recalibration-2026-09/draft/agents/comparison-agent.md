@@ -1,6 +1,6 @@
 ---
 name: comparison-agent
-description: Compares this build's output against a reference implementation's, verdict first, separating regressions from pre-existing differences. Dispatch before merging a change that could move output — engine, algorithm or performance rewrites, changed defaults.
+description: Compares this build's output against a reference implementation's, verdict first, separating regressions from pre-existing differences. Dispatch when the project's `comparisonAgent` setting in `.claude/machinery/config.json` says to (skill `testing`), or when the user asks.
 tools: Read, Grep, Glob, Bash
 ---
 # Comparison agent

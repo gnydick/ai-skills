@@ -15,12 +15,13 @@ description: Load before writing or changing any code or test, before a refactor
 - When code moves, its tests move with it in the same commit.
 
 ## Git hooks (automatic; do not run their checks yourself, read their output)
-- `git commit`: build/format checks and the fast-tier tests of the components the commit touches.
-- `git push` to main: the whole workspace's merge-tier tests on the pushed commit, in place; needs a clean working tree whose HEAD is the pushed commit.
-- Heavy-tier tests: only on request or in hosted CI.
+The project's tiers are recorded in `.claude/machinery/config.json` key `tiers` (/machinery:setup tiers). The hooks run the recorded commands.
+- `git commit`: build/format checks and `tiers.fast` for the components the commit touches.
+- `git push` to main: `tiers.merge` on the pushed commit, in place; needs a clean working tree whose HEAD is the pushed commit.
+- `tiers.heavy`: only on request or in hosted CI.
 
 ## Writing a test
-- Declare the test's tier (fast, merge, heavy) where the test lives.
+- Declare the test's tier the way `tiers.declaration` says. If `tiers` is not recorded, run /machinery:setup tiers first.
 - Take the expectation from something the code under test never produced: the stated setting, the fixture's dimensions, the input's shape, or arithmetic.
 - A number copied out of a run is labelled in the test as a regression pin. Where no independent expectation exists yet, say so at the assertion and leave the work open.
 - A regression test uses the default setting, not only an unusual one.
@@ -29,7 +30,7 @@ description: Load before writing or changing any code or test, before a refactor
 - A fixture that spawns a real subprocess removes every inherited environment variable that could redirect it outside the fixture directory before the first call.
 - A change that creates or modifies a safeguard (a type that rejects bad values, a source-scanning check, a debug switch, a hook) writes that safeguard's tests, TDD red first, including a case proving a search-based check still matches. A change that only uses a safeguard tests only its own new behaviour. Tell which from your own diff.
 - Where no automated test can reach (a real window, rendered layout, real hardware), say which layer is untested and verify by build, lint and a hands-on run of the rendered result at every supported window size.
-- A change that could move product output (engine, algorithm or performance rewrite, changed default) runs `machinery:comparison-agent` before merge, not only the unit tests.
+- Dispatch `machinery:comparison-agent` as `comparisonAgent` in `.claude/machinery/config.json` says: `push-to-main` — before every push to main; `output-paths` — before a push to main whose changes touch a path in `comparisonPaths`; `on-request` — only when the user asks; any other recorded text — as that text says. Not recorded: run /machinery:setup comparison-agent first.
 
 ## When something fails
 - Change only the site the change is about, then build. The errors and failures that come back are the list of affected sites. Never edit a site to find out whether it needed editing, or to make a failure elsewhere go away.
