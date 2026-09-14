@@ -29,7 +29,7 @@ function banner() {
     const stamp = path.join(root, '.githooks', 'machinery', 'VERSION');
     const pv = JSON.parse(fs.readFileSync(path.join(pluginRoot(), '.claude-plugin', 'plugin.json'), 'utf8')).version;
     lines.push(`  gate: ${fs.existsSync(stamp) ? `installed ${fs.readFileSync(stamp, 'utf8').trim()} (plugin ${pv})` : 'not installed'}`);
-    lines.push(`  hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none — the local merge gate is the sole blocking backstop'}`);
+    lines.push(`  hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none — the pre-push hook is the blocking check before main'}`);
     try { proj = pending(projectInbox(root)).length; } catch (e) { lines.push(`  project inbox: MALFORMED — ${e.message}`); }
   }
   let univ = 0;

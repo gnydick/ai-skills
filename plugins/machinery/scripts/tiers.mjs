@@ -9,6 +9,7 @@
 // the hook needs is not recorded (the refusal names the /machinery:setup item); 2 usage.
 // Every refusal is a line on stdout beginning `commit refused:`; the count lines state their
 // denominator so a pass for a bad reason cannot hide behind a bare pass.
+import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
@@ -16,7 +17,7 @@ import { readSetting, recorded } from './lib/settings.mjs';
 import { componentsOf } from './lib/components.mjs';
 import { isOwnFile } from './lib/own-files.mjs';
 
-const USAGE = 'usage: tiers.mjs fast';
+const USAGE = 'usage: tiers.mjs fast | merge';
 const say = (line) => process.stdout.write(line + '\n');
 const run = (cmd, cwd) => spawnSync(cmd, { cwd, shell: true, stdio: 'inherit' }).status ?? 1;
 
@@ -55,9 +56,35 @@ function fast(root) {
   return 0;
 }
 
+// The merge tier (plan Task B3; decision 13 amended): run in place on the warm build, only for a
+// push whose remote ref is main, and only on a clean tree whose HEAD is the commit being pushed —
+// otherwise the tests would judge a tree the push does not carry. git hands the pre-push hook one
+// line per ref on stdin: `<local ref> <local sha> <remote ref> <remote sha>`; a deletion has an
+// all-zero local sha and nothing to test.
+const MAIN = 'refs/heads/main';
+const ZERO = /^0{40}$/;
+function merge(root) {
+  const pushes = fs.readFileSync(0, 'utf8').split('\n').map((l) => l.trim().split(/\s+/)).filter((f) => f.length === 4 && f[2] === MAIN && !ZERO.test(f[1]));
+  if (!pushes.length) { say('merge_tier: 0 of 0 pushes to main'); return 0; }
+  const [, pushed] = pushes[0];
+  const status = git(['status', '--porcelain'], root);
+  const head = git(['rev-parse', 'HEAD'], root).stdout;
+  if (status.stdout !== '' || head !== pushed) {
+    say(`push refused: working tree not clean or HEAD ${head} is not pushed ${pushed} — commit, check out ${pushed}, push again`);
+    return 1;
+  }
+  let command;
+  try { command = readSetting(root, 'tiers.merge'); }
+  catch { say('push refused: no tiers recorded in .claude/machinery/config.json — run /machinery:setup tiers'); return 1; }
+  if (run(command, root) !== 0) { say(`push refused: merge tests failed — run \`${command}\`, fix, push again`); return 1; }
+  say('merge_tier: 0 of 1 pushes to main failed');
+  return 0;
+}
+
+const TIERS = { fast, merge };
 const [tier] = process.argv.slice(2);
-if (tier !== 'fast') { process.stderr.write(USAGE + '\n'); process.exit(2); }
-try { process.exit(fast(projectRoot(process.cwd()))); }
+if (!(tier in TIERS)) { process.stderr.write(USAGE + '\n'); process.exit(2); }
+try { process.exit(TIERS[tier](projectRoot(process.cwd()))); }
 catch (e) {
   if (e instanceof NotRecorded) { say(e.message); process.exit(1); }
   process.stderr.write(`${e.message}\n`); process.exit(1);

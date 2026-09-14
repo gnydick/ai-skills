@@ -113,6 +113,9 @@ function installProject() {
   fs.writeFileSync(path.join(gateDir, 'VERSION'), version() + '\n');
   fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install.\nnode .githooks/machinery/gate.mjs && exec node .githooks/machinery/tiers.mjs fast\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755); } catch {}
+  // The pre-push runs the merge tier on pushes to main, in place (plan Task B3; decision 13 amended).
+  fs.writeFileSync(path.join(hooksDir, 'pre-push'), '#!/bin/sh\n# Installed by /machinery:install.\nexec node .githooks/machinery/tiers.mjs merge\n');
+  try { fs.chmodSync(path.join(hooksDir, 'pre-push'), 0o755); } catch {}
   say(`installed gate ${version()} into .githooks/machinery/`);
   git(['config', 'core.hooksPath', '.githooks'], root);
   if (argv.includes('--hosted')) {

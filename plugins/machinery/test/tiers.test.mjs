@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { makeRepo } from './helpers/repo.mjs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { makeRepo, commitAll } from './helpers/repo.mjs';
 import { runScript } from './helpers/run.mjs';
 import { componentsOf } from '../scripts/lib/components.mjs';
 import { MACHINERY_OWN, isOwnFile } from '../scripts/lib/own-files.mjs';
@@ -156,6 +156,67 @@ test('componentsOf names each recorded component a staged path starts with, once
     assert.deepEqual(componentsOf(r.root, ['pkg-ab/x.txt', 'libs/deep/core-x/y.txt']), []);
     assert.deepEqual(componentsOf(r.root, ['libs/deep/core/x.txt']), ['deep']);
     assert.deepEqual(componentsOf(r.root, []), []);
+  } finally { r.cleanup(); }
+});
+
+// Plan Task B3 (decision 13 amended): the installed pre-push runs `tiers.merge` in place, on a
+// clean tree whose HEAD is the pushed commit, only when the remote ref is main.
+const push = (root, ...refspec) => spawnSync('git', ['push', '-q', 'origin', ...refspec], { cwd: root, encoding: 'utf8' });
+
+// A project with an origin, the hooks installed, the tiers recorded, and a `merge.mjs` that records
+// that it ran and fails only when `merge-fail.flag` exists. Committed through the installed hooks.
+function pushFixture() {
+  const r = makeRepo({ withOrigin: true });
+  fs.appendFileSync(path.join(r.root, '.git', 'info', 'exclude'), 'ran.txt\nmerged.txt\nchecked.txt\n*.flag\n');
+  runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root });
+  fs.writeFileSync(path.join(r.root, 'check.mjs'), "import fs from 'node:fs'; fs.writeFileSync('ran.txt', process.argv.slice(2).join(' ')); process.exit(fs.existsSync('fail.flag') ? 1 : 0);\n");
+  fs.writeFileSync(path.join(r.root, 'merge.mjs'), "import fs from 'node:fs'; fs.writeFileSync('merged.txt', 'yes'); process.exit(fs.existsSync('merge-fail.flag') ? 1 : 0);\n");
+  record(r.root);
+  assert.equal(setup(r.root, 'set', 'tiers.merge', 'node merge.mjs').code, 0);
+  commitAll(r.root, 'install and tiers');
+  return r;
+}
+
+test('push to main runs the merge tier on the pushed commit; a failure refuses the push', () => {
+  const r = pushFixture();
+  try {
+    let p = push(r.root, 'main');
+    assert.equal(p.status, 0, p.stderr);
+    assert.ok(fs.existsSync(path.join(r.root, 'merged.txt')), 'the merge tier did not run');
+    fs.writeFileSync(path.join(r.root, 'more.txt'), 'x\n');
+    commitAll(r.root, 'more');
+    fs.writeFileSync(path.join(r.root, 'merge-fail.flag'), '');
+    p = push(r.root, 'main');
+    assert.notEqual(p.status, 0);
+    assert.match(p.stdout + p.stderr, /push refused: merge tests failed — run `node merge\.mjs`, fix, push again/);
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: a dirty tree, or HEAD not the pushed commit, refuses the push naming both commits', () => {
+  const r = pushFixture();
+  try {
+    fs.appendFileSync(path.join(r.root, 'README.md'), 'edited, not committed\n');
+    const p = push(r.root, 'main');
+    assert.notEqual(p.status, 0);
+    assert.match(p.stdout + p.stderr, /push refused: working tree not clean or HEAD [0-9a-f]{40} is not pushed [0-9a-f]{40} — commit, check out [0-9a-f]{40}, push again/);
+    assert.equal(fs.existsSync(path.join(r.root, 'merged.txt')), false, 'the merge tier ran on a dirty tree');
+  } finally { r.cleanup(); }
+});
+
+test('a push to another branch runs no merge tier', () => {
+  const r = pushFixture();
+  try {
+    const p = push(r.root, 'main:feature');
+    assert.equal(p.status, 0, p.stderr);
+    assert.equal(fs.existsSync(path.join(r.root, 'merged.txt')), false);
+  } finally { r.cleanup(); }
+});
+
+test('the installed pre-push runs the merge tier', () => {
+  const r = fixture();
+  try {
+    assert.equal(fs.readFileSync(path.join(r.root, '.githooks', 'pre-push'), 'utf8'),
+      '#!/bin/sh\n# Installed by /machinery:install.\nexec node .githooks/machinery/tiers.mjs merge\n');
   } finally { r.cleanup(); }
 });
 
