@@ -16,6 +16,11 @@ test('context emits additionalContext for the current event', () => {
   assert.deepEqual(JSON.parse(stdout), { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: 'hello' } });
 });
 
+test('permission emits the PreToolUse permissionDecision shape (plan Task B4)', () => {
+  const { stdout } = probe('permission', 'r');
+  assert.deepEqual(JSON.parse(stdout), { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: 'r' } });
+});
+
 test('RED CHECK: none() prints nothing', () => {
   assert.equal(probe('none', '').stdout, '');
 });

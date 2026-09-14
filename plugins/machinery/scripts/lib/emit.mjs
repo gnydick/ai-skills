@@ -6,4 +6,8 @@ export function updatedInput(toolInput) {
 export function context(text, event = 'UserPromptSubmit') {
   write({ hookSpecificOutput: { hookEventName: event, additionalContext: text } });
 }
+// A PreToolUse permission decision (plan Task B4): 'ask' puts the reason in front of the user.
+export function permission(decision, reason) {
+  write({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } });
+}
 export function none() {}

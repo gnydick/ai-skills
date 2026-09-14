@@ -15,7 +15,8 @@
     ] }],
     "PreToolUse":       [{ "matcher": "Bash|PowerShell", "hooks": [
       { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/record-payload.mjs\"", "timeout": 5 },
-      { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/quiet.mjs\"", "timeout": 15, "statusMessage": "Quiet-output check" }
+      { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/quiet.mjs\"", "timeout": 15, "statusMessage": "Quiet-output check" },
+      { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/no-verify.mjs\"", "timeout": 5 }
     ] }],
     "WorktreeCreate":   [{ "hooks": [
       { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/worktree-create.mjs\"", "timeout": 300, "statusMessage": "Creating worktree (unprefixed branch)" },
