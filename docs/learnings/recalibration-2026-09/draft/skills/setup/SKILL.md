@@ -35,7 +35,7 @@ Example: "I review everything before it reaches main." Values: `none`; `person` 
 3. Ask what period they want. Change the key only to their answer; if they keep it, write nothing.
 
 ## issue-tracking (#99)
-Uses #99's commands and files, not `config.json`. The command's path is on the session banner's `issue tracking command:` line.
+Helps the developer set up their environment to interact with the tracking system (tool installed, signed in, route reachable, scope), then records which tracker this project uses as a project rule (`.claude/rules/project_issue_tracking.md`) through #99's commands and rule intake — never in `config.json`. The command's path is on the session banner's `issue tracking command:` line.
 1. Run `<command> decide`. Hold the conversation only if it prints `issue_tracking: ask`; offer its pre-fill first, labelled as what this machine already uses.
 2. Example: "Use GitHub Issues to track this project." Ask only what is unknown: which tracker and project; is `<tool>` installed (suggest installing it); is `<tool>` signed in (the developer runs the login as `! <tool login command>`); is this for this project only or every project on this machine.
 3. Check the route with one read (`<tool status command>`, then one read of one issue). Never create, edit, comment on, label or close anything, and never record what the read returned or any credential.
