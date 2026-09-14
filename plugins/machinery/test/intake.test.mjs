@@ -27,11 +27,27 @@ function projectWithPending(h) {
 }
 
 test('place appends a bullet under an existing heading and creates a missing one', () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-')); const f = path.join(d, 'rules', 'a.md'); fs.mkdirSync(path.dirname(f));
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-')); const f = path.join(d, '.claude', 'rules', 'a.md'); fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, '# A\n\n## One\n\n- old\n');
   assert.equal(runScript('scripts/place.mjs', { args: ['--file', f, '--section', 'One', '--text', 'new rule'] }).code, 0);
   assert.equal(runScript('scripts/place.mjs', { args: ['--file', f, '--section', 'Two', '--text', 'another'] }).code, 0);
   assert.equal(fs.readFileSync(f, 'utf8'), '# A\n\n## One\n\n- old\n- new rule\n\n## Two\n\n- another\n');
+});
+
+test('place appends to core.md under its title, and into a bucket skill section; a bare rules/ file is refused', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'place-'));
+  const core = path.join(d, 'plugins', 'machinery', 'core.md'); fs.mkdirSync(path.dirname(core), { recursive: true });
+  fs.writeFileSync(core, '# Machinery core (always on)\n- one\n');
+  assert.equal(runScript('scripts/place.mjs', { args: ['--file', core, '--section', 'Machinery core (always on)', '--text', 'two'] }).code, 0);
+  assert.equal(fs.readFileSync(core, 'utf8'), '# Machinery core (always on)\n- one\n- two\n');
+  const skill = path.join(d, 'claude-code', 'machinery', 'testing', 'SKILL.md'); fs.mkdirSync(path.dirname(skill), { recursive: true });
+  fs.writeFileSync(skill, '---\nname: testing\ndescription: d\n---\n# Testing\n\n## Writing a test\n- a\n\n## When something fails\n- b\n');
+  assert.equal(runScript('scripts/place.mjs', { args: ['--file', skill, '--section', 'Writing a test', '--text', 'c'] }).code, 0);
+  assert.match(fs.readFileSync(skill, 'utf8'), /## Writing a test\n- a\n- c\n\n## When something fails/);
+  const bare = path.join(d, 'rules', 'x.md'); fs.mkdirSync(path.dirname(bare)); fs.writeFileSync(bare, '');
+  const res = runScript('scripts/place.mjs', { args: ['--file', bare, '--section', 'S', '--text', 't'] });
+  assert.equal(res.code, 1);
+  assert.match(res.stderr, /\.claude\/rules\/<file>\.md, claude-code\/machinery\/<kind>\/SKILL\.md or plugins\/machinery\/core\.md/);
 });
 
 test('place refuses a file outside a rules directory (spec I34)', () => {
@@ -76,51 +92,39 @@ test('intake commit --kind project refuses from inside a worktree (spec I29)', (
   } finally { r.cleanup(); }
 });
 
-test('universal intake bumps the plugin version in the same commit (spec I31)', () => {
-  // A fake plugin checkout: rules/, inbox.md, register/, .claude-plugin/plugin.json, git-initialised.
+test('universal intake files into a bucket skill, rebuilds it, bumps, and commits in the plugin source\'s checkout; a rules/ home is refused (spec I30, I31; recalibration 1, 2)', () => {
+  // A fake ai-skills checkout: the plugin (core.md, inbox.md, plugin.json), one bucket skill under
+  // claude-code/machinery/, and a stub scripts/build-skills.mjs that copies the bucket into the plugin.
   const r = makeRepo(); const h = home();
   try {
     const plug = path.join(r.root, 'plugins', 'machinery');
-    fs.mkdirSync(path.join(plug, 'rules'), { recursive: true }); fs.mkdirSync(path.join(plug, '.claude-plugin'), { recursive: true });
-    fs.writeFileSync(path.join(plug, 'rules', 'straight-talk.md'), '# S\n\n## Claims\n\n- a\n');
-    fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
-    fs.writeFileSync(path.join(plug, 'inbox.md'), '');
-    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'plugin');
-    fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
-    withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: say less', session: 's' }));
-    const stamp = runScript('scripts/intake.mjs', { args: ['list'], cwd: r.root, env: { MACHINERY_HOME: h } }).stdout.trim().split('\t')[0];
-    runScript('scripts/place.mjs', { args: ['--file', path.join(plug, 'rules', 'straight-talk.md'), '--section', 'Claims', '--text', 'Say less.'] });
-    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'rules/straight-talk.md § Claims'], cwd: r.root, env: { MACHINERY_HOME: h } });
+    const skill = path.join(r.root, 'claude-code', 'machinery', 'testing', 'SKILL.md');
+    const put = (f, t) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, t); };
+    put(path.join(plug, 'core.md'), '# Machinery core (always on)\n- one\n');
+    put(path.join(plug, 'inbox.md'), '');
+    put(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
+    put(skill, '---\nname: testing\ndescription: d\n---\n# Testing\n\n## Writing a test\n- a\n\n## When something fails\n- b\n');
+    put(path.join(r.root, 'scripts', 'build-skills.mjs'),
+      "import fs from 'node:fs';\n"
+      + "if (process.argv[2] !== 'build') process.exit(2);\n"
+      + "fs.mkdirSync('plugins/machinery/skills/testing', { recursive: true });\n"
+      + "fs.copyFileSync('claude-code/machinery/testing/SKILL.md', 'plugins/machinery/skills/testing/SKILL.md');\n");
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'checkout');
+    fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: plug }));
+    // Appended by path, not through universalInbox(): before the green this resolves to the LIVE plugin inbox.
+    appendEntry(path.join(plug, 'inbox.md'), { marker: 'URULE', text: 'URULE: say less', session: 's' });
+    const stamp = pending(path.join(plug, 'inbox.md'))[0].stamp;
+    const env = { MACHINERY_HOME: h };
+    assert.equal(runScript('scripts/place.mjs', { args: ['--file', skill, '--section', 'Writing a test', '--text', 'c'] }).code, 0);
+    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'claude-code/machinery/testing/SKILL.md § Writing a test'], cwd: r.root, env });
     assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.deepEqual(g(r.root, 'show', '--name-only', '--format=', 'HEAD').split('\n').filter(Boolean).sort(),
+      ['claude-code/machinery/testing/SKILL.md', 'plugins/machinery/.claude-plugin/plugin.json', 'plugins/machinery/inbox.md', 'plugins/machinery/skills/testing/SKILL.md']);
+    assert.equal(g(r.root, 'status', '--porcelain'), '');
     assert.equal(JSON.parse(fs.readFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), 'utf8')).version, '0.1.1');
-    assert.match(g(r.root, 'show', '--stat', 'HEAD'), /plugin\.json/);
-    assert.equal(runScript('scripts/gate/gate.mjs', { args: ['--root', plug, '--universal'], cwd: plug }).code, 0);
-  } finally { r.cleanup(); }
-});
-
-test('intake commit --kind universal commits in the rules source\'s own checkout, not the worktree\'s main checkout (I30 regression)', () => {
-  // Reproduces the dogfood defect: the plugin lives in a worktree. projectRoot()
-  // resolves through the worktree's common dir to the MAIN checkout, so a naive
-  // repo choice would try to `git add`/`git commit` paths that don't exist there.
-  const r = makeRepo(); const h = home();
-  try {
-    const wt = addWorktree(r.root, 'wt');
-    const plug = path.join(wt, 'plug');
-    fs.mkdirSync(path.join(plug, 'rules'), { recursive: true }); fs.mkdirSync(path.join(plug, '.claude-plugin'), { recursive: true });
-    fs.writeFileSync(path.join(plug, 'rules', 't.md'), '# T\n\n## Claims\n\n- a\n');
-    fs.writeFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
-    fs.writeFileSync(path.join(plug, 'inbox.md'), '');
-    g(wt, 'add', '-A'); g(wt, 'commit', '-q', '-m', 'plugin');
-    fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
-    withHome(h, () => appendEntry(universalInbox(), { marker: 'URULE', text: 'URULE: file it where it lives', session: 's' }));
-    const mainHeadBefore = g(r.root, 'rev-parse', 'HEAD');
-    const env = { MACHINERY_HOME: h, CLAUDE_PLUGIN_ROOT: plug };
-    const stamp = runScript('scripts/intake.mjs', { args: ['list'], cwd: wt, env }).stdout.trim().split('\t')[0];
-    runScript('scripts/place.mjs', { args: ['--file', path.join(plug, 'rules', 't.md'), '--section', 'Claims', '--text', 'File it where it lives.'] });
-    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--root', wt, '--stamp', stamp, '--home', 'rules/t.md § Claims'], cwd: wt, env });
-    assert.equal(res.code, 0, res.stderr + res.stdout);
-    assert.match(g(wt, 'log', '-1', '--format=%s'), /^rule:/);
-    assert.equal(g(r.root, 'rev-parse', 'HEAD'), mainHeadBefore);
+    const bad = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'plugins/machinery/rules/x.md § S'], cwd: r.root, env });
+    assert.equal(bad.code, 1);
+    assert.match(bad.stderr, /filed in plugins\/machinery\/core\.md or claude-code\/machinery\/<kind>\/SKILL\.md/);
   } finally { r.cleanup(); }
 });
 

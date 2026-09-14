@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN, runScript } from './helpers/run.mjs';
 
@@ -27,8 +28,12 @@ test('the markers named in skills are the ones in markers.json', () => {
 });
 
 test('reload prints every universal rule file as a delimited block', () => {
-  const res = runScript('scripts/reload.mjs');
-  assert.equal(res.code, 0);
+  // A throwaway home naming THIS plugin as the source: the live machinery.json is not this test's.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  fs.mkdirSync(path.join(home, '.claude'));
+  fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: PLUGIN }));
+  const res = runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: home } });
+  assert.equal(res.code, 0, res.stderr);
   for (const f of fs.readdirSync(path.join(PLUGIN, 'rules'))) assert.ok(res.stdout.includes(`===== rules/${f} =====`));
 });
 

@@ -18,7 +18,7 @@ const home = () => {
   fs.mkdirSync(path.join(h, '.claude'));
   const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
   fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(rulesDir, 'rules') }));
+  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: rulesDir }));
   return h;
 };
 const ctx = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
@@ -49,7 +49,7 @@ test('PRULE from INSIDE A WORKTREE lands in the root inbox, not the copy, and sa
 test('URULE lands in the universal inbox beside the rules source (spec I3)', () => {
   const r = makeRepo();
   const src = fs.mkdtempSync(path.join(os.tmpdir(), 'src-')); fs.mkdirSync(path.join(src, 'rules'));
-  const h = home(); fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(src, 'rules') }));
+  const h = home(); fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: src }));
   try {
     const res = run('urule: universal thing', r.root, { MACHINERY_HOME: h });
     assert.equal(pending(path.join(src, 'inbox.md')).length, 1);
@@ -104,11 +104,11 @@ test('RED CHECK: a PRULE is not silently dropped', () => {
 test('RED CHECK: a plain-words issue-tracking answer, with no mark, writes nothing to either inbox (issue tracking test 7a1)', () => {
   const r = makeRepo(); const h = home();
   try {
-    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).rulesSource;
+    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).pluginSource;
     const res = run('Use GitHub Issues to track this project, for this project only.', r.root, { MACHINERY_HOME: h });
     assert.equal(res.code, 0, res.stderr);
     assert.ok(!fs.existsSync(path.join(r.root, '.claude', 'machinery', 'inbox.md')), 'a project inbox was written');
-    assert.ok(!fs.existsSync(path.join(path.dirname(src), 'inbox.md')), 'a universal inbox was written');
+    assert.ok(!fs.existsSync(path.join(src, 'inbox.md')), 'a universal inbox was written');
     run('PRULE: x', r.root, { MACHINERY_HOME: h });
     assert.equal(pending(path.join(r.root, '.claude', 'machinery', 'inbox.md')).length, 1);
   } finally { r.cleanup(); }

@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from './lib/root.mjs';
-import { globalIssueTracking, projectIssueTracking, rulesSource, projectInbox } from './lib/config.mjs';
+import { globalIssueTracking, projectIssueTracking, universalSource, projectInbox } from './lib/config.mjs';
 import { UNANSWERED, NONE } from './lib/layout.mjs';
 import { appendEntry, formatEntry, newStamp, parseInbox } from './lib/inbox.mjs';
 import { decide, readIfPresent, normalizeAnswer, PROJECT_ENTRY_KIND, entryText, findRecorded, pendingIssueTracking } from './lib/issue-tracking.mjs';
@@ -69,13 +69,13 @@ const inside = (child, parent) => { const rel = path.relative(parent, child); re
 // Ruling A, made testable (the plan's Decision 1): the answer for every project on this machine is
 // written straight into the global file — no inbox entry, no intake, no commit, and never a project
 // file (Ruling D; this command resolves no project at all). The one thing it checks first is that the
-// file would not land under rulesSource(), which ships to everyone who installs machinery.
+// file would not land under universalSource(), which ships to everyone who installs machinery.
 function runRecordGlobal() {
   const answer = requireAnswer();
   const file = globalIssueTracking();
-  const source = rulesSource();
+  const source = universalSource();
   if (inside(real(path.dirname(file)), real(source))) {
-    throw new Refused(`${file} is under the rules source ${source}, which ships to everyone who installs machinery; nothing written`);
+    throw new Refused(`${file} is under the plugin source ${source}, which ships to everyone who installs machinery; nothing written`);
   }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${answer}\n`, 'utf8');

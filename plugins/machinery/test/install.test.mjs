@@ -87,11 +87,11 @@ test('--hosted writes the workflow template; default does not', () => {
 
 test('--machine creates the junction ~/.claude/rules/machinery → rules source (spec I11)', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  const tempRules = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  const tempPlug = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')); const tempRules = path.join(tempPlug, 'rules'); fs.mkdirSync(tempRules);
   try {
     fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
     fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: tempRules }));
+    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: tempPlug }));
     const res = runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
     assert.equal(res.code, 0, res.stderr);
     const link = path.join(home, '.claude', 'rules', 'machinery');
@@ -99,17 +99,17 @@ test('--machine creates the junction ~/.claude/rules/machinery → rules source 
     assert.equal(runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } }).code, 0); // idempotent
   } finally {
     fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
-    fs.rmSync(tempRules, { recursive: true, force: true, maxRetries: 5 });
+    fs.rmSync(tempPlug, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
 test('--machine refuses to replace a real directory sitting at the junction path', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  const tempRules = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  const tempPlug = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')); const tempRules = path.join(tempPlug, 'rules'); fs.mkdirSync(tempRules);
   try {
     fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
     fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: tempRules }));
+    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: tempPlug }));
     const link = path.join(home, '.claude', 'rules', 'machinery');
     fs.mkdirSync(link, { recursive: true });
     fs.writeFileSync(path.join(link, 'keep.md'), 'do not delete me\n');
@@ -120,7 +120,7 @@ test('--machine refuses to replace a real directory sitting at the junction path
     assert.equal(fs.readFileSync(path.join(link, 'keep.md'), 'utf8'), 'do not delete me\n');
   } finally {
     fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
-    fs.rmSync(tempRules, { recursive: true, force: true, maxRetries: 5 });
+    fs.rmSync(tempPlug, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
@@ -279,11 +279,11 @@ test('the seed is the single state word and nothing detected about the repositor
 
 test('--machine seeds the global issue-tracking file once and never overwrites an answer, a declined or an empty file (tests 1, 2)', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
-  const tempRules = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
+  const tempPlug = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')); const tempRules = path.join(tempPlug, 'rules'); fs.mkdirSync(tempRules);
   try {
     fs.writeFileSync(path.join(tempRules, 't.md'), '# T\n\n## One\n\n- rule 1\n');
     fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: tempRules }));
+    fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: tempPlug }));
     const machine = () => runScript('scripts/install.mjs', { args: ['--machine'], env: { MACHINERY_HOME: home } });
     const first = machine();
     assert.equal(first.code, 0, first.stderr);
@@ -300,6 +300,6 @@ test('--machine seeds the global issue-tracking file once and never overwrites a
     }
   } finally {
     fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
-    fs.rmSync(tempRules, { recursive: true, force: true, maxRetries: 5 });
+    fs.rmSync(tempPlug, { recursive: true, force: true, maxRetries: 5 });
   }
 });

@@ -82,7 +82,7 @@ function pluginCheckout(home) {
   put(path.join(plug, 'inbox.md'), '');
   execFileSync('git', ['add', '-A'], { cwd: r.root });
   execFileSync('git', ['commit', '-q', '-m', 'plugin'], { cwd: r.root });
-  put(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(plug, 'rules') }));
+  put(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: plug }));
   return r;
 }
 
@@ -111,7 +111,7 @@ test('record-global writes the global file and nothing else: no inbox entry, no 
 test('RED CHECK: answering for every project leaves a seeded project file byte-identical, and that project still asks (test 12)', () => {
   const h = tempHome(); const r = makeRepo();
   try {
-    put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: fs.mkdtempSync(path.join(os.tmpdir(), 'rules-')) }));
+    put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')) }));
     put(projectFile(r.root), 'unanswered\n');
     const before = fs.readFileSync(projectFile(r.root));
     assert.equal(cli(['record-global', '--answer', ANSWER], { cwd: r.root, home: h }).code, 0);
@@ -122,18 +122,18 @@ test('RED CHECK: answering for every project leaves a seeded project file byte-i
   } finally { r.cleanup(); }
 });
 
-test('RED CHECK: record-global refuses when the global file would land under the rules source, and writes nothing', () => {
+test('RED CHECK: record-global refuses when the global file would land under the plugin source, and writes nothing', () => {
   const h = tempHome();
-  put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(h, '.claude', 'rules') }));
+  put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: path.join(h, '.claude') }));
   const res = cli(['record-global', '--answer', ANSWER], { cwd: h, home: h });
   assert.equal(res.code, 1);
-  assert.match(res.stderr, /^issue_tracking: refused: .* is under the rules source /m);
+  assert.match(res.stderr, /^issue_tracking: refused: .* is under the plugin source /m);
   assert.ok(!fs.existsSync(globalFile(h)));
 });
 
 test('record-global refuses a missing, empty or seeded-word answer, and writes nothing', () => {
   const h = tempHome();
-  put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: fs.mkdtempSync(path.join(os.tmpdir(), 'rules-')) }));
+  put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')) }));
   for (const args of [['record-global'], ['record-global', '--answer', '  '], ['record-global', '--answer', 'unanswered']]) {
     const res = cli(args, { cwd: h, home: h });
     assert.equal(res.code, 1, `${args.join(' ')}: ${res.stderr}`);

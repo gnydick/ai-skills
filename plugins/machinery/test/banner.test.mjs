@@ -15,7 +15,7 @@ const home = () => {
   fs.mkdirSync(path.join(h, '.claude'));
   const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
   fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(rulesDir, 'rules') }));
+  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: rulesDir }));
   return h;
 };
 const run = (cwd, env = {}) => runScript('scripts/banner.mjs', { stdin: JSON.stringify({ ...base, cwd }), cwd, env: { MACHINERY_HOME: home(), ...env } });
@@ -50,7 +50,7 @@ test('after install and a capture, reports hooksPath, stamp, and pending count',
 test('a rules source that does not resolve is reported loudly, exit 0', () => {
   const r = makeRepo();
   try {
-    const h = home(); fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: 'Z:/nope/rules' }));
+    const h = home(); fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: 'Z:/nope' }));
     const res = run(r.root, { MACHINERY_HOME: h });
     assert.equal(res.code, 0); assert.match(text(res), /rules source: .*DOES NOT EXIST/);
   } finally { r.cleanup(); }

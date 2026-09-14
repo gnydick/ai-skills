@@ -10,6 +10,8 @@ import path from 'node:path';
 // and spec indexes are gone (recalibration decision 10); the gate checks the inboxes only.
 export const INBOX = 'inbox.md';
 export const SPEC_INBOX = 'spec-inbox.md';
+// The always-on universal rules, one file in the plugin source (recalibration decisions 1, 2).
+export const CORE = 'core.md';
 // Issue tracking configuration (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
 // Two files hold the developer's one answer about where issue tracking lives. Three units name them
 // and none can import another — install.mjs seeds them, lib/issue-tracking.mjs reads them through

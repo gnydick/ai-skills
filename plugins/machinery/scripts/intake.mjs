@@ -3,7 +3,7 @@
 import path from 'node:path';
 import { git, realDir } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
-import { projectInbox, projectRules, projectSpecs, projectSpecInbox, universalInbox, rulesSource } from './lib/config.mjs';
+import { projectInbox, projectRules, projectSpecs, projectSpecInbox, universalInbox, universalSource, universalCore } from './lib/config.mjs';
 import { pending, setDisposition } from './lib/inbox.mjs';
 import { insideSpecArea } from './lib/layout.mjs';
 import { spawnSync } from 'node:child_process';
@@ -47,22 +47,36 @@ function commit() {
     repo = projectRoot(cwd); inbox = projectInbox(repo); rules = projectRules(repo);
   } else {
     // Story: spec I30, each pipeline is one commit in one repo — the universal
-    // kind's repo is the top level of the checkout that HOLDS rulesSource()
+    // kind's repo is the top level of the checkout that HOLDS universalSource()
     // (which may be configured outside the plugin), never the main checkout
     // a worktree's common dir would resolve to (projectRoot()).
-    rules = rulesSource(); inbox = universalInbox();
-    const rulesDir = realDir(rules);
-    const top = git(['rev-parse', '--show-toplevel'], rulesDir);
-    if (top.code !== 0) die(`not inside a git repository: ${rules}`);
+    const source = universalSource(); inbox = universalInbox();
+    const top = git(['rev-parse', '--show-toplevel'], realDir(source));
+    if (top.code !== 0) die(`not inside a git repository: ${source}`);
     repo = realDir(top.stdout);
+    // A universal rule has two homes (recalibration decisions 1, 2): core.md, or the bucket source
+    // of the skill for its kind — never a rules/ directory. Checked BEFORE the stamp lookup so a
+    // bad home is refused by name even when the entry is already filed.
+    const toPosix = (p) => p.split(path.sep).join('/');
+    const rel = home.split(' § ')[0].trim();
+    const coreRel = toPosix(path.relative(repo, universalCore()));
+    const skillHome = /^claude-code\/machinery\/[a-z0-9-]+\/SKILL\.md$/.test(rel);
+    if (rel !== coreRel && !skillHome) die(`a universal rule is filed in ${coreRel} or claude-code/machinery/<kind>/SKILL.md, not ${rel}`);
+    rules = path.join(repo, rel);
   }
   const entry = pending(inbox).find((e) => e.stamp === stamp);
   if (!entry) die(`no PENDING entry with stamp ${stamp} in ${inbox}`);
   if (kind === 'universal') {
-    const plug = path.dirname(rules);
-    const b = spawnSync(process.execPath, [path.join(here, 'bump.mjs'), '--plugin', plug], { encoding: 'utf8' });
+    const source = universalSource();
+    if (/^claude-code\//.test(home)) {
+      // The bucket is the source; the plugin's copy is generated from it and travels in the same commit.
+      const build = spawnSync(process.execPath, [path.join(repo, 'scripts', 'build-skills.mjs'), 'build'], { cwd: repo, encoding: 'utf8' });
+      if (build.status !== 0) die(`node scripts/build-skills.mjs build failed in ${repo}: ${build.stderr}`);
+      extra.push(path.join(source, 'skills'));
+    }
+    const b = spawnSync(process.execPath, [path.join(here, 'bump.mjs'), '--plugin', source], { encoding: 'utf8' });
     if (b.status !== 0) die(`bump failed: ${b.stderr}`);
-    extra.push(path.join(plug, '.claude-plugin', 'plugin.json'));
+    extra.push(path.join(source, '.claude-plugin', 'plugin.json'));
     process.stdout.write(`bumped plugin version to ${b.stdout.trim()}\n`);
   }
   setDisposition(inbox, stamp, { state: 'FILED', detail: `filed → ${home}` });

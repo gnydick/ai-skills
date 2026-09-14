@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { rulesSource, universalInbox, projectInbox, markers, pluginRoot, globalIssueTracking, projectIssueTracking } from '../scripts/lib/config.mjs';
+import { rulesSource, universalSource, universalInbox, universalCore, projectInbox, markers, pluginRoot, globalIssueTracking, projectIssueTracking } from '../scripts/lib/config.mjs';
 
 test('defaults: rules source is the plugin rules dir; universal inbox beside it', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
@@ -13,13 +13,22 @@ test('defaults: rules source is the plugin rules dir; universal inbox beside it'
   assert.equal(universalInbox(), path.join(PLUGIN, 'inbox.md'));
 });
 
-test('~/.claude/machinery.json overrides the source', () => {
+test('pluginSource names the universal source; inbox.md and core.md sit in it', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  fs.mkdirSync(path.join(home, '.claude'));
+  fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: 'D:/checkout/plugins/machinery' }));
+  process.env.MACHINERY_HOME = home;
+  assert.equal(universalSource(), path.resolve('D:/checkout/plugins/machinery'));
+  assert.equal(universalInbox(), path.resolve('D:/checkout/plugins/machinery/inbox.md'));
+  assert.equal(universalCore(), path.resolve('D:/checkout/plugins/machinery/core.md'));
+});
+
+test('RED CHECK: a machinery.json still carrying rulesSource is refused, naming pluginSource', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
   fs.mkdirSync(path.join(home, '.claude'));
   fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: 'D:/checkout/plugins/machinery/rules' }));
   process.env.MACHINERY_HOME = home;
-  assert.equal(rulesSource(), path.resolve('D:/checkout/plugins/machinery/rules'));
-  assert.equal(universalInbox(), path.resolve('D:/checkout/plugins/machinery/inbox.md'));
+  assert.throws(() => universalSource(), /"rulesSource" was replaced by "pluginSource"/);
 });
 
 test('project paths sit outside the rules directory (spec I12)', () => {

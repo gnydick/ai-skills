@@ -31,7 +31,7 @@ const home = () => {
   fs.mkdirSync(path.join(h, '.claude'));
   const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
   fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: path.join(rulesDir, 'rules') }));
+  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: rulesDir }));
   return h;
 };
 const ctx = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
@@ -125,8 +125,8 @@ test('adding a third mark leaves the two existing marks exactly as they were (#8
     // The universal mark writes beside its own rules source, not into this project.
     const h = home();
     const u = runScript('scripts/capture.mjs', { stdin: payload('URULE: say less', r.root), cwd: r.root, env: { MACHINERY_HOME: h } });
-    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).rulesSource;
-    assert.equal(pending(path.join(path.dirname(src), 'inbox.md')).length, 1);
+    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).pluginSource;
+    assert.equal(pending(path.join(src, 'inbox.md')).length, 1);
     assert.match(ctx(u), /captured verbatim to .*inbox\.md/i);
     assert.equal(pending(projectSpecInbox(r.root)).length, 0, 'a URULE must not reach the spec inbox either');
   } finally { r.cleanup(); }
@@ -211,18 +211,20 @@ test('spec intake refuses a home outside the spec area, then files and commits i
   try {
     const inbox = projectSpecInbox(r.root);
     appendEntry(inbox, { marker: 'SPEC', text: SPEC_TEXT, session: 's' });
-    const list = runScript('scripts/intake.mjs', { args: ['list', '--root', r.root], cwd: r.root });
+    // A throwaway home: intake also reads the universal inbox, and the live machinery.json is not this test's.
+    const env = { MACHINERY_HOME: home() };
+    const list = runScript('scripts/intake.mjs', { args: ['list', '--root', r.root], cwd: r.root, env });
     assert.match(list.stdout, /\tSPEC\t.*spec-inbox\.md\tSPEC: the tool resolver/, list.stdout);
     const stamp = list.stdout.trim().split('\n').find((l) => l.includes('\tSPEC\t')).split('\t')[0];
     write(r.root, 'docs/dictated-specs/tooling.md', '# Tooling\n\n## Resolving a tool\n\n- resolve by explicit path, never by search path\n');
     // Refused first: a home outside the spec area, so the intake cannot write the very disposition
     // the gate would then reject. The entry survives that refusal untouched and is filed below.
-    const bad = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/notes.md § Tooling'], cwd: r.root });
+    const bad = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/notes.md § Tooling'], cwd: r.root, env });
     assert.notEqual(bad.code, 0);
     assert.match(bad.stderr, /docs[\\/]dictated-specs/, bad.stderr);
     assert.equal(pending(inbox).length, 1, 'the entry stays pending — nothing was filed');
 
-    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/dictated-specs/tooling.md § Resolving a tool'], cwd: r.root });
+    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/dictated-specs/tooling.md § Resolving a tool'], cwd: r.root, env });
     assert.equal(res.code, 0, res.stderr + res.stdout);
     assert.equal(pending(inbox).length, 0);
     const [e] = parseInbox(fs.readFileSync(inbox, 'utf8'));

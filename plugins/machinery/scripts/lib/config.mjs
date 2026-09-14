@@ -2,22 +2,32 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { INBOX, SPEC_INBOX, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, GLOBAL_ISSUE_TRACKING, PROJECT_ISSUE_TRACKING } from './layout.mjs';
+import { INBOX, SPEC_INBOX, CORE, RULES_DIR, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, GLOBAL_ISSUE_TRACKING, PROJECT_ISSUE_TRACKING } from './layout.mjs';
 
 const home = () => process.env.MACHINERY_HOME || os.homedir();
 export function pluginRoot() {
   return process.env.CLAUDE_PLUGIN_ROOT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 }
+function userConfigFile() { return path.join(home(), '.claude', 'machinery.json'); }
 function userConfig() {
-  const f = path.join(home(), '.claude', 'machinery.json');
+  const f = userConfigFile();
   if (!fs.existsSync(f)) return {};
   try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { throw new Error(`machinery.json is not valid JSON: ${f} (${e.message})`); }
 }
-export function rulesSource() {
+// The universal source is the plugin directory itself (recalibration decisions 1, 2): inbox.md and
+// core.md sit in it, and a universal rule files into core.md or a bucket skill, never a rules/ dir.
+// A machinery.json still naming the old key is refused by name rather than silently defaulted.
+export function universalSource() {
   const c = userConfig();
-  return c.rulesSource ? path.resolve(c.rulesSource) : path.join(pluginRoot(), RULES_DIR);
+  if (c.rulesSource !== undefined && c.pluginSource === undefined) {
+    throw new Error(`${userConfigFile()}: "rulesSource" was replaced by "pluginSource" — set "pluginSource" to the plugin directory (the parent of the old rules directory)`);
+  }
+  return c.pluginSource ? path.resolve(c.pluginSource) : pluginRoot();
 }
-export const universalInbox = () => path.join(path.dirname(rulesSource()), INBOX);
+export const universalInbox = () => path.join(universalSource(), INBOX);
+export const universalCore = () => path.join(universalSource(), CORE);
+// Read only by banner, reload and install --machine; removed with them in Task A6.
+export const rulesSource = () => path.join(universalSource(), RULES_DIR);
 export const projectRules = (root) => path.join(root, '.claude', RULES_DIR);
 // The two issue-tracking files (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
 // Built here and nowhere else, so the installer that seeds them, the command that reads and records

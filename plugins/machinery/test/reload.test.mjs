@@ -24,7 +24,7 @@ function fixture() {
   for (const n of NAMES) fs.writeFileSync(path.join(rules, n), bodyOf(n));
   const home = path.join(base, 'home');
   fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-  fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ rulesSource: rules }));
+  fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: base }));
   const scratch = path.join(base, 'scratchpad');
   fs.mkdirSync(scratch);
   return {
