@@ -3,7 +3,21 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import { makeRepo, addWorktree } from './helpers/repo.mjs';
-import { projectRoot, isRootSession } from '../scripts/lib/root.mjs';
+import { projectRoot, checkoutRoot, isRootSession } from '../scripts/lib/root.mjs';
+
+// STATUS 52: the checkout root is the tree being committed — the worktree itself from inside a
+// linked worktree — where projectRoot is the main checkout that owns the shared inbox.
+test('checkoutRoot from inside a worktree is the worktree; from the main checkout, the checkout', () => {
+  const r = makeRepo();
+  try {
+    assert.equal(checkoutRoot(r.root), r.root);
+    const wt = addWorktree(r.root, 'feature-y');
+    assert.equal(checkoutRoot(wt), wt);
+    fs.mkdirSync(path.join(wt, 'sub'));
+    assert.equal(checkoutRoot(path.join(wt, 'sub')), wt);
+    assert.equal(projectRoot(wt), r.root);
+  } finally { r.cleanup(); }
+});
 
 test('projectRoot from the main checkout is the checkout', () => {
   const r = makeRepo();

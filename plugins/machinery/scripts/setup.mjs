@@ -6,8 +6,9 @@
 //   setup.mjs set <key> <value…>   validate and record one key
 //
 // Exit codes: 0 done; 1 refused or cannot read (message on stderr, nothing written); 2 usage.
-import { projectRoot } from './lib/root.mjs';
+import { checkoutRoot } from './lib/root.mjs';
 import { KEYS, recorded, setSetting, render } from './lib/settings.mjs';
+// Settings belong to the checkout (STATUS 52): from a linked worktree, its own config.json.
 
 const USAGE = 'usage: setup.mjs show | set <key> <value…>';
 const [command, key, ...values] = process.argv.slice(2);
@@ -26,9 +27,9 @@ function show(root) {
 }
 
 try {
-  if (command === 'show' && key === undefined) show(projectRoot(process.cwd()));
+  if (command === 'show' && key === undefined) show(checkoutRoot(process.cwd()));
   else if (command === 'set' && key !== undefined) {
-    setSetting(projectRoot(process.cwd()), key, values);
+    setSetting(checkoutRoot(process.cwd()), key, values);
     process.stdout.write(`recorded ${key}\n`);
   } else { process.stderr.write(USAGE + '\n'); process.exit(2); }
 } catch (e) {

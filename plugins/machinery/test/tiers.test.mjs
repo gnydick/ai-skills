@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { makeRepo, commitAll } from './helpers/repo.mjs';
+import { makeRepo, addWorktree, commitAll } from './helpers/repo.mjs';
 import { runScript } from './helpers/run.mjs';
 import { componentsOf } from '../scripts/lib/components.mjs';
 import { MACHINERY_OWN, isOwnFile } from '../scripts/lib/own-files.mjs';
@@ -114,6 +114,28 @@ test('a commit staging only .claude/machinery/config.json (written by setup, nev
     const res = fast(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     assert.match(res.stdout, /^fast_tier: 0 of 0 touched components failed \(machinery's own files only\)$/m);
+  } finally { r.cleanup(); }
+});
+
+// STATUS 52: setup.mjs and tiers.mjs act on the CHECKOUT being committed — a linked worktree's own
+// config.json and index — never the common-dir project root. With `worktree: always` most commits
+// happen in linked worktrees, so a hook that read main's index would test the wrong tree.
+test('from a linked worktree, setup writes and the fast tier reads the checkout, not the main checkout (STATUS 52)', () => {
+  const r = fixture();
+  try {
+    record(r.root);
+    commitAll(r.root, 'install, pkg-a and the tiers');
+    const wt = addWorktree(r.root, 'feature');
+    assert.equal(setup(wt, 'set', 'tiers.fast', 'node check.mjs wt <components>').code, 0);
+    const config = (root) => JSON.parse(fs.readFileSync(path.join(root, '.claude', 'machinery', 'config.json'), 'utf8')).tiers.fast;
+    assert.equal(config(r.root), 'node check.mjs <components>', 'setup from the worktree wrote the main checkout\'s config.json');
+    assert.equal(config(wt), 'node check.mjs wt <components>', 'setup from the worktree did not write the worktree\'s config.json');
+    fs.writeFileSync(path.join(wt, 'pkg-a', 'src', 'y.txt'), 'y\n');
+    sh(['add', 'pkg-a/src/y.txt'], wt);
+    const res = fast(wt);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /^fast_tier: 0 of 1 touched components failed$/m);
+    assert.equal(fs.readFileSync(path.join(wt, 'ran.txt'), 'utf8'), 'wt pkg-a', 'the fast tier did not run the worktree\'s command on the worktree\'s staged paths');
   } finally { r.cleanup(); }
 });
 

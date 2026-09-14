@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { git } from './lib/git.mjs';
-import { projectRoot } from './lib/root.mjs';
+import { checkoutRoot } from './lib/root.mjs';
 import { readSetting, recorded } from './lib/settings.mjs';
 import { componentsOf } from './lib/components.mjs';
 import { isOwnFile } from './lib/own-files.mjs';
@@ -84,7 +84,9 @@ function merge(root) {
 const TIERS = { fast, merge };
 const [tier] = process.argv.slice(2);
 if (!(tier in TIERS)) { process.stderr.write(USAGE + '\n'); process.exit(2); }
-try { process.exit(TIERS[tier](projectRoot(process.cwd()))); }
+// The checkout being committed or pushed (STATUS 52), so a linked worktree's own index, config and
+// tree are what the tiers judge — never the main checkout's.
+try { process.exit(TIERS[tier](checkoutRoot(process.cwd()))); }
 catch (e) {
   if (e instanceof NotRecorded) { say(e.message); process.exit(1); }
   process.stderr.write(`${e.message}\n`); process.exit(1);
