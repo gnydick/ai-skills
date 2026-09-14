@@ -49,7 +49,7 @@ test('RED CHECK: the sole-spelling scan sees every way a second spelling has pla
 
 test('the scan does not flag the unrelated uses measured in this repository, or the constants themselves', () => {
   for (const clean of [
-    "say('hosted check: none (the local merge gate is the sole blocking backstop)');",
+    "say('hosted check: none — the pre-push hook is the blocking check before main; /machinery:install --hosted-ci writes one');",
     'export function none() { return null; }',
     'const label = `${UNANSWERED}`;',
     'if (text === NONE) return DECLINED;',

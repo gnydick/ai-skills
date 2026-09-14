@@ -77,11 +77,33 @@ test('install is idempotent and refreshes the stamp', () => {
   } finally { r.cleanup(); }
 });
 
-test('--hosted writes the workflow template; default does not', () => {
+// Plan Task B5 (recalibration 14; mechanism 12): --hosted-ci turns the recorded hook commands into
+// a GitHub Actions workflow — the gate and tiers.merge on push/PR, tiers.heavy on dispatch only.
+test('--hosted-ci writes a workflow running the recorded gate and tier commands', () => {
   const r = makeRepo();
   try {
-    install(r.root); assert.ok(!fs.existsSync(path.join(r.root, '.github/workflows/machinery.yml')));
-    install(r.root, '--hosted'); assert.ok(fs.existsSync(path.join(r.root, '.github/workflows/machinery.yml')));
+    install(r.root);
+    assert.ok(!fs.existsSync(path.join(r.root, '.github/workflows/machinery.yml')), 'a plain install wrote a workflow');
+    runScript('scripts/setup.mjs', { args: ['set', 'tiers.merge', 'node --test'], cwd: r.root });
+    runScript('scripts/setup.mjs', { args: ['set', 'tiers.heavy', 'node heavy.mjs'], cwd: r.root });
+    const res = runScript('scripts/install.mjs', { args: ['--root', r.root, '--hosted-ci'], cwd: r.root });
+    assert.equal(res.code, 0, res.stderr);
+    const wf = fs.readFileSync(path.join(r.root, '.github', 'workflows', 'machinery.yml'), 'utf8');
+    assert.match(wf, /^on:\n  push: \{ branches: \[main\] \}\n  pull_request: \{\}\n  workflow_dispatch: \{\}$/m);
+    assert.match(wf, /^      - run: node \.githooks\/machinery\/gate\.mjs$/m);
+    assert.match(wf, /^      - run: node --test$/m);
+    assert.match(wf, /^    if: github\.event_name == 'workflow_dispatch'\n(.*\n)*      - run: node heavy\.mjs$/m);
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: --hosted-ci with no tiers recorded refuses and writes nothing', () => {
+  const r = makeRepo();
+  try {
+    install(r.root);
+    const res = runScript('scripts/install.mjs', { args: ['--root', r.root, '--hosted-ci'], cwd: r.root });
+    assert.equal(res.code, 1);
+    assert.match(res.stderr, /tiers\.merge is not recorded in \.claude\/machinery\/config\.json — run \/machinery:setup tiers/);
+    assert.equal(fs.existsSync(path.join(r.root, '.github')), false);
   } finally { r.cleanup(); }
 });
 

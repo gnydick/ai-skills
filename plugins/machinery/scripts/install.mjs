@@ -8,6 +8,7 @@ import { pluginRoot, projectIssueTracking } from './lib/config.mjs';
 import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 import { MACHINERY_OWN } from './lib/own-files.mjs';
+import { readSetting, recorded } from './lib/settings.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
 // copy holds rather than whatever happens to be lying in the gate directory.
@@ -48,6 +49,42 @@ function foreignHook(root, file, mark, what) {
   if (!fs.existsSync(file) || mark.test(fs.readFileSync(file, 'utf8'))) return false;
   process.stderr.write(`refusing to overwrite ${path.relative(root, file)}: it does not already invoke the machinery ${what}; move it aside and rerun\n`);
   return true;
+}
+
+// Hosted CI (plan Task B5; recalibration 14, mechanism 12): the workflow is generated from the
+// recorded hook commands, never kept as a template, so what CI runs is what the hooks run. The
+// merge job runs the gate and tiers.merge on pushes to main and pull requests; the heavy job, only
+// when tiers.heavy is recorded, runs on manual dispatch alone. A missing tiers.merge refuses before
+// anything is written: a workflow with a hole in it would read as a hosted check that exists.
+function hostedCi(root) {
+  let merge;
+  try { merge = readSetting(root, 'tiers.merge'); }
+  catch (e) { process.stderr.write(`${e.message}\n`); return 1; }
+  const heavy = recorded(root, 'tiers.heavy');
+  const job = (name, cmds, cond) => [
+    `  ${name}:`,
+    ...(cond ? [`    if: ${cond}`] : []),
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v4',
+    ...cmds.map((c) => `      - run: ${c}`),
+  ];
+  const lines = [
+    '# Written by /machinery:install --hosted-ci from .claude/machinery/config.json. Re-run after changing the tiers.',
+    'name: machinery',
+    'on:',
+    '  push: { branches: [main] }',
+    '  pull_request: {}',
+    '  workflow_dispatch: {}',
+    'jobs:',
+    ...job('merge', ['node .githooks/machinery/gate.mjs', merge]),
+    ...(heavy === undefined ? [] : job('heavy', [heavy], "github.event_name == 'workflow_dispatch'")),
+  ];
+  const wf = path.join(root, '.github', 'workflows', 'machinery.yml');
+  fs.mkdirSync(path.dirname(wf), { recursive: true });
+  fs.writeFileSync(wf, lines.join('\n') + '\n');
+  say('wrote .github/workflows/machinery.yml');
+  return 0;
 }
 
 function installProject() {
@@ -124,13 +161,9 @@ function installProject() {
   try { fs.chmodSync(path.join(hooksDir, 'pre-push'), 0o755); } catch {}
   say(`installed gate ${version()} into .githooks/machinery/`);
   git(['config', 'core.hooksPath', '.githooks'], root);
-  if (argv.includes('--hosted')) {
-    const wf = path.join(root, '.github', 'workflows', 'machinery.yml');
-    fs.mkdirSync(path.dirname(wf), { recursive: true });
-    fs.copyFileSync(path.join(pluginRoot(), 'templates', 'hosted-check.yml'), wf); say('wrote .github/workflows/machinery.yml');
-  }
+  if (argv.includes('--hosted-ci') && hostedCi(root) !== 0) return 1;
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);
-  say(`hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none (the local merge gate is the sole blocking backstop)'}`);
+  say(`hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none — the pre-push hook is the blocking check before main; /machinery:install --hosted-ci writes one'}`);
   // Final review A1(c): stage exactly the layout this run created/updated, so the first commit
   // after install has something to actually commit.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
