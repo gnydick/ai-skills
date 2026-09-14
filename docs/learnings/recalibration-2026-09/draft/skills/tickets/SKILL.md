@@ -20,7 +20,7 @@ description: Load when creating, reading, updating, blocking or closing a ticket
 ## Updating
 - A correction from the owner updates the ticket and its companion.
 - Blocked on the owner's decision: label the ticket and companion blocked and comment exactly what input is needed. Unattended passes skip it.
-- Never edit the owner's own description of a problem; add a comment instead.
+- Keep the owner's own description of a problem word for word: never change or remove it. Add to the ticket freely around it — new sections below it or comments with the reproduction, cause, findings, learnings and plan.
 
 ## Closing
 - Close a ticket only when the feature it belongs to is usable.
