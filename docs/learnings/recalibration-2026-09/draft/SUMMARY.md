@@ -21,7 +21,7 @@ All 518 machinery items appear exactly once in `disposition.csv` (checked by scr
 
 Disposition totals: skill 164, core 11, merged 130, dropped 66, mechanism 47, parked 100, open 0. (One more merged row, M475, points at the M342 mechanism.)
 
-Setup extends #99 rather than starting a second conversation: its `issue-tracking` item runs #99's conversation and commands (`issue-tracking.mjs decide`, `record-project`, `record-global`; build branch `issue-tracking-build`) and #99's files, and every other item uses #99's conversation shape (labelled example, only unknown questions, one at a time, `<placeholders>`, checks never write). #99 defines no setup skill, command or `config.json`; where it conflicts with decisions 21–28, see open questions 3–6. Install now holds only mechanical installation; retention moved to setup.
+Setup extends #99 rather than starting a second conversation: its `issue-tracking` item runs #99's conversation and commands (`issue-tracking.mjs decide`, `record-project`, `record-global`; build branch `issue-tracking-build`) and #99's files, and every other item uses #99's conversation shape (labelled example, only unknown questions, one at a time, `<placeholders>`, checks never write). #99's conflicts with decisions 21–28 are settled by 32–37 (setup skill allowed; tracker answer stays a project rule; conversation lives only in setup; asked on first need; replaced on re-run; global file on demand). Install now holds only mechanical installation; retention moved to setup.
 
 ## Mechanisms needed
 1. `capture.mjs` (3, 10): "PRULE captured verbatim to <inbox> (PENDING). Commits are refused until it is filed: run /machinery:rule-process."
