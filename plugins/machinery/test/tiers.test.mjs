@@ -105,7 +105,24 @@ test('a commit staging only machinery\'s own files (the install) passes with not
   } finally { r.cleanup(); }
 });
 
-test('what install.mjs stages is exactly the shared MACHINERY_OWN list, so the exemption and the install cannot drift (STATUS 51)', () => {
+test('a commit staging only .claude/machinery/config.json (written by setup, never by install) passes with nothing recorded (STATUS 51)', () => {
+  const r = makeRepo();
+  try {
+    assert.equal(setup(r.root, 'set', 'components', 'pkg-a=pkg-a').code, 0);
+    sh(['add', '.claude/machinery/config.json'], r.root);
+    assert.equal(sh(['diff', '--cached', '--name-only'], r.root), '.claude/machinery/config.json');
+    const res = fast(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /^fast_tier: 0 of 0 touched components failed \(machinery's own files only\)$/m);
+  } finally { r.cleanup(); }
+});
+
+// The install's staged set is a subset of MACHINERY_OWN, and every entry of the list is either
+// staged by the install or named here as a file another machinery script writes — so the exemption
+// and the install cannot drift apart, and the list cannot grow an entry nobody accounts for.
+const WRITTEN_ELSEWHERE = ['.claude/machinery/config.json']; // setup.mjs (plan Task B1)
+
+test('what install.mjs stages is a subset of the shared MACHINERY_OWN list, and every other entry is written by a named script (STATUS 51)', () => {
   const r = makeRepo();
   try {
     runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root });
@@ -115,6 +132,11 @@ test('what install.mjs stages is exactly the shared MACHINERY_OWN list, so the e
     const hasFiles = (p) => fs.statSync(p).isFile() || fs.readdirSync(p, { recursive: true, withFileTypes: true }).some((d) => d.isFile());
     const present = MACHINERY_OWN.filter((e) => fs.existsSync(path.join(r.root, e)) && hasFiles(path.join(r.root, e)));
     assert.deepEqual(present.filter((e) => !staged.some((p) => p === e || p.startsWith(e + '/'))), [], 'a shared-list entry install created was not staged');
+    // "Created by install" rather than "staged": an entry install creates as an empty directory
+    // (.claude/rules, docs/dictated-specs) is install's, yet git stages nothing for it.
+    const unaccounted = MACHINERY_OWN.filter((e) => !fs.existsSync(path.join(r.root, e)) && !WRITTEN_ELSEWHERE.includes(e));
+    assert.deepEqual(unaccounted, [], 'a shared-list entry is neither created by install nor named as written elsewhere');
+    assert.deepEqual(WRITTEN_ELSEWHERE.filter((e) => !MACHINERY_OWN.includes(e)), [], 'the allowlist names a path the shared list does not');
   } finally { r.cleanup(); }
 });
 

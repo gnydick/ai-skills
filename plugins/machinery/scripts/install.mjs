@@ -40,16 +40,22 @@ function refuseMachine() {
 // A pre-commit that already invokes the installed gate is ours (or a prior install's) — safe to
 // rewrite. Anything else is a foreign hook; refuse rather than clobber it (final review F).
 const GATE_MARK = /machinery\/gate\.mjs/;
+// The same for the pre-push: ours invokes the installed tier runner (plan Task B3).
+const TIERS_MARK = /machinery\/tiers\.mjs/;
+
+// True when the hook at `file` exists and is foreign (does not carry `mark`); says so on stderr.
+function foreignHook(root, file, mark, what) {
+  if (!fs.existsSync(file) || mark.test(fs.readFileSync(file, 'utf8'))) return false;
+  process.stderr.write(`refusing to overwrite ${path.relative(root, file)}: it does not already invoke the machinery ${what}; move it aside and rerun\n`);
+  return true;
+}
 
 function installProject() {
   const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd());
   if (git(['rev-parse', '--git-dir'], root).code !== 0) { process.stderr.write(`not a git repository: ${root}\n`); return 1; }
   const hooksDirEarly = path.join(root, '.githooks');
-  const preCommitPath = path.join(hooksDirEarly, 'pre-commit');
-  if (fs.existsSync(preCommitPath) && !GATE_MARK.test(fs.readFileSync(preCommitPath, 'utf8'))) {
-    process.stderr.write(`refusing to overwrite ${path.relative(root, preCommitPath)}: it does not already invoke the machinery gate; move it aside and rerun\n`);
-    return 1;
-  }
+  if (foreignHook(root, path.join(hooksDirEarly, 'pre-commit'), GATE_MARK, 'gate')) return 1;
+  if (foreignHook(root, path.join(hooksDirEarly, 'pre-push'), TIERS_MARK, 'tiers')) return 1;
   const curHooksPath = git(['config', 'core.hooksPath'], root).stdout;
   if (curHooksPath && curHooksPath !== '.githooks') {
     process.stderr.write(`refusing to change core.hooksPath: currently '${curHooksPath}', expected unset or '.githooks'\n`);
@@ -130,8 +136,10 @@ function installProject() {
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
   // not swept into the next commit. observations.json is deliberately absent from this list.
   // The list is MACHINERY_OWN (lib/own-files.mjs), spelled once and shared with the tier runner's
-  // exemption (STATUS 51); test/tiers.test.mjs fails if what lands in the index is not that list.
-  git(['add', '--', ...MACHINERY_OWN.filter((p) => p !== '.gitignore' || ignoreWritten)], root);
+  // exemption (STATUS 51); test/tiers.test.mjs fails if what lands in the index is not a subset of
+  // that list. Only entries on disk are named: an absent pathspec (config.json, which setup.mjs
+  // writes and install never does) makes git add stage nothing at all.
+  git(['add', '--', ...MACHINERY_OWN.filter((p) => (p !== '.gitignore' || ignoreWritten) && fs.existsSync(path.join(root, p)))], root);
   return 0;
 }
 

@@ -109,6 +109,18 @@ test('a foreign .githooks/pre-commit that does not invoke the machinery gate is 
   } finally { r.cleanup(); }
 });
 
+test('a foreign .githooks/pre-push that does not invoke the machinery tiers is not overwritten', () => {
+  const r = makeRepo();
+  try {
+    fs.mkdirSync(path.join(r.root, '.githooks'), { recursive: true });
+    fs.writeFileSync(path.join(r.root, '.githooks', 'pre-push'), '#!/bin/sh\necho a different, unrelated hook\n');
+    const res = install(r.root);
+    assert.notEqual(res.code, 0);
+    assert.match(res.stderr, /refusing to overwrite \.githooks[\\/]pre-push: it does not already invoke the machinery tiers; move it aside and rerun/);
+    assert.equal(fs.readFileSync(path.join(r.root, '.githooks', 'pre-push'), 'utf8'), '#!/bin/sh\necho a different, unrelated hook\n');
+  } finally { r.cleanup(); }
+});
+
 test('an existing pre-commit that already invokes the machinery gate is rewritten (idempotent)', () => {
   const r = makeRepo();
   try {
