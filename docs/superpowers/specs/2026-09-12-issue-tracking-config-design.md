@@ -136,6 +136,13 @@ deciding whenever it exists. Carried into *Three states* and *Precedence*.
 
 ## What this is not
 
+> **Superseded in part, 2026-09-13 (owner, machinery recalibration, decisions 28 and 32):** the
+> rejection of a machinery *skill* for setup is lifted — *"remove the restriction of a setup
+> skill"*. A `/machinery:setup` skill runs the project setup conversation, the issue-tracking
+> questions among its items, and `/machinery:setup <item>` re-runs one item. The rest of this
+> section (no detection script, no bespoke writer of machinery's own) is not changed by that
+> ruling. See `docs/learnings/recalibration-2026-09/STATUS.md`.
+
 An earlier design in the same brainstorm was replaced wholesale by the owner. It is recorded
 so nobody rediscovers it and builds it.
 
