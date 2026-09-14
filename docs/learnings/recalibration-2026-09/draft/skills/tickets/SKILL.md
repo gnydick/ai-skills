@@ -6,6 +6,7 @@ description: Load when creating, reading, updating, blocking or closing a ticket
 
 ## Creating
 - One ticket per work item, written so a competent stranger could pick it up cold: the problem; the required behaviour as numbered items; the decision, its date and who made it; the tests required; the exact places in the code it touches. Plans hang off the ticket. Design beliefs and invariants go in the spec when one exists.
+- Before creating a ticket the owner asked for, suggest its summary line in words the owner would recognize (their own name for the symptom or feature), and create it once they accept or edit it.
 - If the work has its own worktree, label the ticket with the worktree's name.
 - A finding, a chapter of a larger effort, or a follow-up is its own new ticket linked to the effort's ticket, never its child.
 - Within a campaign, finish one feature before starting the next.
