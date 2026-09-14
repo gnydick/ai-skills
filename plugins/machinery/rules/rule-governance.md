@@ -98,10 +98,6 @@ gate that runs the register check.
 
 ## When a belief turns out false
 
-- When a stated expectation turns out false, a post-mortem is launched
-  automatically. The trigger is mechanical, and already knowing why is not an
-  exemption — the explanation that feels obvious is the one that never gets
-  written down.
 - The post-mortem runs as its own dispatched job on a mid-tier model, alone, and
   its result is verified before anything else starts.
 - It answers four things: what was believed, what was actually true, where the
