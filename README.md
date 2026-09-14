@@ -53,13 +53,19 @@ rule-filing sequence.
 
 | Skill | For |
 |---|---|
-| [`install`](claude-code/machinery/install/SKILL.md) | Once per machine, makes the universal rules always-on; once per project, installs the commit gate, inbox and index. Idempotent; re-run after a plugin update to refresh the gate. |
-| [`reload`](claude-code/machinery/reload/SKILL.md) | Puts the current rule files into this session's context without restarting, after a universal rule is filed or a rule file changes outside intake. |
-| [`reindex`](claude-code/machinery/reindex/SKILL.md) | Regenerates the generated rule index after a hand-edit leaves it stale; the index itself is never hand-edited. |
-| [`rule-intake`](claude-code/machinery/rule-intake/SKILL.md) | Files a captured `PRULE:`/`URULE:` prompt into its home, regenerates the index, dispositions the inbox entry, and commits — never self-filing a rule nobody dictated. |
-| [`effort-lifecycle`](claude-code/machinery/effort-lifecycle/SKILL.md) | The sequence for any effort: create its own isolated working copy at the start, reset it onto the branch the work targets, commit from it, then merge, push and tear the copy down at the end — no size exception. |
-| [`refresh-diverged-branch`](claude-code/machinery/refresh-diverged-branch/SKILL.md) | Rebuilds a long-lived parallel edition branch on a fresh copy of the primary line and re-applies only its genuine delta, turning a wall-of-conflicts merge into a few small reviewable grafts. |
-| [`invariant-audit`](claude-code/machinery/invariant-audit/SKILL.md) | Exports the current branch's diff against its base and dispatches the read-only `invariant-auditor` agent on it, so an audit before merging is one command instead of a diff assembled by hand. |
+| [`agents`](claude-code/machinery/agents/SKILL.md) | Load before dispatching any subagent, when a subagent's result comes back, and when creating or modifying an agent definition. |
+| [`install`](claude-code/machinery/install/SKILL.md) | Load once per project, after a plugin update, when the session banner names something missing, and when the owner asks to move the git-hook checks to hosted CI. |
+| [`instrumentation`](claude-code/machinery/instrumentation/SKILL.md) | Load when debugging by adding diagnostics, when measuring or comparing performance, when adding a diagnostic switch, trace, profiler span or diagnostic code, and when a program must print a cost or count. |
+| [`postmortem`](claude-code/machinery/postmortem/SKILL.md) | Load only when the user runs /postmortem, at the end of a fix or debug session. |
+| [`refresh-diverged-branch`](claude-code/machinery/refresh-diverged-branch/SKILL.md) | Load when merging the primary line into a long-lived edition branch throws a wall of conflicts, or when both branches have rewritten the same shared files. |
+| [`reload`](claude-code/machinery/reload/SKILL.md) | Load when the user runs /machinery:reload, or after a filing changed core.md mid-session. |
+| [`rule-process`](claude-code/machinery/rule-process/SKILL.md) | Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the capture hook says so), when a prompt starts with "N rules pending" or "N specifications pending", when a commit is refused for a pending inbox entry, or when the owner rules something in conversation without a marker. |
+| [`setup`](claude-code/machinery/setup/SKILL.md) | Load when the user runs /machinery:setup (whole setup) or /machinery:setup <item> (one item), after /machinery:install in a project whose machinery config lacks a setup item, and when a skill or hook says a setup item is not recorded. |
+| [`testing`](claude-code/machinery/testing/SKILL.md) | Load before writing or changing any code or test, before a refactor, and when a test or build fails or a bug is being diagnosed. |
+| [`tickets`](claude-code/machinery/tickets/SKILL.md) | Load when creating, reading, updating, blocking or closing a ticket or issue, when resuming an effort, and when filing a finding or follow-up. |
+| [`tooling`](claude-code/machinery/tooling/SKILL.md) | Load when writing or modifying a script, hook, gate or long-running tool; when a tool must locate another executable; when setting up a project's toolchain, dependency configuration or background compile check; and when adding or promoting an output-filter catalog entry. |
+| [`train-tool`](claude-code/machinery/train-tool/SKILL.md) | Load when a wrapped command's output ends with a `[quiet:train]` line, or when asked to teach the output filter a tool's answer line from its stored run logs. |
+| [`worktree`](claude-code/machinery/worktree/SKILL.md) | Load before the first commit of any piece of work, before any git commit, merge or push, and when creating, listing or deleting a worktree. |
 
 ## Layout
 

@@ -22,15 +22,8 @@ test('the register index is exactly the generated one (spec I2)', () => {
   assert.equal(fs.readFileSync(path.join(PLUGIN, 'register', 'RULES_INDEX.md'), 'utf8'), generateIndex(path.join(PLUGIN, 'rules')));
 });
 
-test('audit procedure lives only in the auditor brief (spec I35)', () => {
-  const rules = fs.readFileSync(path.join(PLUGIN, 'rules', 'design-invariants.md'), 'utf8');
-  assert.doesNotMatch(rules, /^## Auditing invariants/m);
-  const agent = fs.readFileSync(path.join(PLUGIN, 'agents', 'invariant-auditor.md'), 'utf8');
-  assert.match(agent, /^## Procedure/m); assert.match(agent, /denominator/i);
-});
-
 test('agents carry plugin agent frontmatter', () => {
-  for (const f of ['invariant-auditor.md', 'comparison-agent.md']) {
+  for (const f of ['comparison-agent.md']) {
     const t = fs.readFileSync(path.join(PLUGIN, 'agents', f), 'utf8');
     assert.match(t, /^---\nname: [a-z-]+\ndescription: .+\n(tools: .+\n)?---/);
   }

@@ -58,15 +58,19 @@
         "machinery": {
           "path": "plugins/machinery",
           "skills": [
+            "agents",
             "install",
-            "reload",
-            "reindex",
-            "rule-intake",
-            "spec-intake",
-            "effort-lifecycle",
+            "instrumentation",
+            "postmortem",
             "refresh-diverged-branch",
-            "invariant-audit",
-            "train-tool"
+            "reload",
+            "rule-process",
+            "setup",
+            "testing",
+            "tickets",
+            "tooling",
+            "train-tool",
+            "worktree"
           ]
         }
       }

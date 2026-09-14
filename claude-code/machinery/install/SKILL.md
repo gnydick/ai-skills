@@ -1,12 +1,9 @@
 ---
 name: install
-description: Use once per machine (`--machine`) to make the universal rules always-on, and once per project to install the commit gate, inbox, index, and the two tool-assimilation files (`tool-catalog.json`, tracked; `observations.json`, gitignored). Idempotent; re-run after a plugin update to refresh the gate.
+description: Load once per project, after a plugin update, when the session banner names something missing, and when the owner asks to move the git-hook checks to hosted CI. Mechanical installation only; the negotiated settings are /machinery:setup.
 ---
 # /machinery:install
 
-Run the installer and show the user its measured summary verbatim.
-
-- Per project (from the project, any working copy): `node "${CLAUDE_PLUGIN_ROOT}/scripts/install.mjs"` — add `--hosted` only if the project has a hosted CI that will protect the branch on the check.
-- Per machine: `node "${CLAUDE_PLUGIN_ROOT}/scripts/install.mjs" --machine` — creates `~/.claude/rules/machinery` → the rules source (default: this plugin's `rules/`; override in `~/.claude/machinery.json` with `{"rulesSource": "<path>"}`).
-
-This is the only way the commit gate is activated: hooks are tracked in the project and activated per clone, never self-installing.
+1. Per project, from any worktree: `node "${CLAUDE_PLUGIN_ROOT}/scripts/install.mjs"`. Safe to re-run.
+2. Show the user the installer's summary verbatim.
+3. If `node "${CLAUDE_PLUGIN_ROOT}/scripts/setup.mjs" show` lists any item as not recorded, run /machinery:setup.
