@@ -41,14 +41,17 @@ let ok = true;
 // and the async shape (from the #19 streaming leg) is kept so a future leg slots in unchanged.
 // A NON-BLOCKING check cannot reach the exit code by any route — not by returning false, and not by
 // throwing. Its failure to run is still said out loud, because silence reads as success.
+// Each blocking check prints its own `commit refused: …` line naming the fix; there is no closing
+// summary and no bypass offered (recalibration decision 3).
 for (const c of CHECKS) {
   try {
     const passed = await c.run(ctx);
     if (c.blocking && !passed) ok = false;
   } catch (e) {
-    process.stdout.write(`gate: ${c.id} could not run — ${e.message}${c.blocking ? '' : ' (advisory; the commit is not blocked by it)'}\n`);
+    process.stdout.write(c.blocking
+      ? `commit refused: gate check ${c.id} could not run — ${e.message}\n`
+      : `gate: ${c.id} could not run — ${e.message} (advisory; the commit is not blocked by it)\n`);
     if (c.blocking) ok = false;
   }
 }
-if (!ok) process.stdout.write('commit gate FAILED (see lines above). Commit rejected. Bypass only for a genuine emergency: `git commit --no-verify`; twice means the checker is wrong — fix the checker.\n');
 process.exitCode = ok ? 0 : 1;

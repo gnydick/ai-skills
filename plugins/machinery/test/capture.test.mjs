@@ -31,7 +31,7 @@ test('PRULE from the ROOT session lands in the root inbox and asks for intake no
     const inbox = path.join(r.root, '.claude', 'machinery', 'inbox.md');
     assert.equal(pending(inbox).length, 1);
     assert.equal(pending(inbox)[0].text, 'PRULE: never guess a path');
-    assert.match(ctx(res), /captured verbatim to .*inbox\.md.*run the intake sequence now/i);
+    assert.match(ctx(res), /^PRULE captured verbatim to .*inbox\.md \(PENDING\)\. Commits are refused until it is filed: run \/machinery:rule-process\.$/m);
   } finally { r.cleanup(); }
 });
 
@@ -42,7 +42,7 @@ test('PRULE from INSIDE A WORKTREE lands in the root inbox, not the copy, and sa
     const res = run('PRULE: x', wt);
     assert.equal(pending(path.join(r.root, '.claude', 'machinery', 'inbox.md')).length, 1);
     assert.ok(!fs.existsSync(path.join(wt, '.claude', 'machinery', 'inbox.md')));
-    assert.match(ctx(res), /filed from a root session/i);
+    assert.match(ctx(res), /Commits in .* are refused until it is filed: run \/machinery:rule-process from /);
   } finally { r.cleanup(); }
 });
 
@@ -78,7 +78,7 @@ test('an unmarked prompt in a root session with pending entries prepends the int
   try {
     run('PRULE: a', r.root);
     const res = run('unrelated', r.root);
-    assert.match(ctx(res), /1 rule.* pending .* running intake/i);
+    assert.match(ctx(res), /^1 rule pending in the inbox — run \/machinery:rule-process before this prompt\.$/m);
   } finally { r.cleanup(); }
 });
 

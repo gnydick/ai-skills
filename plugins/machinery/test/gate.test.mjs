@@ -78,6 +78,18 @@ test('a staged rule file with no index anywhere passes the gate (decision 10)', 
   } finally { r.cleanup(); }
 });
 
+test('a pending entry refuses the commit naming the inbox and /machinery:rule-process, with no bypass offered', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, '.claude/machinery/inbox.md', '\n## PENDING 2026-09-14T00:00:00Z PRULE s\n\nPRULE: x\n\ndisposition: PENDING\n');
+    g(r.root, 'add', '-A');
+    const res = gate(r.root);
+    assert.equal(res.code, 1);
+    assert.match(res.stdout, /^commit refused: 1 pending entry in \.claude\/machinery\/inbox\.md — run \/machinery:rule-process$/m);
+    assert.doesNotMatch(res.stdout, /--no-verify/);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: the gate is not a no-op — a pending entry really fails it', () => {
   const r = makeRepo();
   try {

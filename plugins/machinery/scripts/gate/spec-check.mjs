@@ -32,7 +32,11 @@ export function specCheck({ specsDir, specInbox, root }) {
 
   const pend = entries.filter((e) => e.state === 'PENDING');
   report('spec_check', pend.length, entries.length, `spec inbox entr${entries.length === 1 ? 'y' : 'ies'} undispositioned (must be 0)`);
-  if (pend.length) ok = false;
+  if (pend.length) {
+    // A refusal names the inbox and the one fix, and offers no bypass (recalibration decision 3).
+    process.stdout.write(`commit refused: ${pend.length} pending entr${pend.length === 1 ? 'y' : 'ies'} in ${toPosix(path.relative(root, specInbox))} — run /machinery:rule-process\n`);
+    ok = false;
+  }
 
   // There is deliberately no "spec area missing" leg. The location is FIXED and known — owner,
   // 2026-09-07: "we just need a unique location to persist those specs", then "i don't want specs
@@ -42,7 +46,8 @@ export function specCheck({ specsDir, specInbox, root }) {
   const filed = entries.filter((e) => e.state === 'FILED');
   const outside = filed.filter((e) => { const p = filedPath(e.disposition); return p === null || !insideSpecArea(root, specsDir, p); });
   report('spec_check', outside.length, filed.length, `filed spec path(s) outside ${toPosix(path.relative(root, specsDir))}/`);
-  for (const e of outside) process.stdout.write(`  ${e.stamp}: ${e.disposition} — a specification is filed under ${toPosix(path.relative(root, specsDir))}/ or nowhere\n`);
+  const area = `${toPosix(path.relative(root, specsDir))}/`;
+  for (const e of outside) process.stdout.write(`commit refused: ${e.stamp} is filed at ${filedPath(e.disposition) ?? e.disposition}, outside ${area} — dismiss it with disposition.mjs --dismissed or file it under ${area}\n`);
   if (outside.length) ok = false;
   return ok;
 }

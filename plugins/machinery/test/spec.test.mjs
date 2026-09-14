@@ -79,7 +79,7 @@ test('a SPEC: prompt is captured to the spec inbox VERBATIM — byte for byte, n
     const raw = fs.readFileSync(inbox, 'utf8');
     assert.ok(raw.includes(SPEC_TEXT), `the inbox does not carry the prompt verbatim:\n${JSON.stringify(raw)}`);
     assert.equal(entries[0].text, SPEC_TEXT);
-    assert.match(ctx(res), /captured verbatim to .*spec-inbox\.md/i);
+    assert.match(ctx(res), /^SPEC captured verbatim to .*spec-inbox\.md \(PENDING\)\. Commits are refused until it is filed: run \/machinery:rule-process\.$/m);
   } finally { r.cleanup(); }
 });
 
@@ -92,8 +92,7 @@ test('a SPEC: prompt from INSIDE an isolated working copy lands in the project r
     // The copy has its own checked-out spec-inbox.md from the install commit; the point is that
     // capture did not write into it. It is still the empty file git checked out.
     assert.equal(fs.readFileSync(path.join(wt, '.claude', 'machinery', 'spec-inbox.md'), 'utf8'), '', 'nothing is written inside the working copy');
-    assert.match(ctx(res), /isolated working copy/i);
-    assert.match(ctx(res), /filed from a root session/i);
+    assert.match(ctx(res), /Commits in .* are refused until it is filed: run \/machinery:rule-process from /);
   } finally { r.cleanup(); }
 });
 
@@ -107,7 +106,7 @@ test('capture in a project that has never installed still lands, and names the o
     const res = capture('SPEC: something', r.root);
     assert.equal(res.code, 0, res.stderr);
     assert.equal(pending(projectSpecInbox(r.root)).length, 1, 'the text is durable regardless');
-    assert.match(ctx(res), /docs[\\/]dictated-specs/, ctx(res));
+    assert.match(ctx(res), /\.claude[\\/]machinery[\\/]spec-inbox\.md/, ctx(res));
     assert.doesNotMatch(res.stderr, /at Object\.|node:internal/, 'a stack trace reached the user');
   } finally { r.cleanup(); }
 });
@@ -118,7 +117,7 @@ test('adding a third mark leaves the two existing marks exactly as they were (#8
     const p = capture('PRULE: never guess a path', r.root);
     assert.equal(pending(path.join(r.root, '.claude', 'machinery', 'inbox.md')).length, 1);
     assert.equal(pending(projectSpecInbox(r.root)).length, 0, 'a PRULE must not reach the spec inbox');
-    assert.match(ctx(p), /captured verbatim to .*inbox\.md.*run the intake sequence now/i);
+    assert.match(ctx(p), /^PRULE captured verbatim to .*inbox\.md \(PENDING\)\. Commits are refused until it is filed: run \/machinery:rule-process\.$/m);
 
     const a = capture('RULE: ambiguous', r.root);
     assert.match(ctx(a), /Dictate a project rule with PRULE: or a universal rule with URULE:/);
@@ -162,6 +161,7 @@ test('RED CHECK: an undispositioned spec entry blocks the commit, and the check 
     const red = gate(r.root);
     assert.equal(red.code, 1, red.stdout + red.stderr);
     assert.match(red.stdout, /^spec_check: 1 of 1 spec inbox entr/m, red.stdout);
+    assert.match(red.stdout, /^commit refused: 1 pending entry in \.claude\/machinery\/spec-inbox\.md — run \/machinery:rule-process$/m);
   } finally { r.cleanup(); }
 });
 

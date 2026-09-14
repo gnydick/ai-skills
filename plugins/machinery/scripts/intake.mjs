@@ -37,13 +37,13 @@ function commit() {
   // the intake cannot write the very disposition the gate rejects.
   if (kind === 'spec') {
     const cwd = opt('--root') || process.cwd();
-    if (!isRootSession(cwd)) die('a specification is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
+    if (!isRootSession(cwd)) die(`a specification is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
     repo = projectRoot(cwd); inbox = projectSpecInbox(repo); rules = projectSpecs(repo);
     const filed = home.split(' § ')[0].trim();
     if (!insideSpecArea(repo, rules, filed)) die(`refusing to file a specification outside the spec area: '${filed}' is not under ${rules}. The spec area is declared by /machinery:install and never guessed.`);
   } else if (kind === 'project') {
     const cwd = opt('--root') || process.cwd();
-    if (!isRootSession(cwd)) die('a project rule is filed only from a root session (git dir = common dir); this is an isolated working copy — leave the entry pending and file from the root');
+    if (!isRootSession(cwd)) die(`a project rule is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
     repo = projectRoot(cwd); inbox = projectInbox(repo); rules = projectRules(repo);
   } else {
     // Story: spec I30, each pipeline is one commit in one repo — the universal

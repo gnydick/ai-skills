@@ -9,9 +9,15 @@
 // nothing here to resolve, declare, or get wrong.
 import { readPayload } from './lib/stdin.mjs';
 import { context } from './lib/emit.mjs';
-import { markers, projectInbox, universalInbox, projectSpecInbox, projectSpecs } from './lib/config.mjs';
+import { markers, projectInbox, universalInbox, projectSpecInbox } from './lib/config.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
 import { appendEntry, pending } from './lib/inbox.mjs';
+
+// One message shape for every mark, naming the one fix (recalibration decision 3). From inside an
+// isolated working copy the entry lands in the ROOT's inbox and is filed from there (spec I20, I29).
+const captured = (mark, inbox, rootSession, root) => (rootSession
+  ? `${mark} captured verbatim to ${inbox} (PENDING). Commits are refused until it is filed: run /machinery:rule-process.`
+  : `${mark} captured verbatim to ${inbox} (PENDING). Commits in ${root} are refused until it is filed: run /machinery:rule-process from ${root}.`);
 
 function main() {
   const p = readPayload();
@@ -28,33 +34,30 @@ function main() {
   if (head.startsWith(m.universal.toLowerCase())) {
     const inbox = universalInbox();
     appendEntry(inbox, { marker: 'URULE', text: prompt, session });
-    lines.push(`URULE captured verbatim to ${inbox} (PENDING). Run the intake sequence now (skill: machinery:rule-intake): file it in the universal rules, regenerate the index, bump the plugin version, disposition the entry, commit, then /machinery:reload.`);
+    lines.push(captured('URULE', inbox, true, root));
   } else if (head.startsWith(m.project.toLowerCase())) {
     const inbox = projectInbox(root);
     appendEntry(inbox, { marker: 'PRULE', text: prompt, session });
-    lines.push(rootSession
-      ? `PRULE captured verbatim to ${inbox} (PENDING). Run the intake sequence now (skill: machinery:rule-intake): file it in this project's rules, regenerate the index, disposition the entry, commit. Commits are blocked until then.`
-      : `PRULE captured verbatim to the project root's inbox ${inbox} (PENDING). This session is inside an isolated working copy, so it will be filed from a root session; the root's commits stay blocked until then.`);
+    lines.push(captured('PRULE', inbox, rootSession, root));
   } else if (head.startsWith(m.spec.toLowerCase())) {
     const inbox = projectSpecInbox(root);
     appendEntry(inbox, { marker: 'SPEC', text: prompt, session });
-    const specs = projectSpecs(root);
-    lines.push(rootSession
-      ? `SPEC captured verbatim to ${inbox} (PENDING). Run the spec intake now (skill: machinery:spec-intake): file it into the specification under ${specs} that owns the subsystem, disposition the entry, commit. Commits are blocked until then.`
-      : `SPEC captured verbatim to the project root's spec inbox ${inbox} (PENDING). This session is inside an isolated working copy, so it will be filed from a root session; the root's commits stay blocked until then.`);
+    lines.push(captured('SPEC', inbox, rootSession, root));
   } else if (head.startsWith(m.ambiguous.toLowerCase())) {
     lines.push(`Ambiguous marker: nothing was captured. Dictate a project rule with ${m.project} or a universal rule with ${m.universal}.`);
   }
 
+  // A capture line already names the fix; the nudge is for a prompt that captured nothing.
+  const justCaptured = lines.some((l) => l.includes('captured verbatim'));
   const proj = rootSession ? pending(projectInbox(root)).length : 0;
   const univ = pending(universalInbox()).length;
   const n = proj + univ;
-  if (n && !lines.some((l) => l.includes('Run the intake sequence now'))) {
-    lines.unshift(`${n} rule${n === 1 ? '' : 's'} pending in the inbox${proj && univ ? 'es' : ''} — running intake (skill: machinery:rule-intake) before this prompt.`);
+  if (n && !justCaptured) {
+    lines.unshift(`${n} rule${n === 1 ? '' : 's'} pending in the inbox — run /machinery:rule-process before this prompt.`);
   }
   const specs = rootSession ? pending(projectSpecInbox(root)).length : 0;
-  if (specs && !lines.some((l) => l.includes('Run the spec intake now'))) {
-    lines.unshift(`${specs} specification${specs === 1 ? '' : 's'} pending in the spec inbox — running the spec intake (skill: machinery:spec-intake) before this prompt.`);
+  if (specs && !justCaptured) {
+    lines.unshift(`${specs} specification${specs === 1 ? '' : 's'} pending in the spec inbox — run /machinery:rule-process before this prompt.`);
   }
   if (lines.length) context(lines.join('\n'));
   return 0;

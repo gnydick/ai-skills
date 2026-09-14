@@ -72,6 +72,7 @@ test('intake commit --kind project refuses from inside a worktree (spec I29)', (
     const wt = addWorktree(r.root, 'feat');
     const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'project', '--root', wt, '--stamp', 'x', '--home', 'y'], cwd: wt, env: { MACHINERY_HOME: h } });
     assert.notEqual(res.code, 0); assert.match(res.stderr, /root session/);
+    assert.ok(res.stderr.includes(`run /machinery:rule-process from ${r.root}`), res.stderr);
   } finally { r.cleanup(); }
 });
 
