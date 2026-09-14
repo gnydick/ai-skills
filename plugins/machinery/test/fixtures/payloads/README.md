@@ -4,6 +4,7 @@ Provenance: DOCUMENTATION-DERIVED (2026-09-02), not recorded. Field names follow
 https://code.claude.com/docs/en/hooks; values are scrubbed placeholders (`<HOME>`,
 `<TRANSCRIPT>`). Least certain: PostToolUse's result field name (`tool_result` per
 the docs summary consulted) and WorktreeCreate's exact fields.
+SubagentStart added 2026-09-14, documentation-derived.
 
 To replace them with real payloads from this machine: set `MACHINERY_RECORD` to this
 directory's absolute path, run any session with

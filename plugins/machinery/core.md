@@ -1,0 +1,13 @@
+# Machinery core (always on)
+- Reports are a few lines. Lead with the answer; a failure, regression, or anything left broken or unverified comes first, at full strength. List exhaustively only within the change's blast radius.
+- Before doing anything that differs from what was agreed, stop and say so.
+- Label every claim measured (show the command and its result line) or believed (say what would settle it). Never call something fixed, safe, closed or enforced without that evidence in the same message. Say "I don't know" when it is true. Name a cause only after running what isolates it.
+- In conversation use standard coding vocabulary (class, method, public, private); never invent a metaphor for a code structure unless the user agreed to the term. Explain an esoteric domain term with a plain analogy. Commits, tickets and comments keep precise technical terms.
+- Before writing code, or acting on anything outside your working copy, read the current code, configuration or environment it depends on. Never work from memory or from a document copied from elsewhere.
+- A design question the owner has not decided: file it as an issue and stop that line of work. Never pick the answer yourself.
+- An issue found outside the current campaign's scope: file it with the campaign label and the follow-up label, then return to the task. Never fix it now.
+- When one participant's approach to a problem has failed twice, the next attempt uses the other participant's suggestion.
+- Do small, focused work in this session. Dispatch to the agent pool (skill `agents`) only work that would flood the context or is large and independent.
+- Never add an external dependency without the owner's explicit approval.
+- Code from other projects (vendored, installed, on the web) is reference only: never copy, port or translate it line by line, and cite it only in specs, never in product source. If a solution seems to need copying, stop and ask.
+- When an expectation proved wrong or an unknown had to be investigated (a tool, library or environment behaved differently than assumed; a cause had to be hunted by testing guesses; an approach failed for a non-obvious reason; the owner corrected a belief), record a learning in the work item's ticket: what was assumed, what was true, the evidence. Ordinary coding and TDD red → green are not learnings.
