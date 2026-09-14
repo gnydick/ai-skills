@@ -7,6 +7,7 @@ import { projectRoot } from './lib/root.mjs';
 import { pluginRoot, projectIssueTracking } from './lib/config.mjs';
 import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
+import { MACHINERY_OWN } from './lib/own-files.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
 // copy holds rather than whatever happens to be lying in the gate directory.
@@ -104,8 +105,13 @@ function installProject() {
   // fix round 1) and forgotten here is caught mechanically rather than at a project's next commit.
   fs.mkdirSync(path.join(gateDir, 'lib'), { recursive: true });
   for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'report.mjs', 'layout.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  // The tier runner the pre-commit calls after the gate (plan Task B2), with the settings and
+  // components readers it imports. It lives in scripts/ and imports './lib/...' already, so it is
+  // copied as is; the same import walk in test/install.test.mjs covers it.
+  fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'tiers.mjs'), path.join(gateDir, 'tiers.mjs'));
+  for (const f of ['settings.mjs', 'components.mjs', 'own-files.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   fs.writeFileSync(path.join(gateDir, 'VERSION'), version() + '\n');
-  fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install. Runs the machinery commit gate on every commit.\nexec node .githooks/machinery/gate.mjs\n');
+  fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install.\nnode .githooks/machinery/gate.mjs && exec node .githooks/machinery/tiers.mjs fast\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755); } catch {}
   say(`installed gate ${version()} into .githooks/machinery/`);
   git(['config', 'core.hooksPath', '.githooks'], root);
@@ -120,9 +126,9 @@ function installProject() {
   // after install has something to actually commit.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are
   // not swept into the next commit. observations.json is deliberately absent from this list.
-  git(['add', '--', '.claude/rules', `${DOCS_DIR}/${SPECS_DIR}`, '.claude/machinery/inbox.md',
-       `.claude/machinery/${SPEC_INBOX}`,
-       '.claude/machinery/tool-catalog.json', ...(ignoreWritten ? ['.gitignore'] : []), '.githooks'], root);
+  // The list is MACHINERY_OWN (lib/own-files.mjs), spelled once and shared with the tier runner's
+  // exemption (STATUS 51); test/tiers.test.mjs fails if what lands in the index is not that list.
+  git(['add', '--', ...MACHINERY_OWN.filter((p) => p !== '.gitignore' || ignoreWritten)], root);
   return 0;
 }
 

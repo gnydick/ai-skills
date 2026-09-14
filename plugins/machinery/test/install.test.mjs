@@ -61,7 +61,7 @@ test('every relative import reachable from any installed gate file resolves insi
     };
     const roots = fs.readdirSync(dir).filter((f) => f.endsWith('.mjs'));
     for (const f of roots) walk(path.join(dir, f));
-    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs'], 'exactly the generated CHECK_FILES, plus the runner and the manifest');
+    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs', 'tiers.mjs'], 'exactly the generated CHECK_FILES, plus the runner, the manifest and the tier runner');
     assert.ok(seen.size >= 5,`the walk saw ${seen.size} files — the observer must see the gate's own imports`);
     assert.deepEqual(missing, []);
   } finally { r.cleanup(); }
