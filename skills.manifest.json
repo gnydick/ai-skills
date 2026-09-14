@@ -55,15 +55,6 @@
             "cant-break-by-design"
           ]
         },
-        "dreamy": {
-          "path": "plugins/dreamy",
-          "skills": [
-            "session-analysis",
-            "improve-memory",
-            "send-results",
-            "dream"
-          ]
-        },
         "machinery": {
           "path": "plugins/machinery",
           "skills": [

@@ -10,7 +10,6 @@ Claude Code's memory layout.
 ```
 /plugin marketplace add https://github.com/gnydick/ai-skills
 /plugin install unbreakable@ai-skills
-/plugin install dreamy@ai-skills
 ```
 
 The full URL matters: given the short `gnydick/ai-skills` form, Claude Code
@@ -22,7 +21,6 @@ Skills then load under the plugin's prefix:
 
 ```
 unbreakable:cant-break-by-design
-dreamy:session-analysis
 ```
 
 Manage or remove them later through the interactive `/plugin` menu.
@@ -44,25 +42,6 @@ Node scripts to do it.
 |---|---|
 | [`be-reasonable`](pure-prose/unbreakable/be-reasonable/SKILL.md) | Every design choice that *isn't* an invariant — precision, defaults, timeouts, naming, config, logging, test level, deploy shape, and who runs the tooling under a context budget. Four moves: derive the choice from the situation, lean toward the mistake that's cheaper to undo, split any decision serving two masters, and ask the developer when two answers are genuinely defensible. Plus a domain appendix showing the method already applied. |
 | [`cant-break-by-design`](pure-prose/unbreakable/cant-break-by-design/SKILL.md) | Making invariants unrepresentable rather than merely checked. An 8-rung enforcement ladder, 15 language-independent techniques, the strongest tool available per language, and the tripwire: duplicating a processing step at a second call site means the design is already wrong. |
-
-### `dreamy` — Claude Code only
-
-A maintenance loop for Claude Code's long-term memory, meant to run
-unattended (`/loop 4h /dreamy:dream`, a scheduled routine, or a habit at
-the end of the day) and hand the human a file of checkboxes rather than a
-conversation. `dream` is the one command that runs the loop: it applies
-what the human ticked last time, then analyzes, then improves, then reports. `send-results` is how those runs,
-or any other automation, report back: one email under one Gmail label, with
-links that open the produced file in the IDE. It needs the Gmail connector
-attached to the claude.ai account Claude Code is signed into;
-`/send-results setup` walks through it once.
-
-| Skill | For |
-|---|---|
-| [`dream`](claude-code/dreamy/dream/SKILL.md) | The loop as one command: checks whether the last Memory Improvement Overview was reviewed (ticked or edited) and applies the approved items first, then runs `session-analysis dream`, then `improve-memory`, then `send-results`. Keeps a run log (`~/.claude/dream/run-log.json`) of which overview was last written and which items are already applied, so a scheduled pass never re-proposes or double-applies. `--mode apply-fixes` only applies what was ticked. |
-| [`session-analysis`](claude-code/dreamy/session-analysis/SKILL.md) | Distils the JSONL session transcripts under `~/.claude/projects` (a bundled Node script strips them to prompts, replies, compaction summaries, interrupts, tool tallies) and runs a subcommand over the digest. `dream` is the consolidation pass: which corrections, preferences, project facts and references from the sessions since the last run deserve promotion into long-term memory, written as a ranked, confidence-tagged overview file that the next skill consumes. Never asks a question; never writes memory itself. |
-| [`improve-memory`](claude-code/dreamy/improve-memory/SKILL.md) | Consumes the dream overview. Edits the memory bank directly where the evidence is in the user's own words — merges duplicates, rewrites reversed rules in place with a dated superseded paragraph, promotes high-confidence findings, repairs the `MEMORY.md` indexes — and never edits instruction files in place: `CLAUDE.md` upgrades arrive as a full proposal in the crib-sheet-plus-subfiles shape (path-scoped `.claude/rules/*.md` for anything that applies to one part of a repo) with a fidelity ledger. Everything lands in a "Memory Improvement Overview" of applied changes and `- [ ]` items; `apply` executes the ticked ones. |
-| [`send-results`](claude-code/dreamy/send-results/SKILL.md) | Hand it a file and a short summary from any skill, loop, or scheduled routine. It emails the summary with links that open the file straight in the IDE (JetBrains deep link, the IDE's local server, and `file://`), files the message under one fixed Gmail label, and keeps the shape identical across callers because a bundled script builds the message rather than the model. `references/calling.md` holds the paragraph a skill author pastes to make their own skill report through it. |
 
 ### `machinery` — Claude Code only
 
@@ -88,7 +67,6 @@ rule-filing sequence.
 pure-prose/<plugin>/<skill>/SKILL.md    source of truth, any harness
 claude-code/<plugin>/<skill>/SKILL.md   source of truth, Claude Code only (may bundle scripts)
 plugins/unbreakable/                    published plugins (staged, do not edit)
-plugins/dreamy/
 plugins/machinery/
 scripts/build-skills.mjs                build | check | install | hooks | deny
 skills.manifest.json                    which buckets fan out to which targets,
