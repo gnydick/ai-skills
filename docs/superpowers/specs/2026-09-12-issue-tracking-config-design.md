@@ -142,6 +142,12 @@ deciding whenever it exists. Carried into *Three states* and *Precedence*.
 > questions among its items, and `/machinery:setup <item>` re-runs one item. The rest of this
 > section (no detection script, no bespoke writer of machinery's own) is not changed by that
 > ruling. See `docs/learnings/recalibration-2026-09/STATUS.md`.
+>
+> **Superseded in part, 2026-09-13 (decision 34):** every reference in this spec to the setup
+> conversation living in `developer-friendliness` § 3.2 and § 8 is replaced: developer-friendliness is
+> tabled (*"remove it from friendliness"*), and the conversation lives in machinery's `setup` skill as
+> its `issue-tracking` item. The answer is still recorded as the project rule
+> `.claude/rules/project_issue_tracking.md` through the inbox and intake (decision 33).
 
 An earlier design in the same brainstorm was replaced wholesale by the owner. It is recorded
 so nobody rediscovers it and builds it.

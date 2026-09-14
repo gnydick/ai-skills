@@ -1552,6 +1552,14 @@ git commit -m "intake: a project issue-tracking answer has a named home; no glob
 
 ## Task 8: The setup conversation in `developer-friendliness`, and the check over its copy
 
+> **Superseded, 2026-09-13 (owner, machinery recalibration, decisions 28, 32–34): do not execute this
+> task.** developer-friendliness is tabled and unpublished (`docs/parked/developer-friendliness/`),
+> and the owner ruled *"remove it from friendliness"*. The issue-tracking setup conversation lives in
+> machinery's `setup` skill as its `issue-tracking` item (draft:
+> `docs/learnings/recalibration-2026-09/draft/skills/setup/SKILL.md`), shipped by the machinery
+> rewrite on branch `machinery-rewrite`. Tasks 1–7 (the files, precedence function, `decide`,
+> `record-global`, `record-project`, intake routing) are unaffected.
+
 **Files:**
 - Modify: `claude-code/developer-friendliness/developer-friendliness/SKILL.md` — § 3.2, after the paragraph ending `new convention you invented on their behalf.`; § 8, after the bullet ending `Ask it once and apply the answer everywhere.`
 - Regenerate: `plugins/developer-friendliness/skills/developer-friendliness/SKILL.md` via `node scripts/build-skills.mjs build`
