@@ -2,14 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-## Questions for the owner
+## Owner answers (2026-09-14; STATUS decisions 43–48) — these replace the questions
 
-1. Merge `issue-tracking-build` (cafbe61, #99 Tasks 1–6) into `machinery-rewrite` as Task A0, so #99 lands on main with this rewrite instead of separately? (Blocks A0 and B6; the "#99" steps in A3, A5, A6 apply only if yes.)
-2. Decision 38 keeps `/machinery:reload`, but the draft `rule-process` description says it "Replaces rule-intake, spec-intake and reload": ship a `reload` skill and delete "and reload" from that description? (Blocks the `reload` lines of A2.)
-3. How does the pre-commit hook turn staged paths into the `<components>` of `tiers.fast`? (Blocks B2.)
-4. Mechanism 5's "build/format checks" have no config key: are they part of the recorded `tiers.fast` command, or a separate recorded key? (Blocks B2.)
-5. `tiers.assignment` values, from the setup draft's three choices: `ask-per-test`, `propose-per-commit`, `claude-decides`? (Blocks B1.)
-6. Should this repo's own `.githooks/pre-commit` move onto the installed tiered hooks inside this effort? (No task below does it; a yes adds one.)
+1. **Yes, merge #99 as Task A0** (43). A0 runs; the "#99" steps in A3, A5, A6 and Task B6 apply.
+2. **Ship a small `reload` skill; delete "and reload" from the `rule-process` description** (44). A2 includes both.
+3. **Components come from a recorded setting, asked in setup** (45): key `components` in `.claude/machinery/config.json`, a mapping of component name → path prefix; `componentsOf(root, stagedPaths)` returns the names whose prefix a staged path starts with. B1's `setup.mjs` validates it; the setup skill's tiers item asks for it (Claude proposes from the workspace layout, per decision 41). Unrecorded → the hook refuses: "commit refused: no components recorded in .claude/machinery/config.json — run /machinery:setup tiers".
+4. **Build/format checks are their own key `checks.commit`, asked in setup** (46). The pre-commit runs `checks.commit` (if recorded) before `tiers.fast`; B1 validates it; B2's hook text runs gate → checks → fast.
+5. **`tiers.assignment` values: `ask-per-test`, `propose-per-commit`, `claude-decides`** (47). B1 validates exactly these.
+6. **Yes — this repo's own `.githooks/pre-commit` moves onto the installed tiered hooks in this effort** (48): add **Task B8** after B3, before B7: record this repo's `components`, `checks.commit` (`node scripts/build-skills.mjs check`), `tiers.fast`, `tiers.merge` in its `.claude/machinery/config.json` and replace `.githooks/pre-commit` with the installed hook; TDD red = a test asserting the repo's hook text equals what `install.mjs` writes. Note `core.hooksPath` is absolute to the main checkout, so the new hook governs worktree commits only after merge.
 
 **Goal:** Replace machinery's rules, skills and agents with the recalibration draft, and build the mechanisms the draft relies on, with every commit green.
 
@@ -41,7 +41,8 @@
 | B4 | `--no-verify` asks the user | B | A6 | `no-verify.mjs`, `lib/emit.mjs`, `hooks/hooks.json` |
 | B5 | Hosted CI from the recorded tiers | B | B3 | `install.mjs`, `templates/`, `install` skill |
 | B6 | Issue-tracking answer filed and replaced | B | A0, A5 | `intake.mjs` |
-| B7 | Documentation | B | B1–B6 | READMEs, `marketplace.json`, `plugin.json`, `STATUS.md` |
+| B8 | This repo's own pre-commit onto the installed tiered hooks | B | B3 | `.githooks/pre-commit`, `.claude/machinery/config.json` |
+| B7 | Documentation | B | B1–B6, B8 | READMEs, `marketplace.json`, `plugin.json`, `STATUS.md` |
 
 ## Global Constraints
 
