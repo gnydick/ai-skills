@@ -44,8 +44,8 @@ function writeManifest(manifestPath, prior, seen) {
   fs.writeFileSync(manifestPath, JSON.stringify({ version: 1, hashes: { ...prior, ...seen } }, null, 2), 'utf8');
 }
 
-// A source is `[label, path]`. A FILE source (core.md, recalibration 21) is one entry keyed by its
-// label; a DIRECTORY source (the project's .claude/rules/) is one entry per `<label>/<name>.md`.
+// A source is `[label, path]`. A FILE source (the user's universal.md, STATUS 54) is one entry keyed
+// by its label; a DIRECTORY source (the project's .claude/rules/) is one entry per `<label>/<name>.md`.
 // A source that does not exist is reported on the output, never silently skipped.
 function collect(sources) {
   const files = [], missing = [];

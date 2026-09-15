@@ -5,9 +5,10 @@
 // payload and so has no session id to read. First reload per session is a full dump, by
 // construction, and that is correct — a fresh session has seen nothing.
 //
-// Recalibration 21, 37: the universal rules are ONE file, core.md in the plugin source; the
-// project's own .claude/rules/ directory joins under --project. So the counts below are 1 (core)
-// and 11 (core plus ten project files).
+// STATUS 54: the file that can change mid-session is the user's ~/.claude/rules/universal.md,
+// where a URULE files; core.md is the plugin's and changes only with the plugin. The project's own
+// .claude/rules/ directory joins under --project. So the counts below are 1 (universal.md) and 11
+// (universal.md plus ten project files).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -20,15 +21,15 @@ import { reloadDelta, MANIFEST_NAME } from '../scripts/lib/reload.mjs';
 // Ten project files, so the counts the ticket names stay readable (`11 files, 0 changed`).
 const NAMES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((n) => `${n}.md`);
 const bodyOf = (n) => `# ${n}\n\n- the body of ${n}\n`;
-const CORE_TEXT = '# Core\n\n- the core\n';
+const UNIVERSAL_TEXT = '# Universal rules\n- the universal rule\n';
+const UNIVERSAL = '~/.claude/rules/universal.md';
 
 function fixture() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'reload-'));
-  const core = path.join(base, 'core.md');
-  fs.writeFileSync(core, CORE_TEXT);
   const home = path.join(base, 'home');
-  fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
-  fs.writeFileSync(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: base }));
+  const universal = path.join(home, '.claude', 'rules', 'universal.md');
+  fs.mkdirSync(path.dirname(universal), { recursive: true });
+  fs.writeFileSync(universal, UNIVERSAL_TEXT);
   const scratch = path.join(base, 'scratchpad');
   fs.mkdirSync(scratch);
   const repo = makeRepo();
@@ -36,7 +37,7 @@ function fixture() {
   fs.mkdirSync(rules, { recursive: true });
   for (const n of NAMES) fs.writeFileSync(path.join(rules, n), bodyOf(n));
   return {
-    base, core, rules, home, scratch, project: repo.root,
+    base, universal, rules, home, scratch, project: repo.root,
     manifest: path.join(scratch, MANIFEST_NAME),
     cleanup: () => { repo.cleanup(); fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }); },
   };
@@ -45,7 +46,7 @@ function fixture() {
 const run = (f, args = [], opts = {}) =>
   runScript('scripts/reload.mjs', { env: { MACHINERY_HOME: f.home }, args: ['--scratchpad', f.scratch, ...args], cwd: f.project, ...opts });
 
-const sourcesOf = (f) => [['core.md', f.core], ['.claude/rules', f.rules]];
+const sourcesOf = (f) => [[UNIVERSAL, f.universal], ['.claude/rules', f.rules]];
 
 test('ticket test 3 (positive control): with no manifest the run prints all eleven and 11 files, 11 changed', () => {
   const f = fixture();
@@ -54,7 +55,7 @@ test('ticket test 3 (positive control): with no manifest the run prints all elev
     const r = run(f, ['--project']);
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
-    assert.ok(r.stdout.includes(`===== core.md =====\n${CORE_TEXT}`), 'core.md was not printed');
+    assert.ok(r.stdout.includes(`===== ${UNIVERSAL} =====\n${UNIVERSAL_TEXT}`), `universal.md was not printed:\n${r.stdout}`);
     for (const n of NAMES) assert.ok(r.stdout.includes(`===== .claude/rules/${n} =====`), `${n} was not printed`);
     for (const n of NAMES) assert.ok(r.stdout.includes(`the body of ${n}`), `${n}'s text was not printed`);
     assert.ok(fs.existsSync(f.manifest), 'a successful print writes the manifest');
@@ -90,7 +91,7 @@ test('ticket test 2: touching one rule file prints that file and 11 files, 1 cha
     assert.match(r.stdout, /machinery_reload: 11 files, 1 changed/);
     assert.ok(r.stdout.includes('===== .claude/rules/c.md ====='), 'the touched file was not printed');
     assert.ok(r.stdout.includes('rewritten by the test'), 'the touched file’s new text was not printed');
-    assert.ok(!r.stdout.includes('the core'), 'core.md was reprinted');
+    assert.ok(!r.stdout.includes('the universal rule'), 'universal.md was reprinted');
     for (const n of NAMES.filter((n) => n !== 'c.md')) assert.ok(!r.stdout.includes(`the body of ${n}`), `${n} was reprinted`);
   } finally { f.cleanup(); }
 });
@@ -103,7 +104,7 @@ test('ticket test 5: --all prints everything with a manifest present', () => {
     const r = run(f, ['--all', '--project']);
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, /machinery_reload: 11 files, 11 changed/);
-    assert.ok(r.stdout.includes('the core'), 'core.md was not printed under --all');
+    assert.ok(r.stdout.includes('the universal rule'), 'universal.md was not printed under --all');
     for (const n of NAMES) assert.ok(r.stdout.includes(`the body of ${n}`), `${n} was not printed under --all`);
   } finally { f.cleanup(); }
 });
@@ -176,23 +177,24 @@ test('--project joins the same delta, and a later run without it does not forget
   } finally { f.cleanup(); }
 });
 
-test('RED CHECK: without --project reload prints core.md alone', () => {
+test('RED CHECK: without --project reload prints the user\'s universal.md alone — never core.md (STATUS 54)', () => {
   const f = fixture();
   try {
     const r = run(f, ['--all']);
     assert.equal(r.code, 0, r.stderr);
-    assert.ok(r.stdout.includes('===== core.md =====\n# Core\n\n- the core\n'), r.stdout);
+    assert.ok(r.stdout.includes(`===== ${UNIVERSAL} =====\n${UNIVERSAL_TEXT}`), r.stdout);
     assert.match(r.stdout, /^machinery_reload: 1 files, 1 changed$/m);
+    assert.doesNotMatch(r.stdout, /core\.md|Machinery core/, 'core.md was printed');
   } finally { f.cleanup(); }
 });
 
-test('a missing core.md is named on the output, never silently skipped', () => {
+test('a missing universal.md is named on the output, never silently skipped', () => {
   const f = fixture();
   try {
-    fs.rmSync(f.core);
+    fs.rmSync(f.universal);
     const r = run(f, ['--all']);
     assert.equal(r.code, 0, r.stderr);
-    assert.ok(r.stdout.includes(`===== core.md ===== (missing: ${f.core})`), r.stdout);
+    assert.ok(r.stdout.includes(`===== ${UNIVERSAL} ===== (missing: ${f.universal})`), r.stdout);
     assert.match(r.stdout, /^machinery_reload: 0 files, 0 changed$/m);
   } finally { f.cleanup(); }
 });

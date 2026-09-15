@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { makeRepo } from './helpers/repo.mjs';
-import { runScript } from './helpers/run.mjs';
+import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const g = (root, ...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' });
 const write = (root, rel, text) => { const f = path.join(root, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text); };
@@ -59,13 +60,45 @@ test('sweep guard: docs commit adding a brand-new non-docs file warns, never blo
   } finally { r.cleanup(); }
 });
 
-test('--universal runs the register check over the plugin layout', () => {
+// STATUS 54: the universal inbox is the user's, ~/.claude/machinery/inbox.md. The same check reads
+// it beside the project inbox, so an unfiled URULE blocks a commit in ANY project, and the refusal
+// names whichever inbox holds the entry. The plugin-layout mode (`--universal`) is gone with it.
+test('a PENDING entry in the user\'s inbox blocks the commit in any project, naming that inbox and /machinery:rule-process (STATUS 54)', () => {
   const r = makeRepo();
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const userInbox = path.join(h, '.claude', 'machinery', 'inbox.md');
   try {
-    write(r.root, 'rules/t.md', RULE); write(r.root, 'inbox.md', '');
-    g(r.root, 'add', '-A');
-    assert.equal(runScript('scripts/gate/gate.mjs', { args: ['--root', r.root, '--universal'], cwd: r.root }).code, 0);
-  } finally { r.cleanup(); }
+    project(r.root); write(r.root, 'docs/a.md', 'hello'); g(r.root, 'add', '-A');
+    // Positive control: the same project and home pass while the user's inbox is empty.
+    const green = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    assert.equal(green.code, 0, green.stdout + green.stderr);
+    assert.match(green.stdout, /^register_check: 0 of 0 pending/m);
+    fs.mkdirSync(path.dirname(userInbox), { recursive: true });
+    fs.writeFileSync(userInbox, '\n## PENDING 2026-09-14T00:00:00Z URULE s\n\nURULE: x\n\ndisposition: PENDING\n');
+    const red = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    assert.equal(red.code, 1, red.stdout + red.stderr);
+    assert.match(red.stdout, /^register_check: 1 of 1 pending/m, red.stdout);
+    assert.ok(red.stdout.includes(`commit refused: 1 pending entry in ${userInbox} — run /machinery:rule-process`), red.stdout);
+    assert.doesNotMatch(red.stdout, /\.claude\/machinery\/inbox\.md — run/, 'the refusal named the project inbox, which is empty');
+    assert.doesNotMatch(red.stdout, /--no-verify/);
+    assert.ok(!fs.readFileSync(path.join(PLUGIN, 'scripts', 'gate', 'gate.mjs'), 'utf8').includes('--universal'), 'gate.mjs still carries the plugin-layout mode');
+  } finally { r.cleanup(); fs.rmSync(h, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
+test('a malformed user inbox is a diagnostic naming it, not a stack trace, and it blocks (STATUS 54)', () => {
+  const r = makeRepo();
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const userInbox = path.join(h, '.claude', 'machinery', 'inbox.md');
+  try {
+    project(r.root); g(r.root, 'add', '-A');
+    fs.mkdirSync(path.dirname(userInbox), { recursive: true });
+    fs.writeFileSync(userInbox, '\n## PENDING 2026-09-14T00:00:00Z URULE s\n\nno disposition line\n');
+    const res = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    assert.equal(res.code, 1, res.stdout + res.stderr);
+    assert.match(res.stdout, /^register_check: 1 of 1 .*malformed/m, res.stdout);
+    assert.ok(res.stdout.includes(userInbox), res.stdout);
+    assert.doesNotMatch(res.stdout + res.stderr, /at Object\.|node:internal/, 'a stack trace reached the user');
+  } finally { r.cleanup(); fs.rmSync(h, { recursive: true, force: true, maxRetries: 5 }); }
 });
 
 test('a staged rule file with no index anywhere passes the gate (decision 10)', () => {

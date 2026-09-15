@@ -5,19 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { makeRepo, addWorktree } from './helpers/repo.mjs';
-import { runScript } from './helpers/run.mjs';
+import { runScript, PLUGIN } from './helpers/run.mjs';
 import { pending, parseInbox, appendEntry } from '../scripts/lib/inbox.mjs';
-import { projectInbox, universalInbox } from '../scripts/lib/config.mjs';
+import { projectInbox } from '../scripts/lib/config.mjs';
 
 const g = (root, ...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' }).trim();
 const home = () => { const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-')); fs.mkdirSync(path.join(h, '.claude')); return h; };
-// capture.mjs (Task 8) is not landed in this worktree yet — seed the inbox directly with the
-// same lib/inbox.mjs primitive capture.mjs would call, writing to the same inbox file.
-function withHome(h, fn) {
-  const prev = process.env.MACHINERY_HOME;
-  process.env.MACHINERY_HOME = h;
-  try { return fn(); } finally { if (prev === undefined) delete process.env.MACHINERY_HOME; else process.env.MACHINERY_HOME = prev; }
-}
+// The inbox is seeded directly with the same lib/inbox.mjs primitive capture.mjs calls, writing
+// to the same inbox file.
 function projectWithPending(h) {
   const r = makeRepo();
   runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
@@ -34,20 +29,27 @@ test('place appends a bullet under an existing heading and creates a missing one
   assert.equal(fs.readFileSync(f, 'utf8'), '# A\n\n## One\n\n- old\n- new rule\n\n## Two\n\n- another\n');
 });
 
-test('place appends to core.md under its title, and into a bucket skill section; a bare rules/ file is refused', () => {
+// STATUS 54: a rule bullet goes in a .claude/rules/<file>.md — the project's, or the user's
+// ~/.claude/rules/universal.md. The plugin's core.md and the bucket skills change only by editing
+// the repo, so the one bullet writer refuses them by name, as it refuses a bare rules/ file.
+test('place appends to a title-only universal.md under its title; core.md, a bucket skill and a bare rules/ file are refused', () => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'place-'));
+  const universal = path.join(d, '.claude', 'rules', 'universal.md'); fs.mkdirSync(path.dirname(universal), { recursive: true });
+  fs.writeFileSync(universal, '# Universal rules\n- one\n');
+  assert.equal(runScript('scripts/place.mjs', { args: ['--file', universal, '--section', 'Universal rules', '--text', 'two'] }).code, 0);
+  assert.equal(fs.readFileSync(universal, 'utf8'), '# Universal rules\n- one\n- two\n');
   const core = path.join(d, 'plugins', 'machinery', 'core.md'); fs.mkdirSync(path.dirname(core), { recursive: true });
   fs.writeFileSync(core, '# Machinery core (always on)\n- one\n');
-  assert.equal(runScript('scripts/place.mjs', { args: ['--file', core, '--section', 'Machinery core (always on)', '--text', 'two'] }).code, 0);
-  assert.equal(fs.readFileSync(core, 'utf8'), '# Machinery core (always on)\n- one\n- two\n');
   const skill = path.join(d, 'claude-code', 'machinery', 'testing', 'SKILL.md'); fs.mkdirSync(path.dirname(skill), { recursive: true });
-  fs.writeFileSync(skill, '---\nname: testing\ndescription: d\n---\n# Testing\n\n## Writing a test\n- a\n\n## When something fails\n- b\n');
-  assert.equal(runScript('scripts/place.mjs', { args: ['--file', skill, '--section', 'Writing a test', '--text', 'c'] }).code, 0);
-  assert.match(fs.readFileSync(skill, 'utf8'), /## Writing a test\n- a\n- c\n\n## When something fails/);
+  fs.writeFileSync(skill, '---\nname: testing\ndescription: d\n---\n# Testing\n\n## Writing a test\n- a\n');
   const bare = path.join(d, 'rules', 'x.md'); fs.mkdirSync(path.dirname(bare)); fs.writeFileSync(bare, '');
-  const res = runScript('scripts/place.mjs', { args: ['--file', bare, '--section', 'S', '--text', 't'] });
-  assert.equal(res.code, 1);
-  assert.match(res.stderr, /\.claude\/rules\/<file>\.md, claude-code\/machinery\/<kind>\/SKILL\.md or plugins\/machinery\/core\.md/);
+  for (const [file, section] of [[core, 'Machinery core (always on)'], [skill, 'Writing a test'], [bare, 'S']]) {
+    const before = fs.readFileSync(file, 'utf8');
+    const res = runScript('scripts/place.mjs', { args: ['--file', file, '--section', section, '--text', 't'] });
+    assert.equal(res.code, 1, file);
+    assert.match(res.stderr, /a rule goes in \.claude\/rules\/<file>\.md \(the project's, or the user's universal\.md\)/, file);
+    assert.equal(fs.readFileSync(file, 'utf8'), before, `${file} was written despite the refusal`);
+  }
 });
 
 test('place refuses a file outside a rules directory (spec I34)', () => {
@@ -92,40 +94,62 @@ test('intake commit --kind project refuses from inside a worktree (spec I29)', (
   } finally { r.cleanup(); }
 });
 
-test('universal intake files into a bucket skill, rebuilds it, bumps, and commits in the plugin source\'s checkout; a rules/ home is refused (spec I30, I31; recalibration 1, 2)', () => {
-  // A fake ai-skills checkout: the plugin (core.md, inbox.md, plugin.json), one bucket skill under
-  // claude-code/machinery/, and a stub scripts/build-skills.mjs that copies the bucket into the plugin.
-  const r = makeRepo(); const h = home();
-  try {
-    const plug = path.join(r.root, 'plugins', 'machinery');
-    const skill = path.join(r.root, 'claude-code', 'machinery', 'testing', 'SKILL.md');
-    const put = (f, t) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, t); };
-    put(path.join(plug, 'core.md'), '# Machinery core (always on)\n- one\n');
-    put(path.join(plug, 'inbox.md'), '');
-    put(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}');
-    put(skill, '---\nname: testing\ndescription: d\n---\n# Testing\n\n## Writing a test\n- a\n\n## When something fails\n- b\n');
-    put(path.join(r.root, 'scripts', 'build-skills.mjs'),
-      "import fs from 'node:fs';\n"
-      + "if (process.argv[2] !== 'build') process.exit(2);\n"
-      + "fs.mkdirSync('plugins/machinery/skills/testing', { recursive: true });\n"
-      + "fs.copyFileSync('claude-code/machinery/testing/SKILL.md', 'plugins/machinery/skills/testing/SKILL.md');\n");
-    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'checkout');
-    fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: plug }));
-    // Appended by path, not through universalInbox(): before the green this resolves to the LIVE plugin inbox.
-    appendEntry(path.join(plug, 'inbox.md'), { marker: 'URULE', text: 'URULE: say less', session: 's' });
-    const stamp = pending(path.join(plug, 'inbox.md'))[0].stamp;
-    const env = { MACHINERY_HOME: h };
-    assert.equal(runScript('scripts/place.mjs', { args: ['--file', skill, '--section', 'Writing a test', '--text', 'c'] }).code, 0);
-    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'claude-code/machinery/testing/SKILL.md § Writing a test'], cwd: r.root, env });
-    assert.equal(res.code, 0, res.stderr + res.stdout);
-    assert.deepEqual(g(r.root, 'show', '--name-only', '--format=', 'HEAD').split('\n').filter(Boolean).sort(),
-      ['claude-code/machinery/testing/SKILL.md', 'plugins/machinery/.claude-plugin/plugin.json', 'plugins/machinery/inbox.md', 'plugins/machinery/skills/testing/SKILL.md']);
-    assert.equal(g(r.root, 'status', '--porcelain'), '');
-    assert.equal(JSON.parse(fs.readFileSync(path.join(plug, '.claude-plugin', 'plugin.json'), 'utf8')).version, '0.1.1');
-    const bad = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'plugins/machinery/rules/x.md § S'], cwd: r.root, env });
-    assert.equal(bad.code, 1);
-    assert.match(bad.stderr, /filed in plugins\/machinery\/core\.md or claude-code\/machinery\/<kind>\/SKILL\.md/);
-  } finally { r.cleanup(); }
+// STATUS 54: a URULE is universal for the USER. Filing it appends one dated bullet to
+// ~/.claude/rules/universal.md (created on demand with its one-line heading) and dispositions the
+// user's inbox entry. The home is not a repository, so nothing is bumped, built or committed —
+// the plugin's core.md and skills are never touched; those change only by editing the repo.
+const userInbox = (h) => path.join(h, '.claude', 'machinery', 'inbox.md');
+const userRules = (h) => path.join(h, '.claude', 'rules', 'universal.md');
+const today = () => new Date().toISOString().slice(0, 10);
+
+test('a URULE files as one dated bullet in the user\'s universal.md, created on demand, and dispositions the entry; nothing is bumped, built or committed (STATUS 54)', () => {
+  const h = home();
+  const notARepo = fs.mkdtempSync(path.join(os.tmpdir(), 'norepo-'));
+  const env = { MACHINERY_HOME: h };
+  // Explicit stamps: two entries appended in the same second would share one, and intake addresses
+  // an entry by its stamp.
+  const stamp = '2026-09-14T00:00:01Z', stamp2 = '2026-09-14T00:00:02Z';
+  appendEntry(userInbox(h), { marker: 'URULE', text: 'URULE: say less', session: 's', stamp });
+  assert.ok(!fs.existsSync(path.join(h, '.claude', 'rules')), 'the fixture starts with no ~/.claude/rules');
+  const res = runScript('scripts/intake.mjs', { args: ['universal', '--stamp', stamp, '--text', 'Say less.'], cwd: notARepo, env });
+  assert.equal(res.code, 0, res.stderr + res.stdout);
+  assert.equal(fs.readFileSync(userRules(h), 'utf8'), `# Universal rules\n- Say less. (URULE, ${today()})\n`);
+  assert.equal(pending(userInbox(h)).length, 0);
+  const [e] = parseInbox(fs.readFileSync(userInbox(h), 'utf8'));
+  assert.equal(e.state, 'FILED'); assert.equal(e.disposition, `filed → ${userRules(h)}`);
+  assert.ok(res.stdout.includes(`filed → ${userRules(h)}`), res.stdout);
+  assert.doesNotMatch(res.stdout + res.stderr, /bumped|build-skills|committed/);
+  assert.ok(!fs.existsSync(path.join(h, '.git')), 'the home was turned into a repository');
+  assert.ok(!fs.existsSync(path.join(PLUGIN, 'inbox.md')), 'the plugin inbox was written');
+  // A second filing appends below the first; the heading is written once.
+  appendEntry(userInbox(h), { marker: 'URULE', text: 'URULE: two', session: 's', stamp: stamp2 });
+  const again = runScript('scripts/intake.mjs', { args: ['universal', '--stamp', stamp2, '--text', 'Two.'], cwd: notARepo, env });
+  assert.equal(again.code, 0, again.stderr + again.stdout);
+  assert.equal(fs.readFileSync(userRules(h), 'utf8'), `# Universal rules\n- Say less. (URULE, ${today()})\n- Two. (URULE, ${today()})\n`);
+  assert.equal(pending(userInbox(h)).length, 0);
+});
+
+test('RED CHECK: intake universal with an unknown stamp or no text files nothing, and commit no longer takes --kind universal (STATUS 54)', () => {
+  const h = home();
+  const env = { MACHINERY_HOME: h };
+  appendEntry(userInbox(h), { marker: 'URULE', text: 'URULE: kept', session: 's' });
+  const stamp = pending(userInbox(h))[0].stamp;
+  const unknown = runScript('scripts/intake.mjs', { args: ['universal', '--stamp', 'nope', '--text', 't'], env });
+  assert.equal(unknown.code, 1); assert.match(unknown.stderr, /no PENDING entry with stamp nope/);
+  const noText = runScript('scripts/intake.mjs', { args: ['universal', '--stamp', stamp], env });
+  assert.equal(noText.code, 1); assert.match(noText.stderr, /usage: intake universal --stamp <stamp> --text "<rule>"/);
+  const old = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'x'], env });
+  assert.equal(old.code, 1); assert.match(old.stderr, /usage: intake commit --kind project\|spec/);
+  assert.ok(!fs.existsSync(userRules(h)), 'universal.md was written despite the refusals');
+  assert.equal(pending(userInbox(h)).length, 1, 'the entry was dispositioned despite the refusals');
+});
+
+test('intake list shows a pending user-inbox entry from any directory, a repository or not (STATUS 54)', () => {
+  const h = home();
+  appendEntry(userInbox(h), { marker: 'URULE', text: 'URULE: listed', session: 's' });
+  const list = runScript('scripts/intake.mjs', { args: ['list'], cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'norepo-')), env: { MACHINERY_HOME: h } });
+  assert.equal(list.code, 0, list.stderr);
+  assert.ok(list.stdout.includes(`\tURULE\t${userInbox(h)}\tURULE: listed`), list.stdout);
 });
 
 test('install and project intake write no index, and the filing commit is the rule file and the inbox (decision 10)', () => {

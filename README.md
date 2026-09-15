@@ -108,7 +108,8 @@ node scripts/build-skills.mjs deny …    # add an identifier that must never sh
 ```
 
 Run `hooks` after cloning — git never installs hooks automatically. This
-repo's own `.githooks/pre-commit` runs the universal inbox gate, then the
+repo's own `.githooks/pre-commit` runs the inbox gate (this repo's project
+inbox and the user's `~/.claude/machinery/inbox.md`), then the
 tiers recorded in `.claude/machinery/config.json` (`checks.commit` =
 `build-skills.mjs check`; the fast tier runs the suite of each component the
 commit touches, `plugins/machinery/test` or `scripts/test`, through

@@ -9,17 +9,14 @@ import { pending } from '../scripts/lib/inbox.mjs';
 
 const base = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/UserPromptSubmit.json'), 'utf8'));
 const payload = (prompt, cwd) => JSON.stringify({ ...base, prompt, cwd });
-// Final review D: without a machinery.json, universalInbox() falls back to the plugin's OWN
-// directory — a suite that never sets pluginSource reads and writes the REAL, live
-// plugins/machinery/inbox.md. Point every home() at its own throwaway plugin source so nothing
-// here can see (or contaminate) the live plugin inbox.
+// STATUS 54: the universal inbox is the user's, ~/.claude/machinery/inbox.md under the home. Every
+// home() is a throwaway, so nothing here can see or write the real one.
 const home = () => {
   const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
   fs.mkdirSync(path.join(h, '.claude'));
-  const source = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-'));
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: source }));
   return h;
 };
+const userInbox = (h) => path.join(h, '.claude', 'machinery', 'inbox.md');
 const ctx = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
 const run = (prompt, cwd, env = {}) => runScript('scripts/capture.mjs', { stdin: payload(prompt, cwd), cwd, env: { MACHINERY_HOME: home(), ...env } });
 
@@ -45,15 +42,18 @@ test('PRULE from INSIDE A WORKTREE lands in the root inbox, not the copy, and sa
   } finally { r.cleanup(); }
 });
 
-test('URULE lands in the universal inbox beside the rules source (spec I3)', () => {
+test('URULE lands in the user\'s inbox under the home, created on demand — never in the project, never in the plugin (STATUS 54)', () => {
   const r = makeRepo();
-  const src = fs.mkdtempSync(path.join(os.tmpdir(), 'src-')); fs.mkdirSync(path.join(src, 'rules'));
-  const h = home(); fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: src }));
+  const h = home();
   try {
+    assert.ok(!fs.existsSync(path.join(h, '.claude', 'machinery')), 'the fixture starts with no ~/.claude/machinery');
     const res = run('urule: universal thing', r.root, { MACHINERY_HOME: h });
-    assert.equal(pending(path.join(src, 'inbox.md')).length, 1);
-    assert.ok(!fs.existsSync(path.join(r.root, '.claude', 'machinery', 'inbox.md')));
-    assert.match(ctx(res), /captured verbatim to .*inbox\.md/i);
+    assert.equal(res.code, 0, res.stderr);
+    assert.equal(pending(userInbox(h)).length, 1);
+    assert.equal(pending(userInbox(h))[0].text, 'urule: universal thing');
+    assert.ok(!fs.existsSync(path.join(r.root, '.claude', 'machinery', 'inbox.md')), 'a project inbox was written');
+    assert.ok(!fs.existsSync(path.join(PLUGIN, 'inbox.md')), 'the plugin inbox was written');
+    assert.ok(ctx(res).includes(`URULE captured verbatim to ${userInbox(h)} (PENDING). Commits are refused until it is filed: run /machinery:rule-process.`), ctx(res));
   } finally { r.cleanup(); }
 });
 
@@ -103,11 +103,10 @@ test('RED CHECK: a PRULE is not silently dropped', () => {
 test('RED CHECK: a plain-words issue-tracking answer, with no mark, writes nothing to either inbox (issue tracking test 7a1)', () => {
   const r = makeRepo(); const h = home();
   try {
-    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).pluginSource;
     const res = run('Use GitHub Issues to track this project, for this project only.', r.root, { MACHINERY_HOME: h });
     assert.equal(res.code, 0, res.stderr);
     assert.ok(!fs.existsSync(path.join(r.root, '.claude', 'machinery', 'inbox.md')), 'a project inbox was written');
-    assert.ok(!fs.existsSync(path.join(src, 'inbox.md')), 'a universal inbox was written');
+    assert.ok(!fs.existsSync(userInbox(h)), 'a universal inbox was written');
     run('PRULE: x', r.root, { MACHINERY_HOME: h });
     assert.equal(pending(path.join(r.root, '.claude', 'machinery', 'inbox.md')).length, 1);
   } finally { r.cleanup(); }

@@ -25,13 +25,10 @@ const g = (root, ...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' }
 const write = (root, rel, text) => { const f = path.join(root, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text); };
 const base = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/UserPromptSubmit.json'), 'utf8'));
 const payload = (prompt, cwd) => JSON.stringify({ ...base, prompt, cwd });
-// Every home() is a throwaway, so nothing here can read or write the live plugin inbox.
+// Every home() is a throwaway, so nothing here can read or write the user's real inbox (STATUS 54).
 const home = () => {
   const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
   fs.mkdirSync(path.join(h, '.claude'));
-  const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rules-'));
-  fs.mkdirSync(path.join(rulesDir, 'rules'), { recursive: true });
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: rulesDir }));
   return h;
 };
 const ctx = (r) => JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
@@ -122,11 +119,10 @@ test('adding a third mark leaves the two existing marks exactly as they were (#8
     const a = capture('RULE: ambiguous', r.root);
     assert.match(ctx(a), /Dictate a project rule with PRULE: or a universal rule with URULE:/);
 
-    // The universal mark writes beside its own rules source, not into this project.
+    // The universal mark writes to the user's inbox under the home, not into this project (STATUS 54).
     const h = home();
     const u = runScript('scripts/capture.mjs', { stdin: payload('URULE: say less', r.root), cwd: r.root, env: { MACHINERY_HOME: h } });
-    const src = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'machinery.json'), 'utf8')).pluginSource;
-    assert.equal(pending(path.join(src, 'inbox.md')).length, 1);
+    assert.equal(pending(path.join(h, '.claude', 'machinery', 'inbox.md')).length, 1);
     assert.match(ctx(u), /captured verbatim to .*inbox\.md/i);
     assert.equal(pending(projectSpecInbox(r.root)).length, 0, 'a URULE must not reach the spec inbox either');
   } finally { r.cleanup(); }

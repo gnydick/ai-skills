@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 
 // The machinery layout: the one spelling of every file name that more than one unit has to name,
@@ -10,8 +11,16 @@ import path from 'node:path';
 // and spec indexes are gone (recalibration decision 10); the gate checks the inboxes only.
 export const INBOX = 'inbox.md';
 export const SPEC_INBOX = 'spec-inbox.md';
-// The always-on universal rules, one file in the plugin source (recalibration decisions 1, 2).
-export const CORE = 'core.md';
+// The user's universal rules (STATUS 54): a URULE is universal for the USER, so it files into
+// ~/.claude/rules/universal.md — Claude Code's per-user always-loaded location, which reaches
+// subagents through the CLAUDE.md hierarchy and survives uninstalling the plugin — and its inbox is
+// ~/.claude/machinery/inbox.md. Neither is configurable and nothing points back at the plugin; the
+// plugin's core.md and skills change only by editing the repo. The home is resolved HERE, once:
+// MACHINERY_HOME is the test suites' throwaway home, and every reader of it goes through userHome().
+export const UNIVERSAL_RULES = 'universal.md';
+export const userHome = () => process.env.MACHINERY_HOME || os.homedir();
+export const userInbox = (home) => path.join(home, '.claude', MACHINERY_DIR, INBOX);
+export const userRules = (home) => path.join(home, '.claude', RULES_DIR, UNIVERSAL_RULES);
 // Issue tracking configuration (docs/superpowers/specs/2026-09-12-issue-tracking-config-design.md).
 // Two files hold the developer's one answer about where issue tracking lives. Three units name them
 // and none can import another — install.mjs seeds them, lib/issue-tracking.mjs reads them through

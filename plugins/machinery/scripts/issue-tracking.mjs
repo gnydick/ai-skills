@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from './lib/root.mjs';
-import { globalIssueTracking, projectIssueTracking, universalSource, projectInbox } from './lib/config.mjs';
+import { globalIssueTracking, projectIssueTracking, projectInbox } from './lib/config.mjs';
 import { UNANSWERED, NONE } from './lib/layout.mjs';
 import { appendEntry, formatEntry, newStamp, parseInbox } from './lib/inbox.mjs';
 import { decide, readIfPresent, normalizeAnswer, PROJECT_ENTRY_KIND, entryText, findRecorded, pendingIssueTracking } from './lib/issue-tracking.mjs';
@@ -63,20 +63,14 @@ function requireAnswer() {
   try { return normalizeAnswer(raw); } catch (e) { throw new Refused(e.message); }
 }
 
-const real = (p) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
-const inside = (child, parent) => { const rel = path.relative(parent, child); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); };
-
 // Ruling A, made testable (the plan's Decision 1): the answer for every project on this machine is
 // written straight into the global file — no inbox entry, no intake, no commit, and never a project
-// file (Ruling D; this command resolves no project at all). The one thing it checks first is that the
-// file would not land under universalSource(), which ships to everyone who installs machinery.
+// file (Ruling D; this command resolves no project at all). The global file sits under the user's
+// home (lib/config.mjs), never under the plugin: the configurable plugin source it once had to guard
+// against is gone (STATUS 54).
 function runRecordGlobal() {
   const answer = requireAnswer();
   const file = globalIssueTracking();
-  const source = universalSource();
-  if (inside(real(path.dirname(file)), real(source))) {
-    throw new Refused(`${file} is under the plugin source ${source}, which ships to everyone who installs machinery; nothing written`);
-  }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${answer}\n`, 'utf8');
   process.stdout.write(`issue_tracking: wrote 1 of 1 file: ${file}\n`

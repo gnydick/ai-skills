@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The only writer of rule bullets in scripts (spec I34). Writes only under an existing-or-created ## heading (spec I33),
-// or at the end of a file whose only heading is a title equal to the section (core.md, recalibration 1).
+// or at the end of a file whose only heading is a title equal to the section (the user's universal.md, STATUS 54).
 import fs from 'node:fs';
 import path from 'node:path';
 const argv = process.argv.slice(2);
@@ -8,11 +8,12 @@ const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : nu
 const file = opt('--file'), section = opt('--section'), text = opt('--text');
 if (!file || !section || !text) { process.stderr.write('usage: place --file <file.md> --section "<Heading>" --text "<rule>"\n'); process.exit(2); }
 const abs = path.resolve(file);
-// The three homes a rule can have (recalibration decisions 1, 2): a project rule file, a bucket
-// skill's source, or the always-on core. A bare rules/ directory is no longer one of them.
-const ALLOWED = [/[\\/]\.claude[\\/]rules[\\/][^\\/]+\.md$/, /[\\/]claude-code[\\/]machinery[\\/][a-z0-9-]+[\\/]SKILL\.md$/, /[\\/]plugins[\\/]machinery[\\/]core\.md$/];
+// The one shape a rule's home has (STATUS 54): a .claude/rules/<file>.md — the project's own, or the
+// user's ~/.claude/rules/universal.md. The plugin's core.md and the bucket skills change only by
+// editing the repo, so they are refused here by name, as a bare rules/ directory is.
+const ALLOWED = [/[\\/]\.claude[\\/]rules[\\/][^\\/]+\.md$/];
 if (!ALLOWED.some((re) => re.test(abs))) {
-  process.stderr.write(`refusing to write ${abs}: a rule goes in .claude/rules/<file>.md, claude-code/machinery/<kind>/SKILL.md or plugins/machinery/core.md\n`);
+  process.stderr.write(`refusing to write ${abs}: a rule goes in .claude/rules/<file>.md (the project's, or the user's universal.md)\n`);
   process.exit(1);
 }
 let lines = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8').replace(/\s+$/, '').split(/\r?\n/) : [`# ${path.basename(abs, '.md')}`];

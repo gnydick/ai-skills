@@ -1,25 +1,29 @@
 #!/usr/bin/env node
 // Story: hooks/session-banner.md. Prints only what it measured (spec I7, I27, I38). Loud, non-blocking.
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { readPayload } from './lib/stdin.mjs';
 import { context } from './lib/emit.mjs';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { markers, universalInbox, projectInbox, pluginRoot } from './lib/config.mjs';
+import { markers, universalInbox, universalRules, projectInbox, pluginRoot } from './lib/config.mjs';
+import { userHome } from './lib/layout.mjs';
 import { pending } from './lib/inbox.mjs';
 
 function banner() {
   const p = readPayload() ?? {};
   const cwd = p.cwd || process.cwd();
-  const home = process.env.MACHINERY_HOME || os.homedir();
+  const home = userHome();
   const m = markers();
   const lines = ['machinery:'];
-  // The universal rules are core.md in the plugin itself, injected by the SessionStart and
-  // SubagentStart hooks (recalibration 21): measured here as present or missing, nothing more.
+  // The core is core.md in the plugin itself, injected by the SessionStart and SubagentStart hooks
+  // (recalibration 21): measured here as present or missing, nothing more. The user's universal
+  // rules (STATUS 54) are ~/.claude/rules/universal.md, loaded by Claude Code itself; absent is a
+  // fact, not a fault — nothing has been filed there yet.
   const core = path.join(pluginRoot(), 'core.md');
   lines.push(`  core: ${core} (${fs.existsSync(core) ? 'present' : 'MISSING — reinstall machinery'})`);
+  const universal = universalRules();
+  lines.push(`  universal rules: ${universal} (${fs.existsSync(universal) ? 'present' : 'absent'})`);
   let root = null;
   try { root = projectRoot(cwd); } catch { lines.push('  project: not a git repository'); }
   let proj = 0;

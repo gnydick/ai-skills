@@ -1,4 +1,4 @@
 #!/bin/sh
 # This repo is the machinery plugin's own source: its hooks call the scripts in place (STATUS 53).
 # Enable once per clone: node scripts/build-skills.mjs hooks
-node plugins/machinery/scripts/gate/gate.mjs --root plugins/machinery --universal && exec node plugins/machinery/scripts/tiers.mjs fast
+node plugins/machinery/scripts/gate/gate.mjs && exec node plugins/machinery/scripts/tiers.mjs fast

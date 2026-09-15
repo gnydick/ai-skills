@@ -40,9 +40,9 @@ and asks which. The tokens are defined once, in `markers.json`.
 Claude Code hooks (`hooks/hooks.json`):
 
 - **SessionStart** — prints a banner of facts measured this session (core present,
-  `core.hooksPath`, gate version, hosted check, pending counts, whether the
-  worktree hook has ever fired, the issue-tracking command, the markers), then
-  injects `core.md` as context.
+  the user's `universal.md` present or absent, `core.hooksPath`, gate version,
+  hosted check, pending counts, whether the worktree hook has ever fired, the
+  issue-tracking command, the markers), then injects `core.md` as context.
 - **SubagentStart** — injects the same `core.md` into every subagent, built-in
   agents included.
 - **UserPromptSubmit** — captures a marked prompt to the right inbox, word for
@@ -57,11 +57,13 @@ Claude Code hooks (`hooks/hooks.json`):
 
 Installed git hooks (per project, by `/machinery:install`):
 
-- **pre-commit** — the gate: pending inbox entries and undispositioned spec
-  entries refuse the commit, a filed spec outside `docs/dictated-specs/` refuses
-  it, and the sweep guard warns (never blocks) when a documentation-shaped commit
-  adds a brand-new non-documentation file; then the recorded `checks.commit`, then
-  `tiers.fast` for the recorded components the staged paths touch.
+- **pre-commit** — the gate: pending inbox entries (the project's inbox and the
+  user's `~/.claude/machinery/inbox.md`, so an unfiled `URULE:` blocks a commit
+  in any project) and undispositioned spec entries refuse the commit, a filed
+  spec outside `docs/dictated-specs/` refuses it, and the sweep guard warns
+  (never blocks) when a documentation-shaped commit adds a brand-new
+  non-documentation file; then the recorded `checks.commit`, then `tiers.fast`
+  for the recorded components the staged paths touch.
 - **pre-push** — `tiers.merge`, in place on a clean tree whose HEAD is the pushed
   commit, only for a push to `main`.
 
@@ -78,22 +80,26 @@ is the one agent definition.
 
 ## Where the rules live
 
-- `core.md` — the always-on universal core, a few lines.
-- `claude-code/machinery/<kind>/SKILL.md` — the universal rules of that kind.
+- `core.md` — the always-on core, a few lines. It and the skills change only by
+  editing this repo.
+- `claude-code/machinery/<kind>/SKILL.md` — the process of that kind.
+- `~/.claude/rules/universal.md` — the user's universal rules, where a `URULE:`
+  files. Claude Code loads `~/.claude/rules/*.md` into every session itself, so
+  they reach subagents and survive uninstalling the plugin.
 - `.claude/rules/` — a project's own rules, one file each.
-- Inboxes: `inbox.md` beside `core.md` for universal captures;
+- Inboxes: `~/.claude/machinery/inbox.md` for the user's universal captures;
   `.claude/machinery/inbox.md` and `.claude/machinery/spec-inbox.md` for a
   project's rule and specification captures.
 - `docs/dictated-specs/` — filed specifications, one fixed location every
   project shares. `docs/` is outside `.claude/`, so nothing loads a filed
   specification into a session; that is separate work.
 
-`/machinery:rule-process` files a captured entry into its home — a `URULE:` into
-`core.md` or a skill's bucket source, with the plugin version bumped; a `PRULE:`
-into `.claude/rules/`; a `SPEC:` into the specification under
-`docs/dictated-specs/` that owns the subsystem — dispositions the entry, and lands
-it in one commit. `/machinery:reload` puts the current `core.md` into the running
-session.
+`/machinery:rule-process` files a captured entry into its home and dispositions
+the entry — a `URULE:` as one dated bullet in `~/.claude/rules/universal.md`
+(nothing to bump, build or commit: the home is not a repository); a `PRULE:`
+into `.claude/rules/` and a `SPEC:` into the specification under
+`docs/dictated-specs/` that owns the subsystem, each landed in one commit.
+`/machinery:reload` puts the current `universal.md` into the running session.
 
 ## Teaching it a tool
 

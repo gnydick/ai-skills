@@ -73,38 +73,27 @@ const walkFiles = (d) => fs.readdirSync(d, { withFileTypes: true })
   .flatMap((e) => (e.isDirectory() ? (e.name === '.git' ? [] : walkFiles(path.join(d, e.name))) : [path.join(d, e.name)]));
 const snapshot = (dir) => Object.fromEntries(walkFiles(dir).map((f) => [path.relative(dir, f), fs.readFileSync(f, 'utf8')]));
 
-// A plugin checkout standing in for universalSource(): inbox.md, plugin.json, committed.
-function pluginCheckout(home) {
-  const r = makeRepo();
-  const plug = path.join(r.root, 'plugins', 'machinery');
-  put(path.join(plug, 'rules', 'straight-talk.md'), '# S\n\n## Claims\n\n- a\n');
-  put(path.join(plug, '.claude-plugin', 'plugin.json'), '{"name":"machinery","version":"0.1.0"}\n');
-  put(path.join(plug, 'inbox.md'), '');
-  execFileSync('git', ['add', '-A'], { cwd: r.root });
-  execFileSync('git', ['commit', '-q', '-m', 'plugin'], { cwd: r.root });
-  put(path.join(home, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: plug }));
-  return r;
-}
-
 // TEST 7(b), now against product code (Decision 1). The failure it guards — one developer's tracker
 // shipping to everyone who installs machinery — is silent when it happens, so it is asserted as a
-// negative over everything the write could have touched.
-test('record-global writes the global file and nothing else: no inbox entry, no write under the rules source, no version bump, no commit (test 7b)', () => {
-  const h = tempHome(); const plugin = pluginCheckout(h); const proj = makeRepo();
+// negative over everything the write could have touched: the project, the plugin, and the user's
+// own inbox (STATUS 54: the universal inbox is ~/.claude/machinery/inbox.md under the home).
+test('record-global writes the global file and nothing else: no inbox entry, nothing in the plugin or the project, no commit (test 7b)', () => {
+  const h = tempHome(); const proj = makeRepo();
+  const plugin = fs.realpathSync.native(path.resolve(process.env.CLAUDE_PLUGIN_ROOT || path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1')), '..')));
   try {
     put(path.join(proj.root, '.claude', 'machinery', 'inbox.md'), '');
-    const before = { plugin: snapshot(plugin.root), project: snapshot(proj.root), pluginHead: head(plugin.root), projectHead: head(proj.root) };
-    assert.ok(Object.keys(before.plugin).includes(path.join('plugins', 'machinery', 'inbox.md')), 'the observer must see the universal inbox');
+    const before = { plugin: snapshot(plugin), project: snapshot(proj.root), projectHead: head(proj.root) };
+    assert.ok(Object.keys(before.plugin).includes('core.md'), 'the observer must see the plugin');
     const res = cli(['record-global', '--answer', ANSWER], { cwd: proj.root, home: h });
     assert.equal(res.code, 0, res.stderr);
     assert.equal(fs.readFileSync(globalFile(h), 'utf8'), ANSWER);
     assert.match(res.stdout, /^issue_tracking: wrote 1 of 1 file: .*global_issue_tracking\.md$/m);
-    assert.deepEqual(snapshot(plugin.root), before.plugin, 'something under the rules source checkout changed');
+    assert.deepEqual(snapshot(plugin), before.plugin, 'something in the plugin changed');
     assert.deepEqual(snapshot(proj.root), before.project, 'something in the project changed');
-    assert.equal(head(plugin.root), before.pluginHead, 'a commit landed in the rules source checkout');
     assert.equal(head(proj.root), before.projectHead, 'a commit landed in the project');
     assert.deepEqual(fs.readdirSync(path.join(h, '.claude', 'rules')), ['global_issue_tracking.md']);
-  } finally { plugin.cleanup(); proj.cleanup(); }
+    assert.ok(!fs.existsSync(path.join(h, '.claude', 'machinery')), 'the user\'s inbox directory was written');
+  } finally { proj.cleanup(); }
 });
 
 // Recalibration 37: nothing seeds the global file at install any more; record-global creates it —
@@ -123,7 +112,6 @@ test('record-global creates the global file and its directory when neither exist
 test('RED CHECK: answering for every project leaves a seeded project file byte-identical, and that project still asks (test 12)', () => {
   const h = tempHome(); const r = makeRepo();
   try {
-    put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')) }));
     put(projectFile(r.root), 'unanswered\n');
     const before = fs.readFileSync(projectFile(r.root));
     assert.equal(cli(['record-global', '--answer', ANSWER], { cwd: r.root, home: h }).code, 0);
@@ -134,18 +122,8 @@ test('RED CHECK: answering for every project leaves a seeded project file byte-i
   } finally { r.cleanup(); }
 });
 
-test('RED CHECK: record-global refuses when the global file would land under the plugin source, and writes nothing', () => {
-  const h = tempHome();
-  put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: path.join(h, '.claude') }));
-  const res = cli(['record-global', '--answer', ANSWER], { cwd: h, home: h });
-  assert.equal(res.code, 1);
-  assert.match(res.stderr, /^issue_tracking: refused: .* is under the plugin source /m);
-  assert.ok(!fs.existsSync(globalFile(h)));
-});
-
 test('record-global refuses a missing, empty or seeded-word answer, and writes nothing', () => {
   const h = tempHome();
-  put(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: fs.mkdtempSync(path.join(os.tmpdir(), 'plug-')) }));
   for (const args of [['record-global'], ['record-global', '--answer', '  '], ['record-global', '--answer', 'unanswered']]) {
     const res = cli(args, { cwd: h, home: h });
     assert.equal(res.code, 1, `${args.join(' ')}: ${res.stderr}`);

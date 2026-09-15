@@ -14,7 +14,8 @@ import { projectRoot, isRootSession } from './lib/root.mjs';
 import { appendEntry, pending } from './lib/inbox.mjs';
 
 // One message shape for every mark, naming the one fix (recalibration decision 3). From inside an
-// isolated working copy the entry lands in the ROOT's inbox and is filed from there (spec I20, I29).
+// isolated working copy a project entry lands in the ROOT's inbox and is filed from there (spec
+// I20, I29); a universal entry lands in the USER's inbox (STATUS 54) and is filed from anywhere.
 const captured = (mark, inbox, rootSession, root) => (rootSession
   ? `${mark} captured verbatim to ${inbox} (PENDING). Commits are refused until it is filed: run /machinery:rule-process.`
   : `${mark} captured verbatim to ${inbox} (PENDING). Commits in ${root} are refused until it is filed: run /machinery:rule-process from ${root}.`);

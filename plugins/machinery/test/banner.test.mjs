@@ -7,14 +7,11 @@ import { makeRepo } from './helpers/repo.mjs';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const base = JSON.parse(fs.readFileSync(path.join(PLUGIN, 'test/fixtures/payloads/SessionStart.json'), 'utf8'));
-// Final review D: without a machinery.json, universalInbox() falls back to the plugin's OWN
-// directory — a suite that never sets pluginSource reads (and could be broken by) the REAL, live
-// plugins/machinery/inbox.md. Point every home() at its own throwaway plugin source instead.
+// STATUS 54: the universal inbox and rules are the user's, under the home. Every home() is a
+// throwaway, so nothing here reads or writes the real ones.
 const home = () => {
   const h = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
   fs.mkdirSync(path.join(h, '.claude'));
-  const source = fs.mkdtempSync(path.join(os.tmpdir(), 'plug-'));
-  fs.writeFileSync(path.join(h, '.claude', 'machinery.json'), JSON.stringify({ pluginSource: source }));
   return h;
 };
 const run = (cwd, env = {}) => runScript('scripts/banner.mjs', { stdin: JSON.stringify({ ...base, cwd }), cwd, env: { MACHINERY_HOME: home(), ...env } });
@@ -25,7 +22,8 @@ test('reports measured facts for an uninstalled project', () => {
   try {
     const t = text(run(r.root));
     assert.match(t, /^  core: .*core\.md \(present\)$/m);
-    assert.doesNotMatch(t, /junction|cant-break-by-design/);
+    assert.match(t, /^  universal rules: .*[\\/]\.claude[\\/]rules[\\/]universal\.md \(absent\)$/m, t);
+    assert.doesNotMatch(t, /junction|cant-break-by-design|rules source|pluginSource/);
     assert.match(t, /core\.hooksPath: not set — run \/machinery:install/);
     assert.match(t, /gate: not installed/);
     assert.match(t, /pending: project 0, universal 0/);
@@ -40,10 +38,14 @@ test('after install and a capture, reports hooksPath, stamp, and pending count',
     const h = home();
     runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
     runScript('scripts/capture.mjs', { stdin: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'PRULE: x', cwd: r.root, session_id: 's' }), cwd: r.root, env: { MACHINERY_HOME: h } });
+    runScript('scripts/capture.mjs', { stdin: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'URULE: y', cwd: r.root, session_id: 's' }), cwd: r.root, env: { MACHINERY_HOME: h } });
+    const universal = path.join(h, '.claude', 'rules', 'universal.md');
+    fs.mkdirSync(path.dirname(universal), { recursive: true }); fs.writeFileSync(universal, '# Universal rules\n');
     const t = text(run(r.root, { MACHINERY_HOME: h }));
     assert.match(t, /core\.hooksPath: \.githooks/);
     assert.match(t, /gate: installed \d+\.\d+\.\d+ \(plugin \d+\.\d+\.\d+\)/);
-    assert.match(t, /pending: project 1/);
+    assert.match(t, /pending: project 1, universal 1/);
+    assert.ok(t.includes(`  universal rules: ${universal} (present)`), t);
   } finally { r.cleanup(); }
 });
 

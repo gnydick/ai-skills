@@ -20,9 +20,11 @@ after(() => console.log(`repo_hooks_tests: ${passed} of ${registered} test(s) pa
 
 const HEADER = '#!/bin/sh\n# This repo is the machinery plugin\'s own source: its hooks call the scripts in place (STATUS 53).\n# Enable once per clone: node scripts/build-skills.mjs hooks\n';
 
-check('the pre-commit runs the universal inbox gate, then the fast tier for the touched components', () => {
+// STATUS 54: the gate reads this repo's project inbox and the user's inbox in one run; the plugin
+// has no inbox of its own, so the `--root plugins/machinery --universal` leg is gone.
+check('the pre-commit runs the inbox gate over this repo as a project, then the fast tier for the touched components', () => {
   assert.equal(read('.githooks', 'pre-commit'),
-    `${HEADER}node plugins/machinery/scripts/gate/gate.mjs --root plugins/machinery --universal && exec node plugins/machinery/scripts/tiers.mjs fast\n`);
+    `${HEADER}node plugins/machinery/scripts/gate/gate.mjs && exec node plugins/machinery/scripts/tiers.mjs fast\n`);
 });
 
 check('the pre-push runs the merge tier', () => {

@@ -17,20 +17,24 @@ import { projectRoot } from '../lib/root.mjs';
 // File names come from the one place that spells them (#81). This module builds its own layout
 // rather than importing lib/config.mjs because it ships standalone into an adopting project and
 // must never point back at the plugin cache (spec I6) — but the NAMES are still declared once.
-import { SPEC_INBOX, INBOX, DOCS_DIR, SPECS_DIR, MACHINERY_DIR } from '../lib/layout.mjs';
+import { SPEC_INBOX, INBOX, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, userHome, userInbox } from '../lib/layout.mjs';
 
 const argv = process.argv.slice(2);
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
-const universal = argv.includes('--universal');
 const mergeMode = argv.includes('--merge');
 const root = opt('--root') ? path.resolve(opt('--root')) : projectRoot(process.cwd());
 
 // The spec half is the rule half's mirror (#81, owner ruling 2026-09-07: "make spec: work just like
-// rules"): its own area and its own inbox, resolved the same way in both modes. The generated
-// indexes are gone (recalibration decision 10).
-const layout = universal
-  ? { inbox: path.join(root, INBOX), specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, SPEC_INBOX) }
-  : { inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX), specsDir: path.join(root, DOCS_DIR, SPECS_DIR), specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX) };
+// rules"): its own area and its own inbox. The generated indexes are gone (recalibration decision
+// 10). The user's inbox (STATUS 54) is read beside the project's: a universal rule is the user's,
+// captured to ~/.claude/machinery/inbox.md, and an unfiled one blocks a commit in any project. The
+// plugin has no inbox of its own, so there is no plugin-layout mode.
+const layout = {
+  inbox: path.join(root, '.claude', MACHINERY_DIR, INBOX),
+  userInbox: userInbox(userHome()),
+  specsDir: path.join(root, DOCS_DIR, SPECS_DIR),
+  specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX),
+};
 
 // One context, handed to every check. Each check destructures what it needs, so the manifest can
 // generate a uniform call and a new leg slots into the closed list without changing this loop.

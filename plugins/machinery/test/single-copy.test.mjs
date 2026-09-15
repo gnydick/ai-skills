@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PLUGIN } from './helpers/run.mjs';
-import { pending } from '../scripts/lib/inbox.mjs';
 
 test('agents carry plugin agent frontmatter', () => {
   for (const f of ['comparison-agent.md']) {
@@ -12,4 +11,6 @@ test('agents carry plugin agent frontmatter', () => {
   }
 });
 
-test('RED CHECK: the universal inbox has no PENDING entries', () => assert.equal(pending(path.join(PLUGIN, 'inbox.md')).length, 0));
+// STATUS 54: the universal inbox is the user's (~/.claude/machinery/inbox.md), so the plugin ships
+// no inbox at all — a file here would be a second inbox nothing reads.
+test('RED CHECK: the plugin ships no inbox.md — the universal inbox is the user\'s (STATUS 54)', () => assert.equal(fs.existsSync(path.join(PLUGIN, 'inbox.md')), false));
