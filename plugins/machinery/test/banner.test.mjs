@@ -91,3 +91,22 @@ test('RED CHECK: a plugin root without the command is reported MISSING, never of
     assert.doesNotMatch(t, /issue tracking command: node /);
   } finally { r.cleanup(); fs.rmSync(fake, { recursive: true, force: true, maxRetries: 5 }); }
 });
+
+// #107 (owner, 2026-09-15: "Updated installs have to handle migration"): a project keeps the gate
+// its last install wrote, so after a plugin update the installed copy can be older than the plugin
+// and still name remedies the plugin no longer ships. The gate line says so and names the one
+// remedy, re-running /machinery:install; an installed copy at the plugin's version gets no remedy.
+test('RED CHECK: the gate line names /machinery:install when the installed stamp is older than the plugin, and not when it matches (#107)', () => {
+  const r = makeRepo();
+  try {
+    const h = home();
+    runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: h } });
+    const current = text(run(r.root, { MACHINERY_HOME: h }));
+    assert.match(current, /^  gate: installed \d+\.\d+\.\d+ \(plugin \d+\.\d+\.\d+\)$/m, current);
+    assert.doesNotMatch(current, /older than the plugin/);
+    // A stamp older in the patch field only, since a lexical comparison would call 0.1.9 newer than 0.1.10.
+    fs.writeFileSync(path.join(r.root, '.githooks', 'machinery', 'VERSION'), '0.1.9\n');
+    const stale = text(run(r.root, { MACHINERY_HOME: h }));
+    assert.match(stale, /^  gate: installed 0\.1\.9 \(plugin \d+\.\d+\.\d+\) — older than the plugin; run \/machinery:install to migrate$/m, stale);
+  } finally { r.cleanup(); }
+});

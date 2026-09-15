@@ -32,7 +32,14 @@ function banner() {
     lines.push(`  core.hooksPath: ${hp || 'not set — run /machinery:install'}`);
     const stamp = path.join(root, '.githooks', 'machinery', 'VERSION');
     const pv = JSON.parse(fs.readFileSync(path.join(pluginRoot(), '.claude-plugin', 'plugin.json'), 'utf8')).version;
-    lines.push(`  gate: ${fs.existsSync(stamp) ? `installed ${fs.readFileSync(stamp, 'utf8').trim()} (plugin ${pv})` : 'not installed'}`);
+    // #107 (owner, 2026-09-15: "Updated installs have to handle migration"): the project keeps the
+    // gate its last install wrote, so after a plugin update the installed copy can be older than
+    // the plugin and name remedies the plugin no longer ships. Compared field by field, never as
+    // strings: 0.1.9 is older than 0.1.10. Only "older" gets the remedy; a newer stamp is not a
+    // fault this banner can name.
+    const older = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
+    const installed = fs.existsSync(stamp) ? fs.readFileSync(stamp, 'utf8').trim() : null;
+    lines.push(`  gate: ${installed === null ? 'not installed' : `installed ${installed} (plugin ${pv})${older(installed, pv) ? ' — older than the plugin; run /machinery:install to migrate' : ''}`}`);
     lines.push(`  hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none — the pre-push hook is the blocking check before main; /machinery:install --hosted-ci writes one'}`);
     try { proj = pending(projectInbox(root)).length; } catch (e) { lines.push(`  project inbox: MALFORMED — ${e.message}`); }
   }
