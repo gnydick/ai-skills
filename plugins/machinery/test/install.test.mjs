@@ -119,6 +119,29 @@ test('RED CHECK: --machine is refused, names what replaced it, and links nothing
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
+// Owner, 2026-09-15: a project install seeds the user's ~/.claude/rules/universal.md with its one
+// heading, so the file Claude Code loads into every session exists before the first URULE is filed
+// (until now it was created on demand by that filing, and /machinery:reload named it missing).
+// Never overwritten: a rule filed there survives every later install, byte for byte.
+test('project install seeds ~/.claude/rules/universal.md with its heading once and never overwrites it', () => {
+  const r = makeRepo();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'home-'));
+  const installWithHome = () => runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root, env: { MACHINERY_HOME: home } });
+  try {
+    const first = installWithHome();
+    assert.equal(first.code, 0, first.stderr);
+    const f = path.join(home, '.claude', 'rules', 'universal.md');
+    assert.equal(fs.readFileSync(f, 'utf8'), '# Universal rules\n');
+    assert.match(first.stdout, /[\\/]\.claude[\\/]rules[\\/]universal\.md: created$/m, first.stdout);
+    const filed = '# Universal rules\n- a filed rule (URULE, 2026-09-15)\n';
+    fs.writeFileSync(f, filed);
+    const again = installWithHome();
+    assert.equal(again.code, 0, again.stderr);
+    assert.equal(fs.readFileSync(f, 'utf8'), filed, 'a second install walked back over a filed rule');
+    assert.match(again.stdout, /[\\/]\.claude[\\/]rules[\\/]universal\.md: present, left as it is$/m, again.stdout);
+  } finally { r.cleanup(); fs.rmSync(home, { recursive: true, force: true }); }
+});
+
 test('a foreign .githooks/pre-commit that does not invoke the machinery gate is not overwritten (final review F)', () => {
   const r = makeRepo();
   try {

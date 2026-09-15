@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './lib/git.mjs';
 import { projectRoot } from './lib/root.mjs';
-import { pluginRoot, projectIssueTracking } from './lib/config.mjs';
-import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED } from './lib/layout.mjs';
+import { pluginRoot, projectIssueTracking, universalRules } from './lib/config.mjs';
+import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 import { MACHINERY_OWN } from './lib/own-files.mjs';
 import { readSetting, recorded } from './lib/settings.mjs';
@@ -23,9 +23,11 @@ const version = () => JSON.parse(fs.readFileSync(path.join(pluginRoot(), '.claud
 // them"): the only thing install ever does to the project file is create it when there is none. The
 // `wx` flag makes "never overwritten, whatever it says — an empty file included" a property of the
 // open itself rather than of a check made a moment earlier. Returns true when it created the file.
-function seed(file) {
+// The user's universal.md (owner, 2026-09-15) is seeded through the same open, with its heading:
+// a rule filed there is never walked over by a later install.
+function seed(file, contents) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  try { fs.writeFileSync(file, `${UNANSWERED}\n`, { flag: 'wx' }); return true; }
+  try { fs.writeFileSync(file, `${contents}\n`, { flag: 'wx' }); return true; }
   catch (e) { if (e.code === 'EEXIST') return false; throw e; }
 }
 const seedLine = (shown, created) => `${shown}: ${created ? 'created' : 'present, left as it is'}`;
@@ -107,7 +109,12 @@ function installProject() {
   const specs = path.join(root, DOCS_DIR, SPECS_DIR);
   fs.mkdirSync(rules, { recursive: true }); fs.mkdirSync(mach, { recursive: true }); fs.mkdirSync(specs, { recursive: true });
   const trackingFile = projectIssueTracking(root);
-  say(seedLine(path.relative(root, trackingFile), seed(trackingFile)));
+  say(seedLine(path.relative(root, trackingFile), seed(trackingFile, UNANSWERED)));
+  // The user's universal rules file, so the file Claude Code loads into every session exists before
+  // the first URULE is filed and /machinery:reload has something to name (owner, 2026-09-15). Shown
+  // by its full path: it is the user's, not the project's.
+  const universalFile = universalRules();
+  say(seedLine(universalFile, seed(universalFile, UNIVERSAL_HEADING)));
   const inbox = path.join(mach, 'inbox.md');
   if (!fs.existsSync(inbox)) { fs.writeFileSync(inbox, ''); say(`created ${path.relative(root, inbox)}`); }
   const specInbox = path.join(mach, SPEC_INBOX);

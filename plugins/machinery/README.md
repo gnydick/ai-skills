@@ -84,7 +84,8 @@ is the one agent definition.
   editing this repo.
 - `claude-code/machinery/<kind>/SKILL.md` — the process of that kind.
 - `~/.claude/rules/universal.md` — the user's universal rules, where a `URULE:`
-  files. Claude Code loads `~/.claude/rules/*.md` into every session itself, so
+  files. `/machinery:install` seeds it with its heading and never overwrites
+  it. Claude Code loads `~/.claude/rules/*.md` into every session itself, so
   they reach subagents and survive uninstalling the plugin.
 - `.claude/rules/` — a project's own rules, one file each.
 - Inboxes: `~/.claude/machinery/inbox.md` for the user's universal captures;

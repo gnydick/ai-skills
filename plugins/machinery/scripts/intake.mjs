@@ -8,7 +8,7 @@ import { git } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
 import { projectInbox, projectRules, projectSpecs, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
-import { insideSpecArea, UNANSWERED } from './lib/layout.mjs';
+import { insideSpecArea, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -80,11 +80,11 @@ function commit() {
 }
 
 // STATUS 54: a URULE is universal for the USER. It files as one dated bullet in
-// ~/.claude/rules/universal.md — created on demand with its one-line heading, so place.mjs (the one
-// bullet writer) appends under that title — and the user's inbox entry is dispositioned. The home
-// is not a repository: nothing is bumped, built or committed, and the plugin's core.md and skills
-// are never touched. Works from any directory, a worktree included.
-const UNIVERSAL_HEADING = '# Universal rules';
+// ~/.claude/rules/universal.md — seeded with its one-line heading by install.mjs (owner, 2026-09-15),
+// and created here the same way for a home no install has run on, so place.mjs (the one bullet
+// writer) appends under that title — and the user's inbox entry is dispositioned. The home is not a
+// repository: nothing is bumped, built or committed, and the plugin's core.md and skills are never
+// touched. Works from any directory, a worktree included.
 function universal() {
   const stamp = opt('--stamp'), text = opt('--text');
   if (!stamp || !text) die('usage: intake universal --stamp <stamp> --text "<rule>"');

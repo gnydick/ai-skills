@@ -18,6 +18,9 @@ export const SPEC_INBOX = 'spec-inbox.md';
 // plugin's core.md and skills change only by editing the repo. The home is resolved HERE, once:
 // MACHINERY_HOME is the test suites' throwaway home, and every reader of it goes through userHome().
 export const UNIVERSAL_RULES = 'universal.md';
+// Its one heading: install.mjs seeds the file with it (owner, 2026-09-15) and intake.mjs files each
+// URULE under it, so the two must agree — a title place.mjs does not find is a section it appends.
+export const UNIVERSAL_HEADING = '# Universal rules';
 export const userHome = () => process.env.MACHINERY_HOME || os.homedir();
 export const userInbox = (home) => path.join(home, '.claude', MACHINERY_DIR, INBOX);
 export const userRules = (home) => path.join(home, '.claude', RULES_DIR, UNIVERSAL_RULES);
