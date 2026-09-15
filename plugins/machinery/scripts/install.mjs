@@ -8,6 +8,7 @@ import { pluginRoot, projectIssueTracking, universalRules } from './lib/config.m
 import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 import { MACHINERY_OWN } from './lib/own-files.mjs';
+import { migrate } from './lib/migrations.mjs';
 import { readSetting, recorded } from './lib/settings.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
@@ -159,7 +160,8 @@ function installProject() {
   // components readers it imports. It lives in scripts/ and imports './lib/...' already, so it is
   // copied as is; the same import walk in test/install.test.mjs covers it.
   fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'tiers.mjs'), path.join(gateDir, 'tiers.mjs'));
-  for (const f of ['settings.mjs', 'components.mjs', 'own-files.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  // own-files.mjs imports migrations.mjs (#107), so the tier runner's copy needs it beside it.
+  for (const f of ['settings.mjs', 'components.mjs', 'own-files.mjs', 'migrations.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   fs.writeFileSync(path.join(gateDir, 'VERSION'), version() + '\n');
   fs.writeFileSync(path.join(hooksDir, 'pre-commit'), '#!/bin/sh\n# Installed by /machinery:install.\nnode .githooks/machinery/gate.mjs && exec node .githooks/machinery/tiers.mjs fast\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-commit'), 0o755); } catch {}
@@ -167,6 +169,13 @@ function installProject() {
   fs.writeFileSync(path.join(hooksDir, 'pre-push'), '#!/bin/sh\n# Installed by /machinery:install.\nexec node .githooks/machinery/tiers.mjs merge\n');
   try { fs.chmodSync(path.join(hooksDir, 'pre-push'), 0o755); } catch {}
   say(`installed gate ${version()} into .githooks/machinery/`);
+  // #107 (owner, 2026-09-15: "Updated installs have to handle migration"): files an older plugin
+  // wrote and this one does not leave disk and the index here, each named; nothing else is touched.
+  // Before the staged set below, so a removed file is never re-added, and after the gate rewrite,
+  // so the copy that would have named a dead remedy is already gone.
+  const migrated = migrate(root, git);
+  for (const s of migrated) say(`migrated: removed ${s.path} (written by plugin ${s.wroteBy}: ${s.why}${s.tracked ? '; staged as removed' : ''})`);
+  if (!migrated.length) say('migration: nothing to migrate');
   git(['config', 'core.hooksPath', '.githooks'], root);
   if (argv.includes('--hosted-ci') && hostedCi(root) !== 0) return 1;
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);

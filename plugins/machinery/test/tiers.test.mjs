@@ -164,6 +164,26 @@ test('what install.mjs stages is a subset of the shared MACHINERY_OWN list, and 
   } finally { r.cleanup(); }
 });
 
+// #107: a migrated install stages the removal of an obsolete generated index. That path was
+// machinery's own when an older plugin wrote it, so the staged deletion is exempt from the
+// tiers/components refusal exactly as the current own files are — otherwise the first commit after
+// a migration in a project with no tiers recorded would be refused for a file no test could cover.
+test('a commit staging only the removal of an obsolete index (migrated by install) passes with nothing recorded (#107)', () => {
+  const r = makeRepo();
+  try {
+    const old = path.join(r.root, '.claude', 'machinery', 'RULES_INDEX.md');
+    fs.mkdirSync(path.dirname(old), { recursive: true }); fs.writeFileSync(old, '# Register index\n');
+    commitAll(r.root, 'an older plugin\'s index');
+    runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root });
+    assert.ok(isOwnFile('.claude/machinery/RULES_INDEX.md'), 'the obsolete path is not counted as machinery\'s own');
+    const staged = sh(['diff', '--cached', '--name-only'], r.root);
+    assert.match(staged, /^\.claude\/machinery\/RULES_INDEX\.md$/m, `the removal is not staged:\n${staged}`);
+    const res = fast(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /^fast_tier: 0 of 0 touched components failed \(machinery's own files only\)$/m);
+  } finally { r.cleanup(); }
+});
+
 test('an empty index prints its own line and exits 0', () => {
   const r = fixture();
   try {

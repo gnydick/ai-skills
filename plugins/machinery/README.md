@@ -55,7 +55,13 @@ Claude Code hooks (`hooks/hooks.json`):
   leading `worktree-` is stripped) and records that the event fired, for the
   banner.
 
-Installed git hooks (per project, by `/machinery:install`):
+Installed git hooks (per project, by `/machinery:install`). Re-run it after
+every plugin update: the session banner says when the installed gate is older
+than the plugin, and the install migrates the project's layout — a file an
+older plugin wrote and this one does not (the generated indexes, for one)
+leaves disk and the git index, each step named in the summary; a second run
+has nothing to migrate. The list of such files is `scripts/lib/migrations.mjs`,
+the one place a future removal adds its entry.
 
 - **pre-commit** — the gate: pending inbox entries (the project's inbox and the
   user's `~/.claude/machinery/inbox.md`, so an unfiled `URULE:` blocks a commit

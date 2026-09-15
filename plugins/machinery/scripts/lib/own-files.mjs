@@ -6,6 +6,7 @@
 // Entries are paths relative to the project root, POSIX-separated: a file, or a directory whose
 // whole tree is machinery's.
 import { INBOX, SPEC_INBOX, DOCS_DIR, SPECS_DIR, MACHINERY_DIR, RULES_DIR, CONFIG } from './layout.mjs';
+import { isObsolete } from './migrations.mjs';
 
 export const MACHINERY_OWN = Object.freeze([
   `.claude/${RULES_DIR}`,
@@ -18,5 +19,6 @@ export const MACHINERY_OWN = Object.freeze([
   '.githooks',
 ]);
 
-// True when a staged path (as git prints it: POSIX, root-relative) is one of machinery's own.
-export const isOwnFile = (p) => MACHINERY_OWN.some((e) => p === e || p.startsWith(e + '/'));
+// True when a staged path (as git prints it: POSIX, root-relative) is one of machinery's own — the
+// current list, or a file an older plugin wrote that a migrated install has staged as removed (#107).
+export const isOwnFile = (p) => MACHINERY_OWN.some((e) => p === e || p.startsWith(e + '/')) || isObsolete(p);
