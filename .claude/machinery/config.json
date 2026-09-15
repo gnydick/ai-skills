@@ -14,7 +14,7 @@
     "heavy": "node scripts/test-tier.mjs merge",
     "assignment": "claude-decides"
   },
-  "comparisonAgent": "push-to-main",
+  "comparisonAgent": "on-request",
   "comparisonPaths": [
     "plugins/machinery/skills"
   ],
