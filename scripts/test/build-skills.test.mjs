@@ -96,6 +96,12 @@ function makeFixture(mutate = () => {}) {
 
   fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
   fs.copyFileSync(SCRIPT, path.join(repo, 'scripts', 'build-skills.mjs'));
+  // The one plugin module the script imports (the machinery layout: where the user's universal
+  // rules live and their heading), at the same relative path, so the copy resolves it as the real
+  // script does. layout.mjs imports only node builtins.
+  const layoutModule = path.join('plugins', 'machinery', 'scripts', 'lib', 'layout.mjs');
+  fs.mkdirSync(path.dirname(path.join(repo, layoutModule)), { recursive: true });
+  fs.copyFileSync(path.join(REPO, layoutModule), path.join(repo, layoutModule));
 
   return { root, repo, home, cleanup: () => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }) };
 }
@@ -222,5 +228,26 @@ check('hooks creates .claude/rules and .claude/machinery in the repo before enab
     assert.ok(fs.statSync(path.join(f.repo, '.claude', 'rules')).isDirectory(), '.claude/rules was not created');
     assert.ok(fs.statSync(path.join(f.repo, '.claude', 'machinery')).isDirectory(), '.claude/machinery was not created');
     assert.equal(git(f, ['config', 'core.hooksPath']).stdout.trim(), '.githooks');
+  } finally { f.cleanup(); }
+});
+
+// Owner, 2026-09-15: the user's ~/.claude/rules/universal.md is seeded with its heading by
+// /machinery:install, and by `hooks` here for the same reason as the directories above — this repo
+// never runs install. Never overwritten: a filed rule survives every later run, byte for byte.
+check('hooks seeds ~/.claude/rules/universal.md with its heading once and never overwrites it', () => {
+  const f = makeFixture();
+  try {
+    assert.equal(git(f, ['init', '-q']).status, 0, 'the fixture could not be initialised as a repository');
+    const first = run(f, ['hooks']);
+    assert.equal(first.code, 0, first.all);
+    const u = path.join(f.home, '.claude', 'rules', 'universal.md');
+    assert.equal(fs.readFileSync(u, 'utf8'), '# Universal rules\n');
+    assert.match(first.all, /universal\.md: created/, first.all);
+    const filed = '# Universal rules\n- a filed rule (URULE, 2026-09-15)\n';
+    fs.writeFileSync(u, filed);
+    const again = run(f, ['hooks']);
+    assert.equal(again.code, 0, again.all);
+    assert.equal(fs.readFileSync(u, 'utf8'), filed, 'a second run walked back over a filed rule');
+    assert.match(again.all, /universal\.md: present, left as it is/, again.all);
   } finally { f.cleanup(); }
 });

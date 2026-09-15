@@ -26,6 +26,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// Where the user's universal rules live and their one heading, spelled once in the machinery
+// plugin (owner, 2026-09-15): `hooks` seeds that file exactly as /machinery:install does.
+import { UNIVERSAL_HEADING, userRules } from '../plugins/machinery/scripts/lib/layout.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(REPO, 'skills.manifest.json');
@@ -665,6 +668,15 @@ else if (cmd === 'hooks') {
   // empty directory, so a fresh clone lacks them until this runs; without them the first rule
   // filed here dies in place.mjs on ENOENT.
   for (const dir of ['rules', 'machinery']) fs.mkdirSync(path.join(REPO, '.claude', dir), { recursive: true });
+  // The user's ~/.claude/rules/universal.md, seeded with its heading and never overwritten (owner,
+  // 2026-09-15): /machinery:install does the same for an adopting project, and this repo never
+  // runs install. The `wx` open makes "never overwritten" a property of the open itself.
+  const universal = userRules(HOME);
+  fs.mkdirSync(path.dirname(universal), { recursive: true });
+  let seeded;
+  try { fs.writeFileSync(universal, `${UNIVERSAL_HEADING}\n`, { flag: 'wx' }); seeded = true; }
+  catch (e) { if (e.code !== 'EEXIST') throw e; seeded = false; }
+  ok(`${universal}: ${seeded ? 'created' : 'present, left as it is'}`);
   execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: REPO, stdio: 'pipe' });
   ok('created .claude/rules and .claude/machinery; hooks enabled — .githooks/pre-commit runs the gate and the fast tier before every commit');
 } else {

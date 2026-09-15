@@ -103,7 +103,7 @@ the route claiming the skill fails the build, naming both.
 node scripts/build-skills.mjs build     # stage buckets into the plugin
 node scripts/build-skills.mjs check     # verify every guard; used by CI and the hook
 node scripts/build-skills.mjs install   # link ~/.claude/skills/<name> to the source
-node scripts/build-skills.mjs hooks     # create .claude/rules and .claude/machinery, enable .githooks (once per clone)
+node scripts/build-skills.mjs hooks     # create .claude/rules and .claude/machinery, seed ~/.claude/rules/universal.md, enable .githooks (once per clone)
 node scripts/build-skills.mjs deny …    # add an identifier that must never ship
 ```
 
