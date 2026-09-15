@@ -108,6 +108,8 @@ test('a commit staging only machinery\'s own files (the install) passes with not
 test('a commit staging only .claude/machinery/config.json (written by setup, never by install) passes with nothing recorded (STATUS 51)', () => {
   const r = makeRepo();
   try {
+    // Not an install (that is the point of this test), only the directory setup requires (owner, 2026-09-14).
+    fs.mkdirSync(path.join(r.root, '.claude', 'rules'), { recursive: true });
     assert.equal(setup(r.root, 'set', 'components', 'pkg-a=pkg-a').code, 0);
     sh(['add', '.claude/machinery/config.json'], r.root);
     assert.equal(sh(['diff', '--cached', '--name-only'], r.root), '.claude/machinery/config.json');
@@ -195,6 +197,7 @@ test('RED CHECK: with tiers but no components recorded the hook refuses and name
 test('componentsOf names each recorded component a staged path starts with, once, by prefix not by substring', () => {
   const r = makeRepo();
   try {
+    fs.mkdirSync(path.join(r.root, '.claude', 'rules'), { recursive: true }); // what setup requires (owner, 2026-09-14)
     assert.equal(setup(r.root, 'set', 'components', 'a=pkg-a', 'b=pkg-b/', 'deep=libs/deep/core').code, 0);
     assert.deepEqual(componentsOf(r.root, ['pkg-a/src/x.txt', 'pkg-a/y.txt', 'pkg-b/z.txt', 'README.md']), ['a', 'b']);
     assert.deepEqual(componentsOf(r.root, ['pkg-ab/x.txt', 'libs/deep/core-x/y.txt']), []);

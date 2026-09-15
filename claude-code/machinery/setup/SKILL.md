@@ -4,7 +4,7 @@ description: Load when the user runs /machinery:setup (whole setup) or /machiner
 ---
 # /machinery:setup
 
-Settings live in `.claude/machinery/config.json`. Show them: `node "${CLAUDE_PLUGIN_ROOT}/scripts/setup.mjs" show` (each key, its recorded value or "not recorded", and the default where one exists). Record one: `node "${CLAUDE_PLUGIN_ROOT}/scripts/setup.mjs" set <key> <value>`; it refuses a value the key does not accept and names the accepted values.
+Settings live in `.claude/machinery/config.json`. Show them: `node "${CLAUDE_PLUGIN_ROOT}/scripts/setup.mjs" show` (each key, its recorded value or "not recorded", and the default where one exists). Record one: `node "${CLAUDE_PLUGIN_ROOT}/scripts/setup.mjs" set <key> <value>`; it refuses a value the key does not accept and names the accepted values. Both refuse first when `.claude/rules/` is absent: run /machinery:install (in the machinery plugin's own repo, `node scripts/build-skills.mjs hooks`), then come back.
 
 ## Every item
 1. Open with a labelled example of the kind of answer wanted (`Example: "<the answer in the developer's words>"`), then the recorded value or the default.
