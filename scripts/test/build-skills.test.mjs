@@ -100,14 +100,23 @@ function makeFixture(mutate = () => {}) {
   return { root, repo, home, cleanup: () => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }) };
 }
 
-function run(f, args) {
+// The scrubbed environment every child of a test runs in (see the header): the script under test,
+// and any git the test itself runs inside the fixture. A `git init` that inherits the hook's
+// GIT_DIR re-initialises the OUTER repository and leaves the fixture without one.
+function scrubbedEnv(f) {
   const env = { ...process.env, AI_SKILLS_HOME: f.home };
   for (const k of Object.keys(env)) if (k.startsWith('GIT_')) delete env[k];
+  return env;
+}
+
+function run(f, args) {
   const r = spawnSync(process.execPath, [path.join(f.repo, 'scripts', 'build-skills.mjs'), ...args], {
-    cwd: f.repo, encoding: 'utf8', env,
+    cwd: f.repo, encoding: 'utf8', env: scrubbedEnv(f),
   });
   return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', all: (r.stdout ?? '') + (r.stderr ?? '') };
 }
+
+const git = (f, args) => spawnSync('git', args, { cwd: f.repo, encoding: 'utf8', env: scrubbedEnv(f) });
 
 // Detaches a link without walking into it: on Windows a junction lstats as a
 // symbolic link but only rmdir detaches it; on POSIX a symlink-to-directory
@@ -196,5 +205,22 @@ check('claude-rules naming a skill whose bucket does not declare the target is a
     assert.match(r.all, /be-reasonable/);
     assert.match(r.all, /pure-prose/);
     assert.ok(!fs.existsSync(path.join(f.home, '.claude')));
+  } finally { f.cleanup(); }
+});
+
+// Owner, 2026-09-14: `.claude/rules/` is a requirement at the beginning of setting this plugin up.
+// /machinery:install creates it for an adopting project; this repo never runs install (its hooks
+// call the scripts in place, STATUS 53), so `hooks` — the once-per-clone enablement — is where the
+// same layout has to come from. Without it, the first rule filed here dies in place.mjs on ENOENT.
+check('hooks creates .claude/rules and .claude/machinery in the repo before enabling the hooks', () => {
+  const f = makeFixture();
+  try {
+    assert.equal(git(f, ['init', '-q']).status, 0, 'the fixture could not be initialised as a repository');
+    assert.equal(fs.existsSync(path.join(f.repo, '.claude', 'rules')), false, 'the fixture must start without the directory');
+    const r = run(f, ['hooks']);
+    assert.equal(r.code, 0, r.all);
+    assert.ok(fs.statSync(path.join(f.repo, '.claude', 'rules')).isDirectory(), '.claude/rules was not created');
+    assert.ok(fs.statSync(path.join(f.repo, '.claude', 'machinery')).isDirectory(), '.claude/machinery was not created');
+    assert.equal(git(f, ['config', 'core.hooksPath']).stdout.trim(), '.githooks');
   } finally { f.cleanup(); }
 });

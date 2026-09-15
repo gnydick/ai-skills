@@ -658,8 +658,15 @@ if (cmd === 'build') build(skills);
 else if (cmd === 'check') check(skills);
 else if (cmd === 'install') install(skills, force);
 else if (cmd === 'hooks') {
+  // Owner, 2026-09-14: `.claude/rules/` is a requirement at the beginning of setting the machinery
+  // plugin up. An adopting project gets this layout from /machinery:install; this repo never runs
+  // install (its hooks call the scripts in place, STATUS 53), so the once-per-clone enablement
+  // creates the same two project directories before it turns the hooks on. Git does not keep an
+  // empty directory, so a fresh clone lacks them until this runs; without them the first rule
+  // filed here dies in place.mjs on ENOENT.
+  for (const dir of ['rules', 'machinery']) fs.mkdirSync(path.join(REPO, '.claude', dir), { recursive: true });
   execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: REPO, stdio: 'pipe' });
-  ok('hooks enabled — .githooks/pre-commit runs `check` before every commit');
+  ok('created .claude/rules and .claude/machinery; hooks enabled — .githooks/pre-commit runs the gate and the fast tier before every commit');
 } else {
   console.error('usage: build-skills.mjs [build|check|install|hooks|deny <term>] [--force]');
   process.exit(2);
