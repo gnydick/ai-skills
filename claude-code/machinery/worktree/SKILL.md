@@ -15,10 +15,10 @@ description: Load before the first commit of any piece of work, before any git c
 
 ## Effort steps
 1. A multi-commit effort starts only on the owner's explicit go, given directly to whoever runs it. Relayed approval does not count.
-2. Create the worktree with the worktree tool (EnterWorktree), never a hand `git worktree add`. Name it for the work, not a date or ticket number. Use the path it prints.
+2. From the project root, create the worktree with the worktree tool (EnterWorktree), never a hand `git worktree add`. Name it for the work, not a date or ticket number. Use the path it prints.
 3. First act inside it: reset onto the exact branch the work targets, using whichever of your local and the remote copy of that branch is newer.
 4. Work and commit (below). Touch nothing above the project root unless asked.
-5. Before landing a structural change that other open branches depend on, get sign-off from whoever owns those branches.
+5. Before landing a structural change that other open branches depend on, get sign-off from whoever owns those branches, through the shared record that tracks that seam.
 6. Before merging to main, read `reviewBeforeMain` in `.claude/machinery/config.json`: `person` — get the owner's approval of the change; `agent` — dispatch an adversarial review agent on the change (skill `agents`) and resolve its findings; `person-and-agent` — both; `no-review` — neither. Not recorded: run /machinery:setup review first. Then, from the project root, merge locally and `git push`. If the pre-push hook refuses, fix or discard the local merge. Merge an exploration branch only on the owner's explicit decision.
 7. Right after the push, from the project root, in the same session: delete the worktree and its branch. To reclaim disk from a stale worktree you keep, delete its build output.
 8. Before finishing: `git worktree list` from the project root; report any worktree that is not active work. Never delete someone else's; never delete one with uncommitted changes without asking; release one a tool holds a lock on through that tool.
