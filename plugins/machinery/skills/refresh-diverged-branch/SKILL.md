@@ -4,7 +4,7 @@ description: Load when merging the primary line into a long-lived edition branch
 ---
 # Refresh a diverged branch
 
-Two branches are editions of one product: the primary line, and the edition branch that follows it. Ordinary merging stays the default until it costs more than these steps. No remote access is needed.
+Two branches are editions of one product: the primary line, and the edition branch that follows it. Ordinary merging stays the default until it costs more than these steps. No remote access is needed: the method works against a local copy of the primary line you build yourself, so do not reach for a guarded sync script that fetches first — it cannot work without that access.
 
 1. List each side's changes against the common ancestor, never tip against tip:
    ```sh

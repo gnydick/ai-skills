@@ -23,11 +23,12 @@ The project's tiers are recorded in `.claude/machinery/config.json` key `tiers` 
 ## Writing a test
 - Give a new test its tier the way `tiers.assignment` says, and declare it the way `tiers.declaration` says. If `tiers` is not recorded, run /machinery:setup tiers first.
 - Take the expectation from something the code under test never produced: the stated setting, the fixture's dimensions, the input's shape, or arithmetic.
-- A number copied out of a run is labelled in the test as a regression pin. Where no independent expectation exists yet, say so at the assertion and leave the work open.
+- A number copied out of a run is labelled in the test as a regression pin, and never counted as coverage. Where no independent expectation exists yet, say so at the assertion and leave the work open.
 - A regression test uses the default setting, not only an unusual one.
 - A test that captures output drives the real renderer by the same path the user's output takes.
 - A test of how an algorithm scales asserts the work done against what the input allows, with a positive control, never elapsed time; something that never ran satisfies any upper bound for free. A generous timeout may stay only to catch a hang.
 - A fixture that spawns a real subprocess removes every inherited environment variable that could redirect it outside the fixture directory before the first call.
+- A suite with no way to express a given failure is not coverage for that failure, however green it is. Asserting that something did not happen counts only if the observer could have seen it happen: say what would have proved the observer was alive.
 - A change that creates or modifies a safeguard (a type that rejects bad values, a source-scanning check, a debug switch, a hook) writes that safeguard's tests, TDD red first, including a case proving a search-based check still matches. A change that only uses a safeguard tests only its own new behaviour. Tell which from your own diff.
 - Where a change alters a layout or spatial output, or touches a layer no automated test can reach (a real window, real hardware), say which layer is untested and verify by build, lint and a hands-on run of the rendered result at every supported window size, with every interactive element visible, unobstructed and reachable — never by reading the markup.
 - Dispatch `machinery:comparison-agent` as `comparisonAgent` in `.claude/machinery/config.json` says: `push-to-main` — before every push to main; `output-paths` — before a push to main whose changes touch a path in `comparisonPaths`; `on-request` — only when the user asks; any other recorded text — as that text says. Not recorded: run /machinery:setup comparison-agent first.
@@ -38,4 +39,4 @@ The project's tiers are recorded in `.claude/machinery/config.json` key `tiers` 
 - A diagnosis is confirmed only when the path is traced step by step from the real observed input to the blamed line.
 - When the task exists because an earlier belief was wrong, check whether the replacement assumes the same thing about its inputs one layer down.
 - If you call a defect a class or pattern, search the area you changed for every instance and fix each by name.
-- When a check is red, a result looks odd, or a baseline moves: find out why first. Never change code only to turn a check green, regenerate a baseline, or change a tolerance to get a result. A person reviews every regenerated baseline line by line.
+- Ask why a result looks the way it does, not merely whether it looks right: green and plausible is what a wrong answer to an unasked question looks like. When a check is red, a result looks odd, or a baseline moves: find out why first. Never change code only to turn a check green, regenerate a baseline, or change a tolerance to get a result. A person reviews every regenerated baseline line by line.

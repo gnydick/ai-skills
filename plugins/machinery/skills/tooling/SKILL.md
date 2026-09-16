@@ -14,7 +14,7 @@ description: Load when writing or modifying a script, hook, gate or long-running
 
 ## Running tools
 - Do not pass a tool its quiet flag when it runs under the output filter.
-- Waiting on a job that prints heartbeats: no heartbeat for one interval means it is dead or hung.
+- Waiting on a job that prints heartbeats: no heartbeat for one interval means it is dead or hung, not that it is probably still working. Never sit waiting for a completion signal nobody promised you.
 - Counting added lines in a diff: use `git diff -w`.
 
 ## Project toolchain

@@ -15,7 +15,7 @@ description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the c
    - PRULE: a section of a file under `.claude/rules/`.
    - URULE: `~/.claude/rules/universal.md`, as one dated bullet (no section).
    - SPEC (a specification to implement, not a rule or proposal): the file under `docs/dictated-specs/` that owns the subsystem, as a new section or an amendment to the owning one, keeping the dictated substance. Find its existing tickets; do not invent any.
-   Word a rule as a trigger and an action. Do not repeat it in any other file.
+   Word a rule as a trigger and an action. Do not repeat it in any other file. Test the section you chose: would that section's remedy have produced this rule's fix? If not, it is the wrong section.
 3. Write a project rule: `node "${CLAUDE_PLUGIN_ROOT}/scripts/place.mjs" --file <file> --section "<Heading>" --text "<wording>"`. Write a specification with Edit.
 4. Commit a project filing and its disposition: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" commit --kind project|spec --stamp <stamp> --home "<file> § <Heading>"`.
 5. File a universal rule: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" universal --stamp <stamp> --text "<wording>"`. It appends the dated bullet, dispositions the entry and names the file; there is nothing to build, bump or commit.
