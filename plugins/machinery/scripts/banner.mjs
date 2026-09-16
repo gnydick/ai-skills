@@ -9,6 +9,7 @@ import { projectRoot } from './lib/root.mjs';
 import { markers, universalInbox, universalRules, projectInbox, pluginRoot } from './lib/config.mjs';
 import { userHome } from './lib/layout.mjs';
 import { pending } from './lib/inbox.mjs';
+import { hostedCheckLine } from './lib/hosted.mjs';
 
 function banner() {
   const p = readPayload() ?? {};
@@ -40,7 +41,7 @@ function banner() {
     const older = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
     const installed = fs.existsSync(stamp) ? fs.readFileSync(stamp, 'utf8').trim() : null;
     lines.push(`  gate: ${installed === null ? 'not installed' : `installed ${installed} (plugin ${pv})${older(installed, pv) ? ' — older than the plugin; run /machinery:install to migrate' : ''}`}`);
-    lines.push(`  hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none — the pre-push hook is the blocking check before main; /machinery:install --hosted-ci writes one'}`);
+    lines.push(`  hosted check: ${hostedCheckLine(fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')))}`);
     try { proj = pending(projectInbox(root)).length; } catch (e) { lines.push(`  project inbox: MALFORMED — ${e.message}`); }
   }
   let univ = 0;

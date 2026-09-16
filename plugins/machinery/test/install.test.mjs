@@ -96,6 +96,27 @@ test('--hosted-ci writes a workflow running the recorded gate and tier commands'
   } finally { r.cleanup(); }
 });
 
+// M518 (#110's ledger audit): the ruling "the hosted check BLOCKS: protect the branch on this job"
+// lived in the header of the template the wizard replaced, and the wizard did not carry it over. A
+// generated workflow that says nothing about being required reports red and merges anyway, and
+// branch protection is a forge setting nothing here can read — so this sentence IS the mechanism.
+// The assertion is on the generated artifact, not on the source string, so deleting the line from
+// install.mjs fails this test rather than passing it silently.
+test('--hosted-ci writes the branch-protection ruling into the workflow it generates', () => {
+  const r = makeRepo();
+  try {
+    install(r.root);
+    runScript('scripts/setup.mjs', { args: ['set', 'tiers.merge', 'node --test'], cwd: r.root });
+    const res = runScript('scripts/install.mjs', { args: ['--root', r.root, '--hosted-ci'], cwd: r.root });
+    assert.equal(res.code, 0, res.stderr);
+    const wf = fs.readFileSync(path.join(r.root, '.github', 'workflows', 'machinery.yml'), 'utf8');
+    assert.match(wf, /^# This check BLOCKS \(owner ruling 2026-09-02\): make this job a required status check on the protected branch\./m);
+    assert.match(wf, /a red result here does not stop a merge\.$/m);
+    // The reported status says the same thing, so the workflow and the line cannot disagree.
+    assert.match(res.stdout, /hosted check: present — it blocks only while it is a required status check on the protected branch/);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: --hosted-ci with no tiers recorded refuses and writes nothing', () => {
   const r = makeRepo();
   try {

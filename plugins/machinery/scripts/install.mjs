@@ -10,6 +10,7 @@ import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
 import { MACHINERY_OWN } from './lib/own-files.mjs';
 import { migrate } from './lib/migrations.mjs';
 import { readSetting, recorded } from './lib/settings.mjs';
+import { HOSTED_BLOCKS, hostedCheckLine } from './lib/hosted.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
 // copy holds rather than whatever happens to be lying in the gate directory.
@@ -74,6 +75,12 @@ function hostedCi(root) {
   ];
   const lines = [
     '# Written by /machinery:install --hosted-ci from .claude/machinery/config.json. Re-run after changing the tiers.',
+    // The hosted check BLOCKS (owner ruling 2026-09-02, carried by the template this wizard replaced).
+    // Recalibration decision (14) authorised the wizard, not dropping the rule the template stated; the
+    // rule went missing in the swap and #110's audit found it (M518). Branch protection is a forge
+    // setting no code here can read or set, so this line is the whole mechanism: without it the workflow
+    // reports red and merges anyway.
+    `# ${HOSTED_BLOCKS}`,
     'name: machinery',
     'on:',
     '  push: { branches: [main] }',
@@ -179,7 +186,7 @@ function installProject() {
   git(['config', 'core.hooksPath', '.githooks'], root);
   if (argv.includes('--hosted-ci') && hostedCi(root) !== 0) return 1;
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);
-  say(`hosted check: ${fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')) ? 'present' : 'none — the pre-push hook is the blocking check before main; /machinery:install --hosted-ci writes one'}`);
+  say(`hosted check: ${hostedCheckLine(fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')))}`);
   // Final review A1(c): stage exactly the layout this run created/updated, so the first commit
   // after install has something to actually commit.
   // .gitignore is staged only when this run wrote it, so a user's own uncommitted edits to it are

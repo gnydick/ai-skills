@@ -26,5 +26,5 @@ Two branches are editions of one product: the primary line, and the edition bran
 5. For each both-changed file, read `git diff "$base"..<edition> -- <file>` and apply only the blocks carrying the edition's intent onto the primary version. Never replay the whole file.
 6. Move each edition-only file into the edition's own module behind a shared interface, never into shared code behind a conditional-compilation switch; update imports.
 7. Verify: the hooks' tests plus a build for the edition's target; a hands-on run on real hardware where shared interface or engine code moved; confirm the primary line's new features still have their tests.
-8. Promote the refresh branch onto the real edition branch only as a separate step, on the owner's decision.
+8. Promote the verified branch from step 7 onto the real edition branch as a separate, deliberate step, and only when it is production-worthy. Never automatically.
 - Keep `git config rerere.enabled true` in case you fall back to merging.

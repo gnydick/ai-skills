@@ -16,14 +16,14 @@ description: Load before dispatching any subagent, when a subagent's result come
 - Say the agent may not spawn agents.
 - Put a procedure's skill invocation in the instructions instead of loading the procedure in this session.
 - Model: cheapest tier to enumerate or extract with citations; mid tier for synthesis and judgement; top tier (above sonnet) for design, adjudication, verdicts and coding. A plan names the model for each kind of task.
-- An owner ruling goes to the agent verbatim (its words, or the document holding it), never paraphrased and never called a sketch or proposal. State which outcomes are not available and which arguments were already rejected.
+- An owner ruling goes to the agent verbatim (its words, or the document holding it), never paraphrased, never called a sketch or proposal, and never with licence to deviate — telling an agent that departures are fine converts the ruling into a proposal. State which outcomes are not available and which arguments were already rejected.
 - A long job of many self-contained pieces goes in batches; pieces share a batch only with no ordering or shared state between them. Report how many batches ran and what each covered.
 - Before sending agents after candidates from a scan, search or extraction, keep only candidates whose answer would change a decision (never a fixed count or fraction) and report what was dropped, by category.
 - Each check runs once per stage by its one owner. Reviewers and this session read its output and never rerun it.
 
 ## When a result comes back
 - Verify its counts and lists yourself. If a cheap agent's work fails that spot-check, redo the batch one tier up and say so.
-- A scan hit or finding is a suspicion until someone has read the code and recorded the exact place.
+- A scan hit or finding is a suspicion, never a fact: it is acted on only after a person has read the code and recorded a confirmation naming the exact place, never because the tool said so.
 - An agent that reports departing from an owner ruling: take it to the owner; never accept it yourself.
 - A generated proposal that fails the build, tests or checks is discarded unread.
 
