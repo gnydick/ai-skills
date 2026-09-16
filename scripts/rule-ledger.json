@@ -1,0 +1,302 @@
+{
+  "note": "Requirements the 2026-09 recalibration lost and four audit passes restored (#110). Each entry is a clause that vanished once, silently, and was found only by an audit. scripts/rule-ledger.mjs asserts every one is still present; scripts/test/rule-ledger.test.mjs runs it in the fast and merge tiers. To change a protected rule deliberately, edit its entry in the same commit — that is the point: the change becomes visible in the diff instead of disappearing.",
+  "idScheme": "M-numbers are rows of docs/learnings/recalibration-2026-09/all-rules.json; the ticket is where the restoration landed.",
+  "entries": [
+    {
+      "id": "M201",
+      "file": "plugins/machinery/core.md",
+      "must": "what the check could actually see",
+      "why": "A grep over one directory can be reported as 'measured' for a claim it could never reach. disposition.csv:202 recorded this merge as DONE and it was never performed.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M176",
+      "file": "plugins/machinery/core.md",
+      "must": "in the first message after you know",
+      "why": "Bad-news ordering survived; promptness did not. Without it, a regression found at turn 3 and disclosed at turn 30 violates nothing.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M178",
+      "file": "plugins/machinery/core.md",
+      "must": "honesty wins",
+      "why": "The tie-break that decides every other reporting rule under pressure. 'honest' occurred nowhere in the shipped set.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M168",
+      "file": "plugins/machinery/core.md",
+      "must": "an opt-in hook and a missing continuous check are both holes",
+      "why": "Claiming something is enforced without saying where it does and does not run. Distinct from M201: that is one command's reach, this is a standing gate's deployment scope.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M42",
+      "file": "plugins/machinery/core.md",
+      "must": "name the authority and verify against it",
+      "why": "Lost at CONSOLIDATION, not at the rewrite: B339 kept 'read fresh' and dropped the clause that made a design claim checkable.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M43",
+      "file": "plugins/machinery/core.md",
+      "must": "stays genuinely open",
+      "why": "Without it an open design question can be closed by inference off an unratified draft.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M24",
+      "file": "plugins/machinery/core.md",
+      "must": "count is kept honestly",
+      "why": "The participant keeping the count is the one whose approach is failing. The switch shipped; the tally that makes it fire did not.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M182",
+      "file": "plugins/machinery/core.md",
+      "must": "or for an operation on one",
+      "why": "The metaphor ban shipped covering code structures but not operations on them; B763 deliberately scoped it to both.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M276",
+      "file": "plugins/machinery/core.md",
+      "must": "test-result lines and deviations only",
+      "why": "A per-task report in a multi-task effort. Its grammatical parent was dropped by decision, which thinned the residual requirement to nothing.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M135",
+      "file": "plugins/machinery/core.md",
+      "must": "research documents",
+      "mustNot": "cite it only in specs",
+      "why": "AN INVERSION, not a drop: an inserted 'only' FORBADE a venue the source and B414 expressly permit. mustNot pins the inverted form, because a presence check for 'cite' passes it.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M47",
+      "file": "claude-code/machinery/agents/SKILL.md",
+      "must": "never with licence to deviate",
+      "why": "A dispatch could pre-authorize departing from an owner ruling — 'use your judgement if you hit friction' — without tripping any shipped clause. The ledger note itself read 'No licence to deviate'.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M41-person",
+      "file": "claude-code/machinery/agents/SKILL.md",
+      "must": "a person has read the code",
+      "why": "Shipped as 'someone', which admits the machine that produced the scan hit — the loop the rule exists to break. Every one of 20 source hits says 'a person'.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M41-tool",
+      "file": "claude-code/machinery/agents/SKILL.md",
+      "must": "never because the tool said so",
+      "why": "The clause naming what the rule forbids. Dropped alongside the 'a person' narrowing.",
+      "restoredBy": "#114"
+    },
+
+    {
+      "id": "M252",
+      "file": "claude-code/machinery/tickets/SKILL.md",
+      "must": "Every ticket has exactly one companion entry",
+      "mustNot": "multi-session efforts only",
+      "why": "Narrowed to 'multi-session efforts only', which implemented STATUS.md decision (8) — a decision Gabe ruled an accident on 2026-09-16. Caused #108 to be filed unpaired. mustNot pins the narrowed heading.",
+      "restoredBy": "#112"
+    },
+    {
+      "id": "M253",
+      "file": "claude-code/machinery/tickets/SKILL.md",
+      "must": "parent-and-companion relationship",
+      "mustNot": "not a parent/child or dependency link",
+      "why": "AN INVERSION: the source reserved the parent/child relationship FOR the pair; the rewrite told the reader to avoid it, while pair-census.mjs requires exactly that sub-issue link. Caused #109 to be paired by title only.",
+      "restoredBy": "#112"
+    },
+    {
+      "id": "M267",
+      "file": "claude-code/machinery/tickets/SKILL.md",
+      "must": "comment on the companion",
+      "why": "The blocked comment lost its destination. With companions universal again, the companion is the resume path and an explanation on the ticket is one hop off it.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M268",
+      "file": "claude-code/machinery/tickets/SKILL.md",
+      "must": "then close its companion",
+      "mustNot": "close its companion if there is one",
+      "why": "'if there is one' was the last surviving fragment of the decision-(8) accident, and #112's repair missed it — the file contradicted itself for two more days.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M251",
+      "file": "claude-code/machinery/tickets/SKILL.md",
+      "must": "Plans and specifications hang off the ticket",
+      "why": "Specifications stopped hanging off the ticket; plans still did.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M339-testissue",
+      "file": "claude-code/machinery/setup/SKILL.md",
+      "must": "not even a test issue to prove write access",
+      "why": "The #99 spec records that prose is the ONLY enforcement of the read-only guarantee; normalizeAnswer rejects only an empty string and the seeded word.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M339-token",
+      "file": "claude-code/machinery/setup/SKILL.md",
+      "must": "the name of the place a token is stored",
+      "why": "A credential store's path is not a credential, so 'any credential' does not reach it — and that file is committed, pushed and loaded into every session's context.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "setup-precommit-prose",
+      "file": "claude-code/machinery/setup/SKILL.md",
+      "mustNot": "refuses the commit until `components` and `tiers.fast` are recorded",
+      "why": "This sentence was WRONG — decision (51) exempts exactly the commit it claimed would be refused — and decision (3) says such prose is deleted, not corrected. mustNot keeps it from coming back.",
+      "restoredBy": "#114"
+    },
+
+    {
+      "id": "M229",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "with a positive control",
+      "why": "A scaling test can assert work <= N against a path that never executes; the counter reads 0 and the suite reports green forever. The ledger substituted 'TDD red', which is a different obligation at a different stage.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M107-reachable",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "unobstructed and reachable",
+      "why": "The hands-on run lost its pass criterion: the shipped rule required performing the run but stated nothing the run must confirm.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M107-markup",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "never by reading the markup",
+      "why": "The prohibition on validating a layout from the markup that produced it.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M225",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "not coverage for that failure",
+      "why": "A suite with no way to express a failure is not coverage for it, however green. Same false-equivalence substitution as M229.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M226",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "proved the observer was alive",
+      "why": "Asserting something did not happen counts only if the observer could have seen it happen.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M68",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "never counted as coverage",
+      "why": "The label shipped; the conclusion the label exists to block did not. The word 'coverage' occurred ZERO times in the entire shipped set.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M202",
+      "file": "claude-code/machinery/testing/SKILL.md",
+      "must": "unasked question",
+      "why": "Lost at CONSOLIDATION by TRIGGER INVERSION: the source fires on a result that looks RIGHT; B598 rewrote the trigger to red/odd/baseline-moved, so every shipped artefact was faithful to it and three audits passed it.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M113",
+      "file": "claude-code/machinery/instrumentation/SKILL.md",
+      "must": "matches its shape to the question",
+      "why": "A switch may emit a generic dump that satisfies denominator-and-zeros while answering nothing. The ledger note asserted 'switch shape kept'.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M247",
+      "file": "claude-code/machinery/instrumentation/SKILL.md",
+      "must": "Any instrument built to verify a change",
+      "why": "Narrowed to performance changes only, so an instrument built to prove a correctness fix no longer carried the same-build duty.",
+      "restoredBy": "#114"
+    },
+
+    {
+      "id": "M25",
+      "file": "claude-code/machinery/worktree/SKILL.md",
+      "must": "shared record that tracks that seam",
+      "why": "Sign-off on a cross-branch structural change degraded to asking around verbally, leaving no trace for a line of work resuming later.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M319",
+      "file": "claude-code/machinery/worktree/SKILL.md",
+      "must": "From the project root, create the worktree",
+      "why": "worktree-create.mjs roots basePath at the caller's cwd, so entering a worktree from inside one nests the new copy under a copy that teardown deletes.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M191",
+      "file": "claude-code/machinery/tooling/SKILL.md",
+      "must": "completion signal nobody promised you",
+      "why": "The shipped precondition ('a job that prints heartbeats') excluded exactly the failure case: the tool that prints nothing and promised no completion line.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M388",
+      "file": "claude-code/machinery/rule-process/SKILL.md",
+      "must": "would that section's remedy have produced this rule's fix",
+      "why": "place.mjs appends a bullet under any heading it is handed and never reads its neighbours, so nothing else catches a misfiled rule.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M369",
+      "file": "claude-code/machinery/refresh-diverged-branch/SKILL.md",
+      "must": "production-worthy",
+      "why": "The only quality bar on promotion, and the clause tying step 8 to step 7's verification. As shipped, a yes licensed promoting a branch that failed verification.",
+      "restoredBy": "#114"
+    },
+    {
+      "id": "M370",
+      "file": "claude-code/machinery/refresh-diverged-branch/SKILL.md",
+      "must": "guarded sync script that fetches first",
+      "why": "Lost at CONSOLIDATION. The prohibition on reaching for a fetch-first sync script when the method deliberately needs no remote access.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M437",
+      "file": "plugins/machinery/agents/comparison-agent.md",
+      "must": "never substituted for a verdict",
+      "mustNot": "unbaselined, partial or blocked",
+      "why": "AN INVERSION: 'partial' was promoted to a legal verdict value, the exact substitution the source forbade. A run where every executed case regressed but three did not run could be reported as 'partial'. The ledger note read 'Partial never a verdict'.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M428",
+      "file": "plugins/machinery/agents/comparison-agent.md",
+      "must": "harness's own definition",
+      "why": "Lost at CONSOLIDATION. 'Informational' was undefined in the agent's only reachable instructions, so it could exempt a failing row from classification on its own judgement.",
+      "restoredBy": "#118"
+    },
+    {
+      "id": "M429",
+      "file": "plugins/machinery/agents/comparison-agent.md",
+      "must": "never tighten one to manufacture a finding",
+      "why": "The shipped brief forbade only loosening a tolerance to make a row pass. The agent's frontmatter is Read, Grep, Glob, Bash — no Skill tool — so testing/SKILL.md's surviving copy is not in its brief. This is the finding an audit refuter died on and left unverified.",
+      "restoredBy": "#118"
+    },
+
+    {
+      "id": "M518",
+      "file": "plugins/machinery/scripts/lib/hosted.mjs",
+      "must": "make this job a required status check on the",
+      "why": "The only mechanism defect of the 34: the --hosted-ci wizard emitted a workflow that reports red and cannot stop a merge. Branch protection is a forge setting nothing here can read, so this sentence IS the mechanism. Also covered by a real test asserting on the generated workflow. The phrase stops mid-sentence because HOSTED_BLOCKS is a two-part string concatenation and no longer text matches across the join — a reminder that this ledger matches source bytes, not rendered output.",
+      "restoredBy": "#114"
+    }
+  ]
+}
