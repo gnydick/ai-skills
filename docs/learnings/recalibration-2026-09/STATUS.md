@@ -29,6 +29,14 @@ Goal (Gabe): split machinery + developer-friendliness rules into skills by kind,
 - Agents: on-demand pool of one agent per kind, reused serially, reaped when context gets large.
 
 ## Principle decisions (2026-09-13)
+
+> **Correction, Gabe, 2026-09-16 — decision (8), second clause.** "that multi-session
+> filter was an accident". The companion entry is owed by *every* ticket, as
+> `work-tracking.md § A ticket and its companion` required before the reorganization;
+> the filter was never intended and is not a decision. Decision (8)'s first clause,
+> one ticket per work item, stands. Restored in the tickets skill by #112.
+> The original text of the decision is left below unaltered.
+
 - Yes: (1) always-on core ≤ 15 lines, rest in skills loaded by kind; (2) one skill per kind; (5) drop per-function/per-site instrumentation duties, add when debugging or measuring; (8) one ticket per work item, companion entry only for multi-session efforts; (10) keep capture hook + inbox gate, drop register/index/supersession/status marks; (11) each check runs once per stage by one owner, main session and reviewers read output only; (12) main session does small focused work itself, pool for context-flooding or large independent work.
 - (9) Worktrees: not "all work however small" — make it a configurable project setting.
 - Rule process stays enforced through git hooks (capture + inbox gate on commit); the register (RULES_INDEX.md) and its reindex-on-commit check go.
