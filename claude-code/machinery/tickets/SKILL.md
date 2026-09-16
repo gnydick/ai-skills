@@ -22,10 +22,10 @@ description: Load when creating, reading, updating, blocking or closing a ticket
 
 ## Updating
 - A correction from the owner updates the ticket and its companion.
-- Blocked on the owner's decision: label the ticket and companion blocked and comment exactly what input is needed. Unattended passes skip it.
+- Blocked on the owner's decision: label the ticket and companion blocked and comment on the companion exactly what input is needed. Unattended passes skip it.
 - Keep the owner's own description of a problem word for word: never change or remove it. Add to the ticket freely around it — new sections below it or comments with the reproduction, cause, findings, learnings and plan.
 
 ## Closing
 - Close a ticket only when the feature it belongs to is usable.
 - An item on the owner's own list of complaints closes only after the owner has seen the behaviour and said so.
-- Close the ticket with a comment naming the commit that landed, then close its companion if there is one.
+- Close a pair in order: close the ticket with a comment naming the change that landed, then close its companion.
