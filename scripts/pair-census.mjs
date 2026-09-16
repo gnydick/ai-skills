@@ -70,9 +70,13 @@ export class CensusUnavailable extends Error {
   constructor(message) { super(message); this.name = 'CensusUnavailable'; }
 }
 
+// What this check still cannot see. `a ticket with no companion at all` left this list in #116: it
+// was declared here, printed on every run, and true — census() discarded every non-companion node,
+// so an unpaired ticket was in neither the numerator nor the denominator and could not fail. Measured
+// on 2026-09-16 with #108 unpaired, the run printed `51 of 51 companion(s) correctly linked`. A
+// declared blind spot is still a blind spot; the entry leaves only because the check now covers it.
 export const BLIND_SPOTS = Object.freeze([
   'a companion not titled `Context: #N`',
-  'a ticket with no companion at all',
   'any link other than the sub-issue link',
 ]);
 
@@ -88,11 +92,21 @@ export function census(nodes) {
     );
   }
 
+  // Two populations, separated once. Before #116 the else-branch here was `continue`, which is what
+  // made an unpaired ticket unrepresentable in the result: a node that is not a companion IS a
+  // ticket, and every ticket owes exactly one companion (tickets/SKILL.md § Companion entry).
   const companions = [];
+  const tickets = [];
   for (const node of nodes) {
     const matched = COMPANION_TITLE.exec(node.title ?? '');
-    if (!matched) continue;
-    companions.push({ companion: node.number, ticket: Number(matched[1]), parent: node.parent ? node.parent.number : null });
+    if (matched) {
+      companions.push({ companion: node.number, ticket: Number(matched[1]), parent: node.parent ? node.parent.number : null });
+    } else {
+      // `state` is read but deliberately NOT filtered on (Gabe, 2026-09-16: closed tickets count).
+      // Scoping to open issues would make the check silent about history, and the two tickets that
+      // were unpaired when this landed — #1 and #107 — are both closed.
+      tickets.push({ ticket: node.number, title: node.title ?? '', state: node.state });
+    }
   }
 
   if (companions.length === 0) {
@@ -107,12 +121,28 @@ export function census(nodes) {
   const unlinked = companions.filter((c) => c.parent === null);
   const wrongParent = companions.filter((c) => c.parent !== null && c.parent !== c.ticket);
 
+  // "Exactly one" is two defects, not one, and they are kept apart all the way to the output for the
+  // same reason unlinked and wrongParent are: none has a companion to repair, the other has one too
+  // many to unpick, and whoever reads the failure needs to know which.
+  const byTicket = new Map();
+  for (const c of companions) {
+    if (!byTicket.has(c.ticket)) byTicket.set(c.ticket, []);
+    byTicket.get(c.ticket).push(c);
+  }
+  const missingCompanion = tickets.filter((t) => !byTicket.has(t.ticket));
+  const duplicateCompanion = tickets
+    .filter((t) => (byTicket.get(t.ticket) ?? []).length > 1)
+    .map((t) => ({ ...t, companions: byTicket.get(t.ticket).map((c) => c.companion) }));
+
   return {
     issues: nodes.length,
     companions,
+    tickets,
     unlinked,
     wrongParent,
-    offenders: [...unlinked, ...wrongParent],
+    missingCompanion,
+    duplicateCompanion,
+    offenders: [...unlinked, ...wrongParent, ...missingCompanion, ...duplicateCompanion],
   };
 }
 
@@ -121,7 +151,16 @@ export function census(nodes) {
 // Pass or fail alone is not enough — a pass for a bad reason is exactly what
 // gets compressed away.
 export function proofLine(result) {
-  return `pair_census: ${result.offenders.length} of ${result.companions.length} companion(s) unlinked or attached to the wrong ticket`;
+  const linkDefects = result.unlinked.length + result.wrongParent.length;
+  return `pair_census: ${linkDefects} of ${result.companions.length} companion(s) unlinked or attached to the wrong ticket`;
+}
+
+// The second denominator, and the point of #116: a population the first line cannot express. Both
+// print on every run — this one never replaces the other, because a repository can be perfect on one
+// and broken on the other, and a single blended ratio would hide whichever is smaller.
+export function ticketProofLine(result) {
+  const ticketDefects = result.missingCompanion.length + result.duplicateCompanion.length;
+  return `pair_census: ${ticketDefects} of ${result.tickets.length} ticket(s) missing a companion`;
 }
 
 export function reportLines(result) {
@@ -132,8 +171,12 @@ export function reportLines(result) {
   // reader sees which of the two repairs is owed without counting the lines
   // underneath. Every count here comes off the single classification census()
   // already made — nothing recounts anything.
+  // Derived from the LINK defects alone, never from `offenders`: since #116 that array also carries
+  // ticket-side defects, and subtracting them here would report companions as incorrectly linked
+  // because some other issue is unpaired. Two populations, two arithmetics.
+  const linkDefects = result.unlinked.length + result.wrongParent.length;
   lines.push(
-    `pair_census: ${result.companions.length - result.offenders.length} of ${result.companions.length} companion(s) correctly linked; `
+    `pair_census: ${result.companions.length - linkDefects} of ${result.companions.length} companion(s) correctly linked; `
     + `${result.unlinked.length} unlinked, ${result.wrongParent.length} attached to the wrong ticket`,
   );
   for (const c of result.unlinked) {
@@ -141,6 +184,13 @@ export function reportLines(result) {
   }
   for (const c of result.wrongParent) {
     lines.push(`pair_census: #${c.companion} "Context: #${c.ticket}" parent is #${c.parent}, expected #${c.ticket}`);
+  }
+  lines.push(ticketProofLine(result));
+  for (const t of result.missingCompanion) {
+    lines.push(`pair_census: #${t.ticket} has no companion — every ticket owes exactly one`);
+  }
+  for (const t of result.duplicateCompanion) {
+    lines.push(`pair_census: #${t.ticket} has ${t.companions.length} companions (${t.companions.map((n) => `#${n}`).join(', ')}) — every ticket owes exactly one`);
   }
   lines.push(`pair_census: cannot see ${BLIND_SPOTS.join('; ')}`);
   return lines;
