@@ -1,11 +1,11 @@
 ---
 name: rule-process
-description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the capture hook says so), when a prompt starts with "N rules pending" or "N specifications pending", when a commit is refused for a pending inbox entry, or when the owner rules something in conversation without a marker. Files or dismisses each pending entry and commits. Replaces rule-intake and spec-intake.
+description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the capture hook says so), when a prompt starts with "N rules pending" or "N specifications pending", or when a commit is refused for a pending inbox entry. Files or dismisses each pending entry and commits. Replaces rule-intake and spec-intake.
 ---
 # Rules and specifications
 
 - File only what was dictated. A rule you think of yourself is a proposal to the owner.
-- An owner ruling given in conversation without a marker: append it by hand to the project inbox (a PRULE or SPEC) or to the user's inbox `~/.claude/machinery/inbox.md` (a URULE), with a note saying why capture did not fire, then file it below.
+- An owner ruling given in conversation carries no marker, so nothing captured it and it is not a standing rule. Say that it reads like one and ask the owner to restate it with the marker. Never hand-write a rule into an inbox, `~/.claude/rules/`, or a project's `.claude/rules/`: the prefix triggers own those files, and deciding for yourself that a remark was a rule is the one judgement the marker exists to remove.
 - Never edit or delete an inbox entry except its disposition line. A duplicate is dismissed with a note, not removed.
 - A URULE is universal for the user: its one home is `~/.claude/rules/universal.md`. It never edits the plugin's `core.md` or a skill — those change only by editing the machinery repo.
 
