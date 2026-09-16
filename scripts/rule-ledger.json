@@ -75,6 +75,21 @@
     },
 
     {
+      "id": "no-hand-capture",
+      "file": "claude-code/machinery/rule-process/SKILL.md",
+      "must": "the prefix triggers own those files",
+      "mustNot": "append it by hand to the project inbox",
+      "why": "The defect that opened the #110 campaign. This bullet told a session to hand-append an unmarked conversational remark to the inbox and file it — the one place in the pipeline where a model decides what counts as a dictated rule, which capture.mjs refuses to do by design ('no model classifies the intent'). It misfired on 2026-09-16: a remark about task batching was filed into ~/.claude/rules/universal.md and had to be dismissed. Gabe: 'you can't capture a rule without a prefix' and 'we should never hand edit the rules that take the prefix triggers'. mustNot pins the old instruction so it cannot return.",
+      "restoredBy": "#108"
+    },
+    {
+      "id": "no-hand-capture-trigger",
+      "file": "claude-code/machinery/rule-process/SKILL.md",
+      "mustNot": "when the owner rules something in conversation without a marker",
+      "why": "The skill's own description made the assistant's classification of an unmarked remark a TRIGGER for loading the skill — the same judgement one level up, where it is even easier to miss. Removed with the bullet it served.",
+      "restoredBy": "#108"
+    },
+    {
       "id": "M47",
       "file": "claude-code/machinery/agents/SKILL.md",
       "must": "never with licence to deviate",
