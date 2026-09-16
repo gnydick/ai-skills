@@ -19,7 +19,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  COMPANION_TITLE, census, proofLine, reportLines, CensusUnavailable, QUERY,
+  COMPANION_TITLE, census, proofLine, ticketProofLine, reportLines, CensusUnavailable, QUERY, BLIND_SPOTS,
 } from '../pair-census.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -127,10 +127,14 @@ check('positive control: the title matcher admits Context: #N and nothing adjace
   ]) assert.equal(COMPANION_TITLE.exec(title), null, `must not match: ${title}`);
 });
 
-check('a non-companion issue never enters the denominator', () => {
+check('a near-miss title never enters the COMPANION denominator', () => {
   const result = census([...LINKED_ONLY, { number: 99, title: 'Context for the reader', state: 'OPEN', parent: null }]);
-  assert.equal(result.companions.length, 4);
-  assert.equal(result.offenders.length, 0);
+  assert.equal(result.companions.length, 4, 'a differently-shaped title is not a companion');
+  assert.equal(result.unlinked.length + result.wrongParent.length, 0);
+  // #116: it is not a companion, so it is a ticket, and it owes one. Before #116 this issue was
+  // discarded and the run reported clean — the blind spot, in one assertion.
+  assert.equal(result.missingCompanion.length, 1);
+  assert.equal(result.missingCompanion[0].ticket, 99);
 });
 
 // A closed companion is still a pair. Six of the 12 found on 2026-09-10 were
@@ -155,11 +159,13 @@ check('issues present but no companion matched fails loudly rather than reportin
   );
 });
 
-check('the report says what the census cannot see', () => {
+check('the report says what the census cannot see, and no longer claims a blindness it has fixed', () => {
   const lines = reportLines(census(LINKED_ONLY)).join('\n');
   assert.match(lines, /not titled `Context: #N`/);
-  assert.match(lines, /no companion at all/);
   assert.match(lines, /any link other than the sub-issue link/);
+  // #116 retired this one. Declaring a blind spot the check now covers is as misleading as hiding
+  // one it does not: a reader would keep sweeping by hand for something already enforced.
+  assert.doesNotMatch(lines, /no companion at all/);
 });
 
 // The query is the whole mechanism: one request per page for every pair, rather
@@ -219,4 +225,59 @@ check('the breakdown line is printed on a clean tracker too, not only on failure
     lines[1],
     'pair_census: 4 of 4 companion(s) correctly linked; 0 unlinked, 0 attached to the wrong ticket',
   );
+});
+
+// ---------------------------------------------------------------------------
+// #116: the denominator. Until this, census() kept only `Context: #N` nodes and counted offenders
+// against THOSE, so a ticket with no companion was in neither number and could not fail. Measured
+// 2026-09-16 with #108 unpaired, the run printed `51 of 51 companion(s) correctly linked` — a clean
+// bill of health with the exact defect it exists to catch sitting in the repository.
+//
+// Gabe, 2026-09-16: closed tickets count. `state` is fetched and deliberately not filtered on.
+
+check('a ticket with no companion is an offender, counted against tickets', () => {
+  const result = census([...LINKED_ONLY, ticket(13)]);
+  assert.equal(result.tickets.length, 5);
+  assert.equal(result.missingCompanion.length, 1);
+  assert.equal(result.missingCompanion[0].ticket, 13);
+  // Two populations, and neither may absorb the other: the companion line stays clean.
+  assert.equal(proofLine(result), 'pair_census: 0 of 4 companion(s) unlinked or attached to the wrong ticket');
+  assert.equal(ticketProofLine(result), 'pair_census: 1 of 5 ticket(s) missing a companion');
+});
+
+check('a closed ticket with no companion still counts (Gabe, 2026-09-16)', () => {
+  const closed = { number: 13, title: 'A closed work ticket #13', state: 'CLOSED', parent: null };
+  const result = census([...LINKED_ONLY, closed]);
+  assert.equal(result.missingCompanion.length, 1, 'state must not be used as a filter');
+});
+
+check('a ticket with two companions is its own defect, distinct from unlinked', () => {
+  const result = census([...LINKED_ONLY, ticket(13), companion(14, 13, 13), companion(15, 13, 13)]);
+  assert.equal(result.missingCompanion.length, 0);
+  assert.equal(result.duplicateCompanion.length, 1);
+  assert.equal(result.duplicateCompanion[0].ticket, 13);
+  assert.equal(result.duplicateCompanion[0].companions.length, 2);
+  assert.equal(result.unlinked.length, 0, 'a duplicate is not an unlinked companion');
+});
+
+check('both counts print, and every ticket defect is named', () => {
+  const lines = reportLines(census([...LINKED_ONLY, ticket(13), ticket(17), companion(18, 17, null)]));
+  assert.ok(lines.includes('pair_census: 1 of 5 companion(s) unlinked or attached to the wrong ticket'));
+  assert.ok(lines.includes('pair_census: 1 of 6 ticket(s) missing a companion'));
+  assert.ok(lines.includes('pair_census: #13 has no companion — every ticket owes exactly one'));
+});
+
+check('RED CHECK: the ticket denominator can fail — a clean tracker is not vacuously clean', () => {
+  // The positive control for the new count. Without it, `0 of N ticket(s)` proves only that the
+  // check ran, which is the very thing #116 exists to fix.
+  const clean = census(LINKED_ONLY);
+  assert.equal(clean.missingCompanion.length, 0);
+  assert.equal(ticketProofLine(clean), 'pair_census: 0 of 4 ticket(s) missing a companion');
+  const broken = census([...LINKED_ONLY, ticket(13)]);
+  assert.ok(broken.offenders.length > clean.offenders.length, 'an unpaired ticket must add an offender');
+});
+
+check('the blind spot is retired from the declared list', () => {
+  assert.ok(!BLIND_SPOTS.includes('a ticket with no companion at all'));
+  assert.ok(BLIND_SPOTS.length >= 2, 'the remaining blind spots are still declared');
 });
