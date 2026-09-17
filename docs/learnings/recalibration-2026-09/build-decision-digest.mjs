@@ -41,13 +41,28 @@ const UNBATCHED = {
   evidence: 'Found by diffing the digest\'s quoted ids against every parked/dropped row in disposition.csv: 166 retired rows, 165 quoted.',
 };
 
+// Rulings the owner has since made on a flagged decision. Kept here rather than hand-edited into the
+// output so a regeneration cannot quietly drop them — a digest that still says "worth a second look"
+// after the look happened is the same stale-record failure this whole campaign was about.
+const RESOLVED = {
+  24: {
+    date: '2026-09-16',
+    ruling: 'Stands as written. The file stays parked with unbreakable, all 46 rules, including the 18 that are not invariant theory.',
+    detail: 'Raised as #126 after the digest flagged it: 18 of the 46 were about how code behaves toward its user and its inputs rather than about invariants, and four sites in shipped machinery code were following them by hand from code comments. The owner considered splitting the park and declined. Not reopened without a new ruling.',
+  },
+};
+
 const decisions = [...result.decisions, UNBATCHED];
 const quoted = new Set();
 for (const d of decisions) for (const r of d.retired ?? []) quoted.add(r.id);
 
+const resolvedFor = (d) => RESOLVED[String(d.decision)] ?? RESOLVED[Number(d.decision)];
 const weight = (d) => (d.retired?.length ?? 0) * 1000 + (d.rowsCiting ?? 0);
-const flagged = decisions.filter((d) => d.worthReview).sort((a, b) => weight(b) - weight(a));
-const rest = decisions.filter((d) => !d.worthReview).sort((a, b) => weight(b) - weight(a));
+// A resolved decision leaves the flagged list. It is still flagged in the data — the run that found it
+// was not wrong — but it is no longer something the owner owes an answer on, and a list of open
+// questions that includes closed ones stops being read.
+const flagged = decisions.filter((d) => d.worthReview && !resolvedFor(d)).sort((a, b) => weight(b) - weight(a));
+const rest = decisions.filter((d) => !d.worthReview || resolvedFor(d)).sort((a, b) => weight(b) - weight(a));
 
 const quote = (s) => String(s ?? '').trim().split('\n').map((l) => `> ${l.replace(/^\s+/, '')}`).join('\n');
 const lines = [];
@@ -64,11 +79,21 @@ lines.push('This digest exists so that judgement is a skim rather than an archae
 lines.push('is quoted **in full and verbatim**, because the question is whether that exact sentence should still be');
 lines.push('gone. Assembled mechanically from the ledger; only the opening section below is written by a model.');
 lines.push('');
-lines.push(`Generated from workflow \`wf_3fbeda61-95a\`. **${decisions.length} decisions traced, ${quoted.size} of 166 retired rules quoted, ${flagged.length} flagged.**`);
+const resolvedCount = decisions.filter(resolvedFor).length;
+lines.push(`Generated from workflow \`wf_3fbeda61-95a\`. **${decisions.length} decisions traced, ${quoted.size} of 166 retired rules quoted, ${flagged.length} still flagged`
+  + `${resolvedCount ? `, ${resolvedCount} ruled on since` : ''}.**`);
 lines.push('');
 lines.push('---');
 lines.push('');
 lines.push(result.summary.trim());
+// The summary is the run's own report, left verbatim — rewriting a finding after the fact to match a
+// later ruling is how a record stops being a record. The pointer goes after it instead.
+if (resolvedCount) {
+  lines.push('');
+  lines.push(`> **Since this summary was written, ${resolvedCount === 1 ? 'one of the decisions it names has' : `${resolvedCount} of the decisions it names have`} been ruled on:** `
+    + decisions.filter(resolvedFor).map((d) => `**(${d.decision})** — ${resolvedFor(d).ruling} (${resolvedFor(d).date})`).join(' · ')
+    + ' The summary above is left as it was written.');
+}
 lines.push('');
 lines.push('---');
 lines.push('');
@@ -89,9 +114,16 @@ const render = (d) => {
   lines.push(`**Moved ${d.rowsCiting} row(s)** — ${d.byDisposition}. **Retired ${(d.retired ?? []).length}.**`);
   lines.push('');
   lines.push(`**What the project no longer has:** ${d.whatWasGivenUp}`);
+  const res = resolvedFor(d);
+  if (res) {
+    lines.push('');
+    lines.push(`> **RULED ${res.date} — ${res.ruling}**`);
+    lines.push('>');
+    lines.push(`> ${res.detail}`);
+  }
   if (d.worthReview) {
     lines.push('');
-    lines.push(`**Why this deserves a look:** ${d.worthReviewWhy}`);
+    lines.push(`**${res ? 'Why it was flagged' : 'Why this deserves a look'}:** ${d.worthReviewWhy}`);
   }
   for (const r of d.retired ?? []) {
     lines.push('');
