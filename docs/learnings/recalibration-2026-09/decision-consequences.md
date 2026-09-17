@@ -10,7 +10,7 @@ This digest exists so that judgement is a skim rather than an archaeology exerci
 is quoted **in full and verbatim**, because the question is whether that exact sentence should still be
 gone. Assembled mechanically from the ledger; only the opening section below is written by a model.
 
-Generated from workflow `wf_3fbeda61-95a`. **51 decisions traced, 166 of 166 retired rules quoted, 12 flagged.**
+Generated from workflow `wf_3fbeda61-95a`. **51 decisions traced, 166 of 166 retired rules quoted, 11 still flagged, 1 ruled on since.**
 
 ---
 
@@ -31,6 +31,8 @@ Generated from workflow `wf_3fbeda61-95a`. **51 decisions traced, 166 of 166 ret
 **Five small ones, one line each.** (5) dropped M119, the gap list that stopped a unit calling itself profiled when nothing was — a claims rule, not a per-site duty. (4) dropped M220, "a case added to each broader test that covers it," on a note that conflates hooks *running* the broader suite with something *adding* to it. (11) lost M222 — run the whole suite, never truncate its output — which no decision it cites actually speaks to. The agents pool ruling dropped M35's directory ownership, while the shipped skill still allows different kinds to run at once. (49) deleted the claims walker, and the recalibration's own corrections file names that deletion as why the M518 mechanism failure went unseen.
 
 **What this cannot tell you:** it shows what each decision cost in the rules' own words, not whether the loss has bitten yet — a retired rule nobody has missed looks identical here to one being quietly violated every day.
+
+> **Since this summary was written, one of the decisions it names has been ruled on:** **(24)** — Stands as written. The file stays parked with unbreakable, all 46 rules, including the 18 that are not invariant theory. (2026-09-16) The summary above is left as it was written.
 
 ---
 
@@ -494,388 +496,6 @@ The commit gate assumes invariants are enforced the way `cant-break-by-design` d
 
 ```
 NOT FOUND — install the unbreakable plugin
-```
-
-</details>
-
-### (24)
-
-> - (24) The design rules (machinery `design-invariants.md`, drafted as `draft/skills/design`) are parked with unbreakable, 2026-09-13. The machinery rewrite does not ship a design skill; the draft stays as input for the unbreakable work.
-
-**Amended later, and the amendment is what holds:**
-
-> NONE. (Related but separate: "- (19) The invariant auditor moves to unbreakable … Decided 2026-09-13; the move happens when unbreakable is worked. The machinery rewrite leaves them out." — 19 moves the auditor and the enforcement ledger; 24 parks the rest of design-invariants.md.)
-
-**Moved 46 row(s)** — parked 46. **Retired 46.**
-
-**What the project no longer has:** The whole of design-invariants.md — 46 rules covering where a distinguishing type is created, never re-deriving a fact, one authority per switch, absence and defaults, the three classes of setting, external input never crashing the product, handing a resource on, telling the user what you dropped, wiring honesty, reading someone else's data model, spatial output, and native language conventions — no longer exists anywhere the assistant reads; it survives only as a draft file inside the recalibration folder.
-
-**Why this deserves a look:** The park was conditional ("the move happens when unbreakable is worked") and that move has not happened: grepping the live plugin trees for phrases from these rules finds none of them in plugins/unbreakable/skills/{be-reasonable,cant-break-by-design}/SKILL.md. So today the destination is empty and the rules are simply absent. More to the point, a large minority of the 46 are not invariant-design theory that only unbreakable would want — M87 (external input never crashes the product), M96–M100 (anything dropped, clamped or never read is said where the user sees it; warn, do not fail), M118 (warnings come back in the result), M103–M106 (never narrow someone else's data model), M122 (keep the language's native conventions) are general product-correctness guardrails that applied to any code machinery governs. Evidence they were live working knowledge two days ago: plugins/machinery/scripts/lib/reload.mjs:25 still carries the comment "external input never crashes the tool, and what was dropped is named where the user sees it" — the rule is being followed by hand with nothing stating it. Worth a decision on whether some of these belong back in machinery rather than waiting on an unbreakable campaign with no date.
-
-<details><summary><code>M51</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A distinguishing type is only as strong as the place it is created. Wrapped by hand at each call site, two adjacent wrappings can be swapped and the type catches nothing. Create it at the authority that reads the source of truth, so the source, the direction and the type are declared in one place.
-```
-
-</details>
-
-<details><summary><code>M52</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- When the place that creates such a type and the place that consumes it do not depend on each other, the type goes in a shared vocabulary unit with no dependencies of its own. Making one depend on the other pays for the invariant with whatever property that unit was built to have.
-```
-
-</details>
-
-<details><summary><code>M53</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Field privacy is a wall around the enclosing unit, not around the type: while the type is declared inside a large file, everything in that file can still build one directly. Move it into its own unit, and keep it there with a check over the source, because moving it back out compiles perfectly and no compiler will report it.
-```
-
-</details>
-
-<details><summary><code>M54</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- An automatically generated constructor is a public constructor, and the quieter one: a generated empty value builds one from anywhere, and a generated decoder fills every private field from untrusted text — while nothing in the declaration looks wrong to a reader checking field visibility. Block both with a private marker member whose own type supports neither, and keep a source check, because deleting that one line compiles.
-```
-
-</details>
-
-<details><summary><code>M56</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Definitions that could be loaded at run time are compiled in instead, so there is no path by which a different set arrives later.
-```
-
-</details>
-
-<details><summary><code>M62</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A fact is computed once, at the place that owns it, and everything else reads it. Nothing downstream recomputes its own opinion of a fact that already exists, because a second derivation will eventually disagree with the first, and that disagreement arrives looking exactly like a defect.
-```
-
-</details>
-
-<details><summary><code>M63</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- In a stored or transmitted format, the producer states the fact outright. If a consumer has to infer it by arithmetic, the format is wrong: it has forced the same re-derivation on every reader, forever.
-```
-
-</details>
-
-<details><summary><code>M65</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A classification made where the data is produced is authoritative, and everything downstream carries it forward. Consumers never classify the same thing again for themselves.
-```
-
-</details>
-
-<details><summary><code>M70</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The process environment is a fact like any other: every switch is resolved once, at one authority per unit, and everything inside reads a field. The switch's name appearing anywhere else in that unit is a defect. How often it is read is not the criterion; where it is read is.
-```
-
-</details>
-
-<details><summary><code>M72</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Reading a field is not always the whole fix: where a switch decides something per item, choose the path once outside the loop so the branch disappears entirely. A cached read still costs a test per item, and that was explicitly rejected as good enough.
-```
-
-</details>
-
-<details><summary><code>M73</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- One authority per unit is where a switch starts, not permission to claim a name another unit already owns. A switch two units honour is resolved in the one that owns the fact it arms, and the others read the resolved value as data. Reading it is not re-deriving; parsing the name a second time is.
-```
-
-</details>
-
-<details><summary><code>M74</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A per-unit check cannot see a name duplicated across units, so a shared name is spelled once as one shared definition, and a project-wide check walks every unit and fails on a second spelling.
-```
-
-</details>
-
-<details><summary><code>M75</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A table that mirrors where something is emitted is checked mechanically, or it is not a table but a claim: gone stale, it tells an operator to turn on something that will never fire — the exact silence it existed to prevent. One shared check per unit, plus a project-wide sweep, so a unit that grows such a table and never opts in is still covered.
-```
-
-</details>
-
-<details><summary><code>M77</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A category, flag or case can be used to smuggle information that really wants a channel of its own. Before adding or removing one, ask what it was actually carrying.
-```
-
-</details>
-
-<details><summary><code>M78</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The ban on stand-in values covers a legal value made to stand for a different concept; it never covers a collection's own emptiness.
-```
-
-</details>
-
-<details><summary><code>M79</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Which of the two shapes absence takes is fixed by the setting's class, not by the author's taste: an optional is reserved for the case where absence is the signal.
-```
-
-</details>
-
-<details><summary><code>M80</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- An empty collection used as a default is not a stand-in value: a magic number meaning "inherit" smuggles a different concept inside a legal value, whereas an empty list decoding to zero elements simply is the value. One question separates them: does absence mean inherit another setting's value, or zero elements of this setting's own collection?
-```
-
-</details>
-
-<details><summary><code>M81</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- If absence means inherit another setting's value, declare no default at all, ever. A fabricated default there silently severs the inheritance, which is the exact damage this rule exists to prevent.
-```
-
-</details>
-
-<details><summary><code>M82</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- If absence means zero elements of that setting's own collection, declare the empty value as its default, matching the reference format's own empty defaults. Where the definitions are themselves declared in a table the build checks, withholding it makes that table fail to build, which is the mechanism doing the enforcing rather than a reviewer.
-```
-
-</details>
-
-<details><summary><code>M83</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- This is not "give everything a default". Filling one in everywhere is a regression, not a fix, because it silently severs every setting whose absence meant inherit.
-```
-
-</details>
-
-<details><summary><code>M84</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- First class, a value someone sets directly: it declares a default, its accessor returns a plain value, and its absence is impossible by construction — not merely believed because some other table happens to carry a matching row today.
-```
-
-</details>
-
-<details><summary><code>M85</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Second class, a value computed from others and never authored directly: no fixed default means anything for it, and its accessor never falls back to a raw lookup of something that was never meant to hold a stored value.
-```
-
-</details>
-
-<details><summary><code>M86</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Third class, an optional override — also free text, actions and templates: no default, the accessor returns an optional value, and the caller decides. Here absence is the signal, not a gap.
-```
-
-</details>
-
-<details><summary><code>M87</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- External input never crashes the product. A malformed or truncated file, a hand-edited settings file, another product's configuration, a bad command-line flag: all of these are data, not your own invariant failing, and they produce a diagnostic the user sees.
-```
-
-</details>
-
-<details><summary><code>M88</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Once a stage consumes a resource, that resource is permanently removed from what any later stage can receive. The same resource reaching two consuming stages is a defect class that keeps recurring, and this is the rule that finds it.
-```
-
-</details>
-
-<details><summary><code>M89</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The removal happens before anything downstream is derived from what remains. The ordering is part of the rule, not an implementation detail.
-```
-
-</details>
-
-<details><summary><code>M90</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The two ways a stage can decline a resource are different events and never share a word: giving back a claim it never exercised, and passing on what it could not use of a claim it did.
-```
-
-</details>
-
-<details><summary><code>M91</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A stage that declines a claim it never exercised — nothing produced, nothing yet derived downstream — returns the resource to its original owner as if it had never been taken, at most once per site, after which it flows through the normal division again. The pipeline is the router; the origin holds no routing knowledge of its own.
-```
-
-</details>
-
-<details><summary><code>M92</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- What is left over from a claim the stage did exercise never travels backward. It goes forward to the one successor the design names at that boundary, recorded as it goes, and the chain ends either in use or in a declared, warned discard.
-```
-
-</details>
-
-<details><summary><code>M93</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Every declined resource has exactly one named recipient. None is a silent void; two is a double write.
-```
-
-</details>
-
-<details><summary><code>M94</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- What gets removed is exactly what the stage actually produced, or formally claimed, never a recomputed equivalent. Diagnostics and remainders alike observe the real thing.
-```
-
-</details>
-
-<details><summary><code>M95</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The first question in an audit is which two stages both received the same resource. It has a lookup answer, because every decline site's recipient is named in the design — and a census can only ever see the collision, never the handover that caused it.
-```
-
-</details>
-
-<details><summary><code>M96</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Anything the user gave you that gets dropped, ignored, skipped, clamped, substituted or never read is said where they will see it. Silence reads as success.
-```
-
-</details>
-
-<details><summary><code>M97</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Never having tried counts. Taking part of what a file contains and quietly discarding the rest still needs saying: having no reader for something yet is a warning, not an exemption from one.
-```
-
-</details>
-
-<details><summary><code>M98</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Warn, do not fail. The operation still succeeds and the user judges the degraded result for themselves; they simply cannot judge it blind.
-```
-
-</details>
-
-<details><summary><code>M99</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The bar is the user's expectation, not your documented contract. A value clamped to something inside the allowed range is still not the number they typed.
-```
-
-</details>
-
-<details><summary><code>M100</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- The model to copy is a per-source report listing what was not recognised, what could not be translated and what was clamped — plus a standing notice for anything carried through word for word and never interpreted, because the product cannot vouch for it.
-```
-
-</details>
-
-<details><summary><code>M101</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- A field counts as implemented once its storage, its default and its wiring into the central hub exist. Whether anything downstream consumes it is a different question, and not part of this one.
-```
-
-</details>
-
-<details><summary><code>M102</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- That does not relax the separate honesty rule about downstream consumption: something can be fully wired into that central hub and still owe work further along. Both facts are tracked, and neither is allowed to hide the other.
-```
-
-</details>
-
-<details><summary><code>M103</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Never narrow a reference format's collection type to a single value because it obviously holds only one. That is a judgement call about someone else's data model, and those lose. The schema describes their format, not your reader, and narrowing it silently drops data on a round trip.
-```
-
-</details>
-
-<details><summary><code>M104</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- If you cannot read the collection form yet, write an accessor that could, or record the gap. Never write a schema that lies in order to flatter your reader.
-```
-
-</details>
-
-<details><summary><code>M105</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- An accessor keeps the name the source format uses, even when it returns a collection. Plurality lives in the type, not in a private vocabulary you invented.
-```
-
-</details>
-
-<details><summary><code>M106</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Judge whether a value is one or many against the data model actually in front of the reader, not the name of the type upstream. Where the store has already reduced a key to one value per owner and routes it to the owner it belongs to, the plurality lives in that routing, and reading it as a single value is the plural-correct read; reading it as a collection returns nothing on every load and lets a fallback win instead.
-```
-
-</details>
-
-<details><summary><code>M109</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Position encodes relationship: a control sits next to the thing it acts on, inside the same visual group, and moves with it. Its scope should be inferable from where it is alone, and unrelated content never comes between them.
-```
-
-</details>
-
-<details><summary><code>M118</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Whatever a computation warns about comes back as part of its result, never as a separate optional output. A separate one lets a caller hand it somewhere disposable and drop the warning without anybody noticing.
-```
-
-</details>
-
-<details><summary><code>M122</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
-
-```
-- Never replace the base programming language's own convention — zero-based indexing, its native ordering, its own numbering — to match a presentation-layer feature. A presentation requirement, such as a 1-based id shown to a user or a reference format's own 1-based numbering, converts once at the boundary that produces it — the persisted format, the display — and internals keep the language's native convention throughout.
 ```
 
 </details>
@@ -1513,6 +1133,392 @@ cannot collide over the same file. (plugins/machinery/rules/agent-topology.md §
 ## The rest, heaviest first
 
 Recorded so the count is complete and no retirement is invisible. Most retired nothing.
+
+### (24)
+
+> - (24) The design rules (machinery `design-invariants.md`, drafted as `draft/skills/design`) are parked with unbreakable, 2026-09-13. The machinery rewrite does not ship a design skill; the draft stays as input for the unbreakable work.
+
+**Amended later, and the amendment is what holds:**
+
+> NONE. (Related but separate: "- (19) The invariant auditor moves to unbreakable … Decided 2026-09-13; the move happens when unbreakable is worked. The machinery rewrite leaves them out." — 19 moves the auditor and the enforcement ledger; 24 parks the rest of design-invariants.md.)
+
+**Moved 46 row(s)** — parked 46. **Retired 46.**
+
+**What the project no longer has:** The whole of design-invariants.md — 46 rules covering where a distinguishing type is created, never re-deriving a fact, one authority per switch, absence and defaults, the three classes of setting, external input never crashing the product, handing a resource on, telling the user what you dropped, wiring honesty, reading someone else's data model, spatial output, and native language conventions — no longer exists anywhere the assistant reads; it survives only as a draft file inside the recalibration folder.
+
+> **RULED 2026-09-16 — Stands as written. The file stays parked with unbreakable, all 46 rules, including the 18 that are not invariant theory.**
+>
+> Raised as #126 after the digest flagged it: 18 of the 46 were about how code behaves toward its user and its inputs rather than about invariants, and four sites in shipped machinery code were following them by hand from code comments. The owner considered splitting the park and declined. Not reopened without a new ruling.
+
+**Why it was flagged:** The park was conditional ("the move happens when unbreakable is worked") and that move has not happened: grepping the live plugin trees for phrases from these rules finds none of them in plugins/unbreakable/skills/{be-reasonable,cant-break-by-design}/SKILL.md. So today the destination is empty and the rules are simply absent. More to the point, a large minority of the 46 are not invariant-design theory that only unbreakable would want — M87 (external input never crashes the product), M96–M100 (anything dropped, clamped or never read is said where the user sees it; warn, do not fail), M118 (warnings come back in the result), M103–M106 (never narrow someone else's data model), M122 (keep the language's native conventions) are general product-correctness guardrails that applied to any code machinery governs. Evidence they were live working knowledge two days ago: plugins/machinery/scripts/lib/reload.mjs:25 still carries the comment "external input never crashes the tool, and what was dropped is named where the user sees it" — the rule is being followed by hand with nothing stating it. Worth a decision on whether some of these belong back in machinery rather than waiting on an unbreakable campaign with no date.
+
+<details><summary><code>M51</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A distinguishing type is only as strong as the place it is created. Wrapped by hand at each call site, two adjacent wrappings can be swapped and the type catches nothing. Create it at the authority that reads the source of truth, so the source, the direction and the type are declared in one place.
+```
+
+</details>
+
+<details><summary><code>M52</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- When the place that creates such a type and the place that consumes it do not depend on each other, the type goes in a shared vocabulary unit with no dependencies of its own. Making one depend on the other pays for the invariant with whatever property that unit was built to have.
+```
+
+</details>
+
+<details><summary><code>M53</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Field privacy is a wall around the enclosing unit, not around the type: while the type is declared inside a large file, everything in that file can still build one directly. Move it into its own unit, and keep it there with a check over the source, because moving it back out compiles perfectly and no compiler will report it.
+```
+
+</details>
+
+<details><summary><code>M54</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- An automatically generated constructor is a public constructor, and the quieter one: a generated empty value builds one from anywhere, and a generated decoder fills every private field from untrusted text — while nothing in the declaration looks wrong to a reader checking field visibility. Block both with a private marker member whose own type supports neither, and keep a source check, because deleting that one line compiles.
+```
+
+</details>
+
+<details><summary><code>M56</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Definitions that could be loaded at run time are compiled in instead, so there is no path by which a different set arrives later.
+```
+
+</details>
+
+<details><summary><code>M62</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A fact is computed once, at the place that owns it, and everything else reads it. Nothing downstream recomputes its own opinion of a fact that already exists, because a second derivation will eventually disagree with the first, and that disagreement arrives looking exactly like a defect.
+```
+
+</details>
+
+<details><summary><code>M63</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- In a stored or transmitted format, the producer states the fact outright. If a consumer has to infer it by arithmetic, the format is wrong: it has forced the same re-derivation on every reader, forever.
+```
+
+</details>
+
+<details><summary><code>M65</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A classification made where the data is produced is authoritative, and everything downstream carries it forward. Consumers never classify the same thing again for themselves.
+```
+
+</details>
+
+<details><summary><code>M70</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The process environment is a fact like any other: every switch is resolved once, at one authority per unit, and everything inside reads a field. The switch's name appearing anywhere else in that unit is a defect. How often it is read is not the criterion; where it is read is.
+```
+
+</details>
+
+<details><summary><code>M72</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Reading a field is not always the whole fix: where a switch decides something per item, choose the path once outside the loop so the branch disappears entirely. A cached read still costs a test per item, and that was explicitly rejected as good enough.
+```
+
+</details>
+
+<details><summary><code>M73</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- One authority per unit is where a switch starts, not permission to claim a name another unit already owns. A switch two units honour is resolved in the one that owns the fact it arms, and the others read the resolved value as data. Reading it is not re-deriving; parsing the name a second time is.
+```
+
+</details>
+
+<details><summary><code>M74</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A per-unit check cannot see a name duplicated across units, so a shared name is spelled once as one shared definition, and a project-wide check walks every unit and fails on a second spelling.
+```
+
+</details>
+
+<details><summary><code>M75</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A table that mirrors where something is emitted is checked mechanically, or it is not a table but a claim: gone stale, it tells an operator to turn on something that will never fire — the exact silence it existed to prevent. One shared check per unit, plus a project-wide sweep, so a unit that grows such a table and never opts in is still covered.
+```
+
+</details>
+
+<details><summary><code>M77</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A category, flag or case can be used to smuggle information that really wants a channel of its own. Before adding or removing one, ask what it was actually carrying.
+```
+
+</details>
+
+<details><summary><code>M78</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The ban on stand-in values covers a legal value made to stand for a different concept; it never covers a collection's own emptiness.
+```
+
+</details>
+
+<details><summary><code>M79</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Which of the two shapes absence takes is fixed by the setting's class, not by the author's taste: an optional is reserved for the case where absence is the signal.
+```
+
+</details>
+
+<details><summary><code>M80</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- An empty collection used as a default is not a stand-in value: a magic number meaning "inherit" smuggles a different concept inside a legal value, whereas an empty list decoding to zero elements simply is the value. One question separates them: does absence mean inherit another setting's value, or zero elements of this setting's own collection?
+```
+
+</details>
+
+<details><summary><code>M81</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- If absence means inherit another setting's value, declare no default at all, ever. A fabricated default there silently severs the inheritance, which is the exact damage this rule exists to prevent.
+```
+
+</details>
+
+<details><summary><code>M82</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- If absence means zero elements of that setting's own collection, declare the empty value as its default, matching the reference format's own empty defaults. Where the definitions are themselves declared in a table the build checks, withholding it makes that table fail to build, which is the mechanism doing the enforcing rather than a reviewer.
+```
+
+</details>
+
+<details><summary><code>M83</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- This is not "give everything a default". Filling one in everywhere is a regression, not a fix, because it silently severs every setting whose absence meant inherit.
+```
+
+</details>
+
+<details><summary><code>M84</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- First class, a value someone sets directly: it declares a default, its accessor returns a plain value, and its absence is impossible by construction — not merely believed because some other table happens to carry a matching row today.
+```
+
+</details>
+
+<details><summary><code>M85</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Second class, a value computed from others and never authored directly: no fixed default means anything for it, and its accessor never falls back to a raw lookup of something that was never meant to hold a stored value.
+```
+
+</details>
+
+<details><summary><code>M86</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Third class, an optional override — also free text, actions and templates: no default, the accessor returns an optional value, and the caller decides. Here absence is the signal, not a gap.
+```
+
+</details>
+
+<details><summary><code>M87</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- External input never crashes the product. A malformed or truncated file, a hand-edited settings file, another product's configuration, a bad command-line flag: all of these are data, not your own invariant failing, and they produce a diagnostic the user sees.
+```
+
+</details>
+
+<details><summary><code>M88</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Once a stage consumes a resource, that resource is permanently removed from what any later stage can receive. The same resource reaching two consuming stages is a defect class that keeps recurring, and this is the rule that finds it.
+```
+
+</details>
+
+<details><summary><code>M89</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The removal happens before anything downstream is derived from what remains. The ordering is part of the rule, not an implementation detail.
+```
+
+</details>
+
+<details><summary><code>M90</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The two ways a stage can decline a resource are different events and never share a word: giving back a claim it never exercised, and passing on what it could not use of a claim it did.
+```
+
+</details>
+
+<details><summary><code>M91</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A stage that declines a claim it never exercised — nothing produced, nothing yet derived downstream — returns the resource to its original owner as if it had never been taken, at most once per site, after which it flows through the normal division again. The pipeline is the router; the origin holds no routing knowledge of its own.
+```
+
+</details>
+
+<details><summary><code>M92</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- What is left over from a claim the stage did exercise never travels backward. It goes forward to the one successor the design names at that boundary, recorded as it goes, and the chain ends either in use or in a declared, warned discard.
+```
+
+</details>
+
+<details><summary><code>M93</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Every declined resource has exactly one named recipient. None is a silent void; two is a double write.
+```
+
+</details>
+
+<details><summary><code>M94</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- What gets removed is exactly what the stage actually produced, or formally claimed, never a recomputed equivalent. Diagnostics and remainders alike observe the real thing.
+```
+
+</details>
+
+<details><summary><code>M95</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The first question in an audit is which two stages both received the same resource. It has a lookup answer, because every decline site's recipient is named in the design — and a census can only ever see the collision, never the handover that caused it.
+```
+
+</details>
+
+<details><summary><code>M96</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Anything the user gave you that gets dropped, ignored, skipped, clamped, substituted or never read is said where they will see it. Silence reads as success.
+```
+
+</details>
+
+<details><summary><code>M97</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Never having tried counts. Taking part of what a file contains and quietly discarding the rest still needs saying: having no reader for something yet is a warning, not an exemption from one.
+```
+
+</details>
+
+<details><summary><code>M98</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Warn, do not fail. The operation still succeeds and the user judges the degraded result for themselves; they simply cannot judge it blind.
+```
+
+</details>
+
+<details><summary><code>M99</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The bar is the user's expectation, not your documented contract. A value clamped to something inside the allowed range is still not the number they typed.
+```
+
+</details>
+
+<details><summary><code>M100</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- The model to copy is a per-source report listing what was not recognised, what could not be translated and what was clamped — plus a standing notice for anything carried through word for word and never interpreted, because the product cannot vouch for it.
+```
+
+</details>
+
+<details><summary><code>M101</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- A field counts as implemented once its storage, its default and its wiring into the central hub exist. Whether anything downstream consumes it is a different question, and not part of this one.
+```
+
+</details>
+
+<details><summary><code>M102</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- That does not relax the separate honesty rule about downstream consumption: something can be fully wired into that central hub and still owe work further along. Both facts are tracked, and neither is allowed to hide the other.
+```
+
+</details>
+
+<details><summary><code>M103</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Never narrow a reference format's collection type to a single value because it obviously holds only one. That is a judgement call about someone else's data model, and those lose. The schema describes their format, not your reader, and narrowing it silently drops data on a round trip.
+```
+
+</details>
+
+<details><summary><code>M104</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- If you cannot read the collection form yet, write an accessor that could, or record the gap. Never write a schema that lies in order to flatter your reader.
+```
+
+</details>
+
+<details><summary><code>M105</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- An accessor keeps the name the source format uses, even when it returns a collection. Plurality lives in the type, not in a private vocabulary you invented.
+```
+
+</details>
+
+<details><summary><code>M106</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Judge whether a value is one or many against the data model actually in front of the reader, not the name of the type upstream. Where the store has already reduced a key to one value per owner and routes it to the owner it belongs to, the plurality lives in that routing, and reading it as a single value is the plural-correct read; reading it as a collection returns nothing on every load and lets a fallback win instead.
+```
+
+</details>
+
+<details><summary><code>M109</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Position encodes relationship: a control sits next to the thing it acts on, inside the same visual group, and moves with it. Its scope should be inferable from where it is alone, and unrelated content never comes between them.
+```
+
+</details>
+
+<details><summary><code>M118</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Whatever a computation warns about comes back as part of its result, never as a separate optional output. A separate one lets a caller hand it somewhere disposable and drop the warning without anybody noticing.
+```
+
+</details>
+
+<details><summary><code>M122</code> — parked → unbreakable (future); draft kept as docs/learnings/recalibration-2026-09/draft/parked-unbreakable/design/SKILL.md</summary>
+
+```
+- Never replace the base programming language's own convention — zero-based indexing, its native ordering, its own numbering — to match a presentation-layer feature. A presentation requirement, such as a 1-based id shown to a user or a reference format's own 1-based numbering, converts once at the boundary that produces it — the persisted format, the display — and internals keep the language's native convention throughout.
+```
+
+</details>
 
 ### (2)
 
