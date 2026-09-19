@@ -6,9 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './lib/git.mjs';
 import { projectRoot, isRootSession } from './lib/root.mjs';
-import { projectInbox, projectRules, projectSpecs, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
+import { projectInbox, projectRules, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
-import { insideSpecArea, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
+import { UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
+import { fileSpec, regen } from './lib/slipbox-file.mjs';
 import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
+const csv = (k) => (opt(k) ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const die = (m) => { process.stderr.write(m + '\n'); process.exit(1); };
 
@@ -36,24 +38,13 @@ function list() {
 function commit() {
   const kind = opt('--kind'), stamp = opt('--stamp');
   let home = opt('--home');
-  if (!['project', 'spec'].includes(kind) || !stamp || !home) die('usage: intake commit --kind project|spec [--root <dir>] --stamp <stamp> --home "<file § Section>"');
-  let repo, inbox, rules;
+  if (kind !== 'project' || !stamp || !home) die('usage: intake commit --kind project [--root <dir>] --stamp <stamp> --home "<file § Section>" (a specification is filed with intake spec)');
   const cwd = opt('--root') || process.cwd();
-  // #81: a specification is filed exactly like a project rule — root session, one commit, one repo —
-  // but into the spec area. The home is checked against that area HERE as well as at the gate, so
-  // the intake cannot write the very disposition the gate rejects.
-  if (kind === 'spec') {
-    if (!isRootSession(cwd)) die(`a specification is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
-    repo = projectRoot(cwd); inbox = projectSpecInbox(repo); rules = projectSpecs(repo);
-    const filed = home.split(' § ')[0].trim();
-    if (!insideSpecArea(repo, rules, filed)) die(`refusing to file a specification outside the spec area: '${filed}' is not under ${rules}. The spec area is declared by /machinery:install and never guessed.`);
-  } else {
-    if (!isRootSession(cwd)) die(`a project rule is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
-    repo = projectRoot(cwd); inbox = projectInbox(repo); rules = projectRules(repo);
-  }
+  if (!isRootSession(cwd)) die(`a project rule is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
+  const repo = projectRoot(cwd), inbox = projectInbox(repo), rules = projectRules(repo);
   const entry = pending(inbox).find((e) => e.stamp === stamp);
   if (!entry) die(`no PENDING entry with stamp ${stamp} in ${inbox}`);
-  let subject = `${kind === 'spec' ? 'spec' : 'rule'}: ${entry.text.split('\n')[0].slice(0, 72)}`;
+  let subject = `rule: ${entry.text.split('\n')[0].slice(0, 72)}`;
   // An issue-tracking answer (recalibration 33, 36; #99): recorded by issue-tracking.mjs
   // record-project with CAPTURE_NOTE, it is filed as the WHOLE project file — one current answer,
   // never a history — and only there; a re-run replaces it, and the commit names old and new so git
@@ -100,5 +91,34 @@ function universal() {
   process.stdout.write(`filed → ${file}: ${dated}\nInbox entry ${stamp} (${entry.marker}) dispositioned in ${inbox}. Nothing to commit: the file is the user's, not a repository's.\n`);
 }
 
+// #132 § 7. The AI has chosen subsystems, topic and any supersede before this runs; the words
+// come from the inbox entry only, never from the command line.
+function spec() {
+  const cwd = opt('--root') || process.cwd();
+  if (!isRootSession(cwd)) die(`a specification is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
+  const stamp = opt('--stamp'), topic = opt('--topic'), title = opt('--title');
+  const subsystems = csv('--subsystems'), supersedes = csv('--supersedes'), versions = csv('--version');
+  if (!stamp || !topic || !title || !subsystems.length) die('usage: intake spec --stamp <s> --subsystems <a,b> --topic "<t>" --title "<title>" [--supersedes <id,…>] [--version <file,…>]');
+  let r;
+  try { r = fileSpec({ repo: projectRoot(cwd), stamp, subsystems, topic, title, supersedes, versions }); } catch (e) { die(e.message); }
+  const lines = [
+    `committed: ${r.subject}`,
+    `note: ${r.id}`,
+    `subsystems: ${subsystems.map((s) => (r.newSubs.includes(s) ? `${s} (new)` : s)).join(', ')}`,
+    `topic: ${topic}`,
+    `change: ${supersedes.length ? `${r.partial ? 'partial' : 'full'} — supersedes ${supersedes.join(', ')}` : 'new'}`,
+    ...r.vIds.flatMap((v, i) => [`version note ${v} (composed by the assistant; review it):`, r.versionTexts[i].replace(/\n+$/, '')]),
+  ];
+  process.stdout.write(lines.join('\n') + '\n');
+}
+
+function regenerateCmd() {
+  const repo = projectRoot(opt('--root') || process.cwd());
+  let changed;
+  try { changed = regen(repo); } catch (e) { die(e.message); }
+  process.stdout.write(changed.length ? changed.map((c) => `regenerated ${c}`).join('\n') + '\n' : 'regen: nothing to regenerate\n');
+}
+
 if (cmd === 'list') list(); else if (cmd === 'commit') commit(); else if (cmd === 'universal') universal();
-else die('usage: intake list [--root <dir>] | intake commit … | intake universal …');
+else if (cmd === 'spec') spec(); else if (cmd === 'regen') regenerateCmd();
+else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake regen');
