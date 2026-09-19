@@ -115,6 +115,9 @@ test('a CRLF checkout passes legs 2, 3 and 5', () => {
     crlf(`docs/dictated-specs/notes/${OLD}.md`);
     crlf(`docs/dictated-specs/notes/${NEW}.md`);
     crlf(ST);
+    // The generated pages too: leg 5 compares them against a rendering that is always LF.
+    crlf('docs/dictated-specs/INDEX.md');
+    crlf('docs/spec-current/extruders.md');
     const res = gate(r.root);
     assert.equal(res.code, 0, res.stdout + res.stderr);
     for (const re of [/^slipbox_check: 0 of 2 dictation note\(s\) not verbatim/m, /^slipbox_check: 0 of 1 subsystem\(s\) with wrong membership/m,

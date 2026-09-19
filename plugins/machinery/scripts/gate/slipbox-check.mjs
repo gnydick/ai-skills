@@ -1,17 +1,42 @@
 // Story: #132 § 9. The slip box's commit gate: a dictation note is verbatim, each structure note
 // holds exactly the notes in force, every link resolves, the generated pages are fresh, and no
-// note has two successors. Read-only (spec I23). Legs 1 and 7, which read the staged diff, are
-// added by the next change.
+// note has two successors. Read-only (spec I23).
+// Legs 1 and 7 read the change being committed: the index against HEAD in the pre-commit hook,
+// or HEAD against its merge base with origin/HEAD in CI. With neither, they say so.
 import fs from 'node:fs';
 import path from 'node:path';
 import { report } from '../lib/report.mjs';
 import { parseInbox } from '../lib/inbox.mjs';
+import { git, gitRaw } from '../lib/git.mjs';
+import { parseFrontmatter } from '../lib/frontmatter.mjs';
 import { unquote } from '../lib/blockquote.mjs';
 import { links, section } from '../lib/embed.mjs';
 import { idToStamp } from '../lib/layout.mjs';
 import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, regenerate, staleGenerated, dictationQuote, isSupersededDecision, readText } from '../lib/slipbox.mjs';
 
 export const declaration = Object.freeze({ id: 'slipbox_check', run: 'slipboxCheck', blocking: true, wired: true });
+
+const VERB = { M: 'modified', D: 'deleted', R: 'renamed', T: 'retyped', C: 'copied' };
+
+// The change is read in the tree the gate RUNS in, never in `root`. In a linked worktree those are
+// two different repositories: projectRoot() resolves a worktree to the main checkout, and measured
+// here on 2026-09-19, diffing the worktree's index against the MAIN checkout's HEAD reported every
+// file this branch had ever added as added by this commit. Paths come back relative to the
+// repository top either way, so the directory tests below are unaffected.
+function changes(root) {
+  const parse = (out) => out.split('\n').filter(Boolean).map((l) => { const [st, a, b] = l.split('\t'); return { status: st[0], path: a, to: b ?? null }; });
+  const head = git(['rev-parse', '--verify', '-q', 'HEAD'], root);
+  if (head.code !== 0) return { base: null, next: null, rows: [] };
+  const staged = git(['diff', '--cached', '--name-status', '-M', 'HEAD'], root);
+  if (staged.code === 0 && staged.stdout) return { base: 'HEAD', next: '', rows: parse(staged.stdout) };
+  const mb = git(['merge-base', 'HEAD', 'origin/HEAD'], root);
+  if (mb.code === 0 && mb.stdout && mb.stdout !== head.stdout) return { base: mb.stdout, next: 'HEAD', rows: parse(git(['diff', '--name-status', '-M', mb.stdout, 'HEAD'], root).stdout) };
+  return { base: 'HEAD', next: '', rows: [] };
+}
+// `next` '' reads the index (`:path`); 'HEAD' reads the commit.
+const show = (root, ref, rel) => { const r = gitRaw(['show', `${ref}:${rel}`], root); return r.code === 0 ? r.stdout : null; };
+const frontOf = (text) => { try { return text === null ? null : parseFrontmatter(text).data; } catch { return null; } };
+const withoutStatus = (t) => (t ?? '').split(/\r?\n/).filter((l) => !/^- \*\*Status:\*\* /.test(l)).join('\n').trim();
 
 export function slipboxCheck({ root, specInbox }) {
   const box = loadSlipbox(root);
@@ -22,6 +47,41 @@ export function slipboxCheck({ root, specInbox }) {
     for (const l of lines) process.stdout.write(`commit refused: ${l}\n`);
     if (lines.length) ok = false;
   };
+
+  const repo = process.cwd(); // the repository this commit is happening in (see changes())
+  const ch = changes(repo);
+  const relDir = (abs) => path.relative(root, abs).split(path.sep).join('/');
+  const directlyIn = (p, abs) => { const d = relDir(abs) + '/'; return p.startsWith(d) && !p.slice(d.length).includes('/'); };
+  const P = box.paths;
+
+  // Leg 1 — immutable (#132 § 9). A note is never edited; an ADR changes only its status line; a
+  // design that was approved or historical, and a plan that was done, abandoned or historical, are frozen.
+  const frozen = [];
+  let considered = 0;
+  for (const r of ch.rows) {
+    if (r.status === 'A') continue;
+    const p = r.path, verb = VERB[r.status] ?? 'changed';
+    if (directlyIn(p, P.notes)) { considered++; frozen.push(`${p} was ${verb} — a note is never edited; file a new note that supersedes it`); continue; }
+    if (directlyIn(p, P.decisions) && /^\d{4}-.*\.md$/.test(path.posix.basename(p))) {
+      considered++;
+      if (r.status !== 'M' || withoutStatus(show(repo, ch.base, p)) !== withoutStatus(show(repo, ch.next, p))) frozen.push(`${p} was ${verb} beyond its status line — a decision is superseded by a new ADR, never edited`);
+      continue;
+    }
+    if ((directlyIn(p, P.spSpecs) || directlyIn(p, P.spPlans)) && p.endsWith('.md')) {
+      considered++;
+      const before = frontOf(show(repo, ch.base, p));
+      const locked = (before?.kind === 'design' && ['approved', 'historical'].includes(before.status)) || (before?.kind === 'plan' && ['done', 'abandoned', 'historical'].includes(before.status));
+      if (locked) frozen.push(`${p} was ${verb}, but it was ${before.status} — ${before.kind === 'design' ? 'write a new design note that supersedes it' : 'a finished plan is history'}`);
+    }
+  }
+  leg(frozen.length, considered, ch.base === null ? 'frozen file(s) changed (no base: nothing committed yet)' : 'frozen file(s) changed (must be 0)', frozen);
+
+  // Leg 7 — filed (#132 § 10). A superpowers file added by this change carries front matter.
+  const added = ch.rows.filter((r) => ['A', 'R', 'C'].includes(r.status)).map((r) => r.to ?? r.path)
+    .filter((p) => (directlyIn(p, P.spSpecs) || directlyIn(p, P.spPlans)) && p.endsWith('.md'));
+  const unfiled = added.filter((p) => !frontOf(show(repo, ch.next, p))?.kind)
+    .map((p) => `${p} has no front matter — run intake.mjs ${directlyIn(p, P.spPlans) ? 'plan --file <path> --ticket <n>' : 'design --file <path>'}`);
+  leg(unfiled.length, added.length, 'added superpowers file(s) unfiled (must be 0)', unfiled);
 
   const specsRel = path.relative(root, box.paths.specs).split(path.sep).join('/') + '/';
 
