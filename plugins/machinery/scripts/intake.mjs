@@ -9,7 +9,7 @@ import { projectRoot, isRootSession } from './lib/root.mjs';
 import { projectInbox, projectRules, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
 import { UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
-import { fileSpec, regen } from './lib/slipbox-file.mjs';
+import { fileSpec, regen, fileDecision, fileRef } from './lib/slipbox-file.mjs';
 import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -112,6 +112,22 @@ function spec() {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
+function decision() {
+  const f = opt('--file');
+  if (!f) die('usage: intake decision --file docs/dictated-specs/decisions/<00NN-slug>.md');
+  let r;
+  try { r = fileDecision({ repo: projectRoot(opt('--root') || process.cwd()), file: f }); } catch (e) { die(e.message); }
+  process.stdout.write(`linked ${r.id} under "Why it is this way" in: ${r.subsystems.join(', ')}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}commit the ADR and these files with the work\n`);
+}
+
+function ref() {
+  const subsystem = opt('--subsystem'), target = opt('--path');
+  if (!subsystem || !target) die('usage: intake ref --subsystem <s> --path <repo-relative file>');
+  let r;
+  try { r = fileRef({ repo: projectRoot(opt('--root') || process.cwd()), subsystem, target }); } catch (e) { die(e.message); }
+  process.stdout.write(`referenced ${r.href} from ${subsystem}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}`);
+}
+
 function regenerateCmd() {
   const repo = projectRoot(opt('--root') || process.cwd());
   let changed;
@@ -121,4 +137,5 @@ function regenerateCmd() {
 
 if (cmd === 'list') list(); else if (cmd === 'commit') commit(); else if (cmd === 'universal') universal();
 else if (cmd === 'spec') spec(); else if (cmd === 'regen') regenerateCmd();
-else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake regen');
+else if (cmd === 'decision') decision(); else if (cmd === 'ref') ref();
+else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake decision … | intake ref … | intake regen');

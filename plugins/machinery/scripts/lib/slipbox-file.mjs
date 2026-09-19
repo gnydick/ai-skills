@@ -3,9 +3,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pending, setDisposition } from './inbox.mjs';
+import { parseFrontmatter } from './frontmatter.mjs';
 import { slipboxPaths, stampToId } from './layout.mjs';
-import { loadSlipbox, inForce } from './slipbox.mjs';
-import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, swapEmbed, dropEmbed, syncGenerated } from './slipbox-write.mjs';
+import { loadSlipbox, inForce, readStructure } from './slipbox.mjs';
+import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, placeLink, placeRef, dropSupersededLinks, swapEmbed, dropEmbed, syncGenerated } from './slipbox-write.mjs';
 import { unmigrated, describeUnmigrated } from './unmigrated.mjs';
 import { commitPaths } from './commit.mjs';
 
@@ -76,3 +77,43 @@ export function fileSpec({ repo, stamp, subsystems, topic, title, supersedes = [
 }
 
 export const regen = (repo) => syncGenerated(repo, loadSlipbox(repo));
+
+const listOf = (v) => (v == null || v === '' ? [] : Array.isArray(v) ? v : [v]);
+
+// #132 § 4, § 6. A new ADR is linked under "Why it is this way" in each subsystem it names; an ADR
+// this change marked "Superseded by …" leaves every "Why" section.
+export function fileDecision({ repo, file }) {
+  const p = slipboxPaths(repo);
+  const abs = path.resolve(repo, file);
+  if (path.dirname(abs) !== p.decisions || !/^\d{4}-.*\.md$/.test(path.basename(abs))) throw new Error(`a decision note lives at docs/dictated-specs/decisions/00NN-slug.md: '${file}'`);
+  const { data } = parseFrontmatter(fs.readFileSync(abs, 'utf8'));
+  if (data?.kind !== 'decision') throw new Error(`${rel(repo, abs)} needs front matter with kind: decision, subsystems and rests_on`);
+  const subsystems = listOf(data.subsystems);
+  if (!subsystems.length) throw new Error(`${rel(repo, abs)} names no subsystems`);
+  const box = loadSlipbox(repo);
+  for (const d of listOf(data.rests_on)) if (box.notes.get(d)?.kind !== 'dictation') throw new Error(`rests_on ${d}: not a dictation note`);
+  const id = path.basename(abs, '.md');
+  for (const sub of subsystems) {
+    const f = path.join(p.structure, `${sub}.md`);
+    const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null;
+    if (cur === null || !readStructure(cur).why.includes(id)) writeText(f, placeLink(cur, sub, id));
+  }
+  const after = loadSlipbox(repo);
+  for (const [sub, st] of after.structures) {
+    const next = dropSupersededLinks(st.text, after);
+    if (next !== st.text) writeText(path.join(p.structure, `${sub}.md`), next);
+  }
+  return { id, subsystems, generated: syncGenerated(repo, loadSlipbox(repo)) };
+}
+
+// D12: a living map stays outside the slip box; a structure note may only link to it.
+export function fileRef({ repo, subsystem, target }) {
+  const p = slipboxPaths(repo);
+  const abs = path.resolve(repo, target);
+  if (!fs.existsSync(abs)) throw new Error(`--path ${target}: no such file`);
+  const f = path.join(p.structure, `${subsystem}.md`);
+  const href = path.relative(p.structure, abs).split(path.sep).join('/');
+  const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null;
+  if (cur === null || !readStructure(cur).refs.includes(href)) writeText(f, placeRef(cur, subsystem, path.basename(abs), href));
+  return { href, generated: syncGenerated(repo, loadSlipbox(repo)) };
+}
