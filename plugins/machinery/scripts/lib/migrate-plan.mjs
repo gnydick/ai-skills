@@ -1,5 +1,6 @@
-// Story: #132 § 11. The migration plan file: written by `migrate --plan`, filled by the AI,
-// confirmed by the owner, read by `migrate --apply`. A file-writer exemption in
+// Story: #132 § 11. The migration plan file: written by `migrate --plan`, filled by the AI, read
+// by `migrate --apply`. Nothing pauses between the three (D14, owner 2026-09-19: "Automatic
+// anywhere"); the file stays as the record of what was decided. A file-writer exemption in
 // test/gate-purity.test.mjs (it serialises to a FILE, never to the hook channel).
 import fs from 'node:fs';
 

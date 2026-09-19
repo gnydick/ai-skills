@@ -231,6 +231,39 @@ test('the migration commits pass the project\'s own pre-commit hook', () => {
   } finally { r.cleanup(); }
 });
 
+// Measured 2026-09-19: the refusal named `git checkout -- . && git clean -fd`, which does not undo
+// a failure past the ADR move — git mv stages the rename, so checkout restores the worktree FROM
+// that index and the rename survives both commands. The tree then stays dirty and --apply refuses
+// for ever. `git reset --hard` is the command that works, and the clean-tree precondition is what
+// makes it safe.
+test('a run that fails part-way names a recovery command that actually works, and the retry is accepted', () => {
+  const r = oldProject();
+  try {
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+    // Fails in the references loop, which runs AFTER the ADR move.
+    p.references.find((x) => x.path.endsWith('.py')).replace = [['NOT-IN-THIS-FILE', 'x']];
+    fs.writeFileSync(out, JSON.stringify(p));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stderr, /reference scripts\/adr_gate\.py: 'NOT-IN-THIS-FILE' not found/);
+    assert.match(res.stderr, /git reset --hard && git clean -fd/);
+    assert.doesNotMatch(res.stderr, /git checkout -- \./);
+    assert.notEqual(g(r.root, 'status', '--porcelain'), '', 'the run really did stop part-way');
+
+    g(r.root, 'reset', '--hard'); g(r.root, 'clean', '-fd');
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'the named command leaves a clean tree');
+    assert.ok(fs.existsSync(path.join(r.root, 'docs/adr/0001-x.md')), 'the ADR move is undone');
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/decisions')));
+
+    filled(out);
+    const again = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(again.code, 0, again.stderr + again.stdout);
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
 // A REVERSED section is a partial change: the new dictation and the old one are consumed into one
 // version note, which is what the structure note then embeds (#132 § 5).
 test('a REVERSED section migrates as a version note, and the gate passes', () => {

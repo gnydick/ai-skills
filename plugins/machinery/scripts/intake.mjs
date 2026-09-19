@@ -179,7 +179,8 @@ function map() {
   process.stdout.write(`${f} is a living map: kept by hand, never embedded, linked with intake ref\n`);
 }
 
-// #132 § 11: the AI proposes (fills the plan), the owner confirms, --apply carries it out.
+// #132 § 11: the AI writes the plan, fills it and applies it, with no pause (D14, owner
+// 2026-09-19: "Automatic anywhere"). The plan file stays as the record of what was decided.
 // Root-session and projectRoot, deliberately UNLIKE decision/ref/design/plan/map/regen, which the
 // owner's Task 7 ruling moved to checkoutRoot: --apply rewrites the FILED dispositions in the spec
 // inbox, and that inbox is shared by every worktree and lives in the main checkout.
@@ -190,7 +191,7 @@ function migrate() {
     if (opt('--plan')) {
       const plan = buildPlan(repo);
       writePlan(opt('--plan'), plan);
-      process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, have the owner confirm it, then run intake migrate --apply ${opt('--plan')}\n`);
+      process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, then run intake migrate --apply ${opt('--plan')}\n`);
     } else if (opt('--apply')) {
       const r = applyPlan(repo, readPlan(opt('--apply')));
       // The replacement count per file: a rewrite that hit more or fewer lines than the plan's

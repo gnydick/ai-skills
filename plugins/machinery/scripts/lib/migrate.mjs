@@ -1,6 +1,8 @@
-// Story: #132 § 11 and Amendment 1. Migration of one project into the slip box: the AI proposes
-// (the plan), the owner confirms, this applies. A dictation note's words come from the spec
-// inbox, never from the old spec file (D11: assistant readings are not carried over).
+// Story: #132 § 11 and Amendment 1. Migration of one project into the slip box: the AI writes the
+// plan, fills it and applies it, with no pause, in any checkout (D14, owner 2026-09-19:
+// "Automatic anywhere"). The plan file stays as the record of what was decided. A dictation note's
+// words come from the spec inbox, never from the old spec file (D11: assistant readings are not
+// carried over).
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './git.mjs';
@@ -16,6 +18,11 @@ import { commitPaths } from './commit.mjs';
 const toPosix = (p) => p.split(path.sep).join('/');
 const STATUSES = { design: ['draft', 'approved', 'historical'], plan: ['in-progress', 'done', 'abandoned', 'historical'], map: [null] };
 const PLAN_LISTS = ['notes', 'versions', 'unsettled', 'superpowers', 'embeds', 'decisionLinks', 'refs', 'references'];
+// Undoing a run that stopped part-way. `git reset --hard`, not `git checkout -- .`: the ADR move
+// is a `git mv`, which stages the rename, and checkout restores the worktree FROM the index, so
+// the move would survive both commands and leave a tree --apply can never accept again. The
+// clean-tree precondition is what makes a reset safe here: nothing of the user's is in the way.
+const RECOVERY = 'git reset --hard && git clean -fd';
 
 function filedEntries(repo) {
   const p = slipboxPaths(repo);
@@ -55,8 +62,8 @@ export function buildPlan(repo, u = unmigrated(repo)) {
     for (const f of grep.stdout.split('\n').filter(Boolean).filter((f) => !skip.has(f))) {
       const text = fs.readFileSync(path.join(repo, f), 'utf8');
       const mentions = needles.filter((n) => text.includes(n));
-      // The owner confirms a rewrite by reading the PLAN, not the repository, so every matching
-      // line travels with it: what will be changed is visible where the decision is made.
+      // Every matching line travels with the plan, so what a rewrite will change is recorded
+      // where the decision is, and a count that does not match it is visible afterwards.
       const matches = text.split('\n').flatMap((line, i) => (mentions.some((n) => line.includes(n)) ? [{ line: i + 1, text: line }] : []));
       references.push({ path: f, mentions, matches, replace: [], reviewed: false });
     }
@@ -147,14 +154,28 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
 }
 
 export function applyPlan(repo, plan) {
-  // A failed migration is undone with `git checkout -- . && git clean -fd`, so it never starts on
-  // a tree holding work of the user's that the undo would throw away with it.
+  // A failed migration is undone with RECOVERY, so it never starts on a tree holding work of the
+  // user's that the undo would throw away with it. `git checkout -- .` is NOT enough: `git mv`
+  // stages the rename, so checkout restores the worktree from that index and the move survives.
   const status = git(['status', '--porcelain'], repo);
   if (status.code !== 0) throw new Error(`git status failed: ${status.stderr}`);
-  if (status.stdout.trim()) throw new Error(`the working tree is not clean — commit or discard these first, so that 'git checkout -- . && git clean -fd' undoes a failed migration without touching your own work:\n  ${status.stdout.trim().split('\n').map((l) => l.trim()).join('\n  ')}`);
+  if (status.stdout.trim()) throw new Error(`the working tree is not clean — commit or discard these first, so that '${RECOVERY}' undoes a failed migration without touching your own work:\n  ${status.stdout.trim().split('\n').map((l) => l.trim()).join('\n  ')}`);
   const u = unmigrated(repo);
   const problems = planProblems(repo, plan, u);
   if (problems.length) throw new Error(`the plan is not ready:\n  ${problems.join('\n  ')}`);
+  // Everything past here writes. A throw in the middle leaves the tree part-migrated, so the
+  // failure carries the command that undoes it — the underlying error alone leaves the user with
+  // a dirty tree and no way back, because --apply then refuses.
+  const done = { commits: 0 };
+  try {
+    return applyChanges(repo, plan, u, done);
+  } catch (e) {
+    const undo = done.commits ? `git reset --hard HEAD~${done.commits} && git clean -fd` : RECOVERY;
+    throw new Error(`${e.message}\n  this run stopped part-way; undo it with: ${undo}`);
+  }
+}
+
+function applyChanges(repo, plan, u, done) {
   const p = slipboxPaths(repo);
   const touched = new Set();
   const note = (id) => path.join(p.notes, `${id}.md`);
@@ -210,7 +231,7 @@ export function applyPlan(repo, plan) {
       count += text.split(from).length - 1;
       text = text.replaceAll(from, to);
     }
-    // A reviewed file the owner chose not to rewrite is left exactly as it is.
+    // A reviewed file with no replacement in the plan is left exactly as it is.
     if (text !== before) { writeText(abs, text); touched.add(abs); }
     references.push({ path: r.path, count });
   }
@@ -247,6 +268,7 @@ export function applyPlan(repo, plan) {
 
   const changed = () => git(['status', '--porcelain'], repo).stdout.trim().length > 0;
   const commit1 = changed() ? commitPaths(repo, [...touched], 'slip box migration 1/2: notes from the spec inbox, decisions, superpowers front matter, structure notes (#132)') : [];
+  if (commit1.length) done.commits++;
   // Already gone is not an error: the tree may have moved on since the plan was written.
   const old = u.oldSpecs.map((f) => path.join(p.specs, f)).filter((f) => fs.existsSync(f));
   for (const f of old) fs.rmSync(f);
