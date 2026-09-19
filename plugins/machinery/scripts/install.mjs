@@ -185,9 +185,6 @@ function installProject() {
   const migrated = migrate(root, git);
   for (const s of migrated) say(`migrated: removed ${s.path} (written by plugin ${s.wroteBy}: ${s.why}${s.tracked ? '; staged as removed' : ''})`);
   if (!migrated.length) say('migration: nothing to migrate');
-  // #132 D13: install detects; it never migrates, because migration needs the AI's judgements.
-  const u = unmigrated(root);
-  if (u.any) say(`slip box: NOT MIGRATED — ${describeUnmigrated(u)}; run node "${path.join(pluginRoot(), 'scripts', 'intake.mjs')}" migrate --plan <file>`);
   git(['config', 'core.hooksPath', '.githooks'], root);
   if (argv.includes('--hosted-ci') && hostedCi(root) !== 0) return 1;
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);
@@ -201,6 +198,15 @@ function installProject() {
   // that list. Only entries on disk are named: an absent pathspec (config.json, which setup.mjs
   // writes and install never does) makes git add stage nothing at all.
   git(['add', '--', ...MACHINERY_OWN.filter((p) => (p !== '.gitignore' || ignoreWritten) && fs.existsSync(path.join(root, p)))], root);
+  // #132 D13: install detects; it never migrates, because migration needs the AI's judgements.
+  // LAST, and guarded, like the banner's copy. This walks docs/ directories the installer never
+  // otherwise touches, so an EACCES — or a path under docs/ that exists but is not a directory —
+  // would otherwise escape installProject with the gate written, the hooks path unset and nothing
+  // staged: a half install that looks like a crash. A failure costs this one line and nothing else.
+  try {
+    const u = unmigrated(root);
+    if (u.any) say(`slip box: NOT MIGRATED — ${describeUnmigrated(u)}; run node "${path.join(pluginRoot(), 'scripts', 'intake.mjs')}" migrate --plan <file>`);
+  } catch (e) { say(`slip box: could not check — ${e.message}`); }
   return 0;
 }
 
