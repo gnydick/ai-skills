@@ -193,7 +193,12 @@ function migrate() {
       process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, have the owner confirm it, then run intake migrate --apply ${opt('--plan')}\n`);
     } else if (opt('--apply')) {
       const r = applyPlan(repo, readPlan(opt('--apply')));
-      process.stdout.write(`migrated in two commits: ${r.commit1.length} path(s), then ${r.commit2.length} old spec file(s) removed\n`);
+      // The replacement count per file: a rewrite that hit more or fewer lines than the plan's
+      // recorded matches is visible here and in the diff, with nothing to confirm first.
+      process.stdout.write([
+        `migrated in two commits: ${r.commit1.length} path(s), then ${r.commit2.length} old spec file(s) removed`,
+        ...r.references.map((x) => `reference ${x.path}: ${x.count} replacement(s)`),
+      ].join('\n') + '\n');
     } else die('usage: intake migrate --plan <out.json> | --apply <plan.json>');
   } catch (e) { die(e.message); }
 }
