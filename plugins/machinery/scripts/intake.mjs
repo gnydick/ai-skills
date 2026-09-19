@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './lib/git.mjs';
-import { projectRoot, isRootSession } from './lib/root.mjs';
+import { projectRoot, checkoutRoot, isRootSession } from './lib/root.mjs';
 import { projectInbox, projectRules, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
 import { UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
@@ -112,24 +112,32 @@ function spec() {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
+// Owner, 2026-09-19: the writer and the checker must agree on one tree. The gate judges the
+// CHECKOUT being committed (#132 § 9), so an ADR is linked in the checkout it is committed with —
+// checkoutRoot, not projectRoot, which would resolve a linked worktree to the main checkout and
+// land the link where the gate never looks. Only the spec inbox stays shared, and spec() keeps it.
 function decision() {
   const f = opt('--file');
   if (!f) die('usage: intake decision --file docs/dictated-specs/decisions/<00NN-slug>.md');
   let r;
-  try { r = fileDecision({ repo: projectRoot(opt('--root') || process.cwd()), file: f }); } catch (e) { die(e.message); }
+  try { r = fileDecision({ repo: checkoutRoot(opt('--root') || process.cwd()), file: f }); } catch (e) { die(e.message); }
   process.stdout.write(`linked ${r.id} under "Why it is this way" in: ${r.subsystems.join(', ')}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}commit the ADR and these files with the work\n`);
 }
 
+// checkoutRoot for the same reason as decision(): the reference is written where the gate's link
+// leg (#132 § 9) reads it, which is the checkout being committed.
 function ref() {
   const subsystem = opt('--subsystem'), target = opt('--path');
   if (!subsystem || !target) die('usage: intake ref --subsystem <s> --path <repo-relative file>');
   let r;
-  try { r = fileRef({ repo: projectRoot(opt('--root') || process.cwd()), subsystem, target }); } catch (e) { die(e.message); }
+  try { r = fileRef({ repo: checkoutRoot(opt('--root') || process.cwd()), subsystem, target }); } catch (e) { die(e.message); }
   process.stdout.write(`referenced ${r.href} from ${subsystem}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}`);
 }
 
+// checkoutRoot for the same reason as decision(): regen rewrites the generated pages the gate's
+// freshness leg (#132 § 9) compares, and that leg reads the checkout being committed.
 function regenerateCmd() {
-  const repo = projectRoot(opt('--root') || process.cwd());
+  const repo = checkoutRoot(opt('--root') || process.cwd());
   let changed;
   try { changed = regen(repo); } catch (e) { die(e.message); }
   process.stdout.write(changed.length ? changed.map((c) => `regenerated ${c}`).join('\n') + '\n' : 'regen: nothing to regenerate\n');

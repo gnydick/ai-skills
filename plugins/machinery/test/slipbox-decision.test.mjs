@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { makeRepo } from './helpers/repo.mjs';
+import { makeRepo, addWorktree } from './helpers/repo.mjs';
 import { runScript } from './helpers/run.mjs';
 import { appendEntry } from '../scripts/lib/inbox.mjs';
 import { slipboxPaths } from '../scripts/lib/layout.mjs';
@@ -14,6 +14,8 @@ const write = (root, rel, text) => { const f = path.join(root, rel); fs.mkdirSyn
 const read = (root, rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 const env = () => ({ MACHINERY_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'home-')) });
 const intake = (root, ...args) => runScript('scripts/intake.mjs', { args: [...args, '--root', root], cwd: root, env: env() });
+// What the assistant actually runs on a branch: from inside the linked worktree, with no --root.
+const intakeIn = (cwd, ...args) => runScript('scripts/intake.mjs', { args, cwd, env: env() });
 const gate = (root) => runScript('scripts/gate/gate.mjs', { args: ['--root', root], cwd: root });
 const D = '2026-09-01T08-00-00Z';
 const ST = 'docs/dictated-specs/structure/config.md';
@@ -81,6 +83,43 @@ test('ref links a living map under References; the gate refuses a reference to a
     assert.equal(gate(r.root).code, 0);
     fs.rmSync(path.join(r.root, 'docs/superpowers/models/preview.html'));
     assert.match(gate(r.root).stdout, /references \.\.\/\.\.\/superpowers\/models\/preview\.html, which does not exist/);
+  } finally { r.cleanup(); }
+});
+
+// Owner, 2026-09-19: the writer and the checker must agree on one tree. #132 § 9 made the gate
+// judge the checkout being committed, so these writers resolve their repository with checkoutRoot.
+// Under projectRoot they wrote main's structure notes from a worktree, where the gate never looks.
+test('decision, ref and regen run in a linked worktree write that worktree, not the main checkout', () => {
+  const r = project();
+  try {
+    const wt = addWorktree(r.root, 'feat');
+    const mainBefore = read(r.root, ST);
+
+    write(wt, 'docs/dictated-specs/decisions/0010-overrides.md', adr(10, 'Accepted'));
+    const d = intakeIn(wt, 'decision', '--file', 'docs/dictated-specs/decisions/0010-overrides.md');
+    assert.equal(d.code, 0, d.stderr + d.stdout);
+    assert.match(read(wt, ST), /## Why it is this way\n\n- \[\[0010-overrides\]\]/);
+    assert.equal(read(r.root, ST), mainBefore, 'the main checkout is untouched');
+
+    write(wt, 'docs/superpowers/models/preview.html', '<title>map</title>\n');
+    const f = intakeIn(wt, 'ref', '--subsystem', 'config', '--path', 'docs/superpowers/models/preview.html');
+    assert.equal(f.code, 0, f.stderr + f.stdout);
+    assert.match(read(wt, ST), /## References\n\n- \[preview\.html\]\(\.\.\/\.\.\/superpowers\/models\/preview\.html\)/);
+    assert.equal(read(r.root, ST), mainBefore, 'the main checkout is untouched');
+
+    // A stale generated page in the worktree: regen must rewrite THAT one.
+    const fresh = read(wt, 'docs/spec-current/config.md');
+    write(wt, 'docs/spec-current/config.md', '# stale\n');
+    const mainCurrentBefore = read(r.root, 'docs/spec-current/config.md');
+    const g2 = intakeIn(wt, 'regen');
+    assert.equal(g2.code, 0, g2.stderr + g2.stdout);
+    assert.match(g2.stdout, /regenerated docs\/spec-current\/config\.md/);
+    assert.equal(read(wt, 'docs/spec-current/config.md'), fresh);
+    assert.equal(read(r.root, 'docs/spec-current/config.md'), mainCurrentBefore, 'the main checkout is untouched');
+
+    // The gate, as the hook runs it from a worktree: cwd is the worktree, --root the main checkout.
+    const res = runScript('scripts/gate/gate.mjs', { args: ['--root', r.root], cwd: wt });
+    assert.equal(res.code, 0, res.stdout + res.stderr);
   } finally { r.cleanup(); }
 });
 
