@@ -9,7 +9,7 @@ import { parseInbox } from '../lib/inbox.mjs';
 import { unquote } from '../lib/blockquote.mjs';
 import { links, section } from '../lib/embed.mjs';
 import { idToStamp } from '../lib/layout.mjs';
-import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, regenerate, staleGenerated, dictationQuote, isSupersededDecision } from '../lib/slipbox.mjs';
+import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, regenerate, staleGenerated, dictationQuote, isSupersededDecision, readText } from '../lib/slipbox.mjs';
 
 export const declaration = Object.freeze({ id: 'slipbox_check', run: 'slipboxCheck', blocking: true, wired: true });
 
@@ -22,6 +22,16 @@ export function slipboxCheck({ root, specInbox }) {
     for (const l of lines) process.stdout.write(`commit refused: ${l}\n`);
     if (lines.length) ok = false;
   };
+
+  const specsRel = path.relative(root, box.paths.specs).split(path.sep).join('/') + '/';
+
+  // Leg 2a — front matter the reader cannot parse, in a file the slip box OWNS. Such a block leaves
+  // `kind`, `subsystems` and `supersedes` empty, so a decision note drops out of membership and what
+  // it superseded comes back to life with no leg saying a word. A superpowers file is someone
+  // else's text and is never refused: an unmigrated project stays committable (D13).
+  const owned = [...box.notes.values()].filter((n) => n.rel.startsWith(specsRel));
+  const unreadable = owned.filter((n) => n.error).map((n) => `${n.rel} has front matter this reader cannot read — ${n.error}; fix the --- block`);
+  leg(unreadable.length, owned.length + box.structures.size, 'slip box file(s) whose front matter cannot be read (must be 0)', unreadable);
 
   // Leg 2 — verbatim. Every file under notes/ is a dictation or version note, and a dictation note
   // quotes its FILED inbox entry byte for byte.
@@ -66,7 +76,6 @@ export function slipboxCheck({ root, specInbox }) {
   leg(badSubs, subs.length, 'subsystem(s) with wrong membership (must be 0)', member);
 
   // Leg 4 — links resolve, headings exist, references exist.
-  const specsRel = path.relative(root, box.paths.specs).split(path.sep).join('/') + '/';
   const texts = [
     ...[...box.notes.values()].filter((n) => n.rel.startsWith(specsRel)).map((n) => [n.rel, n.body]),
     ...[...box.structures.values()].map((s) => [s.rel, s.text]),
@@ -94,7 +103,8 @@ export function slipboxCheck({ root, specInbox }) {
   try { want = regenerate(box); } catch (e) { stale.push(`the current state cannot be generated — ${e.message}`); }
   for (const [rel, text] of want) {
     const abs = path.join(root, rel);
-    const cur = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : null;
+    // Read through the read model, so a CRLF checkout is not reported as a stale page.
+    const cur = fs.existsSync(abs) ? readText(abs) : null;
     if (cur !== text) stale.push(`${rel} is ${cur === null ? 'missing' : 'stale'} — run intake.mjs regen`);
   }
   for (const rel of staleGenerated(box, want)) stale.push(`${rel} has no structure note behind it — run intake.mjs regen`);

@@ -106,6 +106,36 @@ test('a stale INDEX.md and a stale flat page are refused, naming intake.mjs rege
   } finally { r.cleanup(); }
 });
 
+// A clone with core.autocrlf=true (the Git for Windows default) has CRLF in every file. The read
+// model normalises on read, so the gate can never refuse a commit over line-ending bytes alone.
+test('a CRLF checkout passes legs 2, 3 and 5', () => {
+  const r = superseded();
+  try {
+    const crlf = (rel) => write(r.root, rel, read(r.root, rel).replace(/\r?\n/g, '\r\n'));
+    crlf(`docs/dictated-specs/notes/${OLD}.md`);
+    crlf(`docs/dictated-specs/notes/${NEW}.md`);
+    crlf(ST);
+    const res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    for (const re of [/^slipbox_check: 0 of 2 dictation note\(s\) not verbatim/m, /^slipbox_check: 0 of 1 subsystem\(s\) with wrong membership/m,
+      /^slipbox_check: 0 of 2 generated page\(s\) stale/m]) assert.match(res.stdout, re);
+  } finally { r.cleanup(); }
+});
+
+test('front matter the reader cannot parse is refused in the slip box and tolerated in a superpowers file', () => {
+  const r = superseded();
+  try {
+    const broken = '---\nid: 0010-x\n- not a key\n---\n# D\n\n- **Status:** Accepted\n';
+    write(r.root, 'docs/superpowers/specs/someone-elses.md', broken);
+    assert.equal(gate(r.root).code, 0, 'an unmigrated project stays committable (D13)');
+    write(r.root, 'docs/dictated-specs/decisions/0010-x.md', broken);
+    const res = gate(r.root);
+    refused(res, /commit refused: docs\/dictated-specs\/decisions\/0010-x\.md has front matter this reader cannot read/);
+    assert.match(res.stdout, /^slipbox_check: 1 of \d+ slip box file\(s\) whose front matter cannot be read/m);
+    assert.doesNotMatch(res.stdout, /someone-elses/);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: two notes superseding one note is a fork, refused', () => {
   const r = superseded();
   try {

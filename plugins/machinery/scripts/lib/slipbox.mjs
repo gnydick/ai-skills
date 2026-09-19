@@ -20,10 +20,16 @@ export const adrStatus = (body) => /^- \*\*Status:\*\* (.+)$/m.exec(body)?.[1].t
 export const isSupersededDecision = (n) => n.kind === 'decision' && /^Superseded by/.test(adrStatus(n.body) ?? '');
 export const titleOf = (n) => /^# (.+)$/m.exec(n.body)?.[1].trim() ?? n.id;
 
+// Every file the read model reads goes through here. A checkout with core.autocrlf=true — the Git
+// for Windows default — holds CRLF on every line, and the inbox entry a note quotes never does
+// (parseInbox splits on /\r?\n/). Normalising on READ is what keeps a fresh clone from failing the
+// verbatim and freshness legs over line-ending bytes alone; nothing downstream knows about it.
+export const readText = (abs) => fs.readFileSync(abs, 'utf8').replaceAll('\r\n', '\n');
+
 // A superpowers file is someone else's text: front matter this reader cannot parse is recorded as
 // `error`, not thrown, so one odd file never stops every commit in the project.
 function readNote(root, abs, fallbackKind) {
-  const text = fs.readFileSync(abs, 'utf8');
+  const text = readText(abs);
   let data = null, body = text, error = null;
   try { ({ data, body } = parseFrontmatter(text)); } catch (e) { error = e.message; }
   const d = data ?? {};
@@ -47,7 +53,7 @@ export function loadSlipbox(root) {
   const structures = new Map();
   for (const f of mdFiles(paths.structure)) {
     const abs = path.join(paths.structure, f);
-    structures.set(f.slice(0, -3), { subsystem: f.slice(0, -3), rel: toPosix(path.relative(root, abs)), text: fs.readFileSync(abs, 'utf8') });
+    structures.set(f.slice(0, -3), { subsystem: f.slice(0, -3), rel: toPosix(path.relative(root, abs)), text: readText(abs) });
   }
   return { root, paths, notes, structures };
 }
