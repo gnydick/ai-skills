@@ -3,15 +3,17 @@
 // Spec I24 holds — this is a closed, frozen literal produced at BUILD time; nothing here is
 // discovered at run time and there is no configuration point (#73, I43).
 import { registerCheck } from './register-check.mjs';
+import { slipboxCheck } from './slipbox-check.mjs';
 import { specCheck } from './spec-check.mjs';
 import { sweepGuard } from './sweep-guard.mjs';
 
 export const CHECKS = Object.freeze([
   Object.freeze({ id: 'register_check', blocking: true, run: registerCheck }),
+  Object.freeze({ id: 'slipbox_check', blocking: true, run: slipboxCheck }),
   Object.freeze({ id: 'spec_check', blocking: true, run: specCheck }),
   Object.freeze({ id: 'sweep_guard', blocking: false, run: sweepGuard }),
 ]);
 
 // The check modules an install copies beside the gate. Derived, so an unwired module cannot be
 // shipped into a project that will never run it (#73).
-export const CHECK_FILES = Object.freeze(['register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']);
+export const CHECK_FILES = Object.freeze(['register-check.mjs', 'slipbox-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']);

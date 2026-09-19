@@ -162,7 +162,8 @@ function installProject() {
   // imports and fails on any that does not resolve, so a lib added to git.mjs (lines.mjs, #19
   // fix round 1) and forgotten here is caught mechanically rather than at a project's next commit.
   fs.mkdirSync(path.join(gateDir, 'lib'), { recursive: true });
-  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'report.mjs', 'layout.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  // #132: the slip box check reads notes through the same read model intake writes them with.
+  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'report.mjs', 'layout.mjs', 'frontmatter.mjs', 'blockquote.mjs', 'embed.mjs', 'slipbox.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   // The tier runner the pre-commit calls after the gate (plan Task B2), with the settings and
   // components readers it imports. It lives in scripts/ and imports './lib/...' already, so it is
   // copied as is; the same import walk in test/install.test.mjs covers it.
