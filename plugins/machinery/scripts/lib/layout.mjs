@@ -88,3 +88,33 @@ export function insideSpecArea(root, specsDir, p) {
   const q = toPosix(path.isAbsolute(p) ? path.relative(root, p) : p).replace(/^\.\//, '');
   return q.startsWith(rel) && !q.split('/').includes('..');
 }
+
+// #132: the slip box (Zettelkasten). Every name is spelled here once; the gate, intake, the
+// banner and install all build paths from slipboxPaths.
+export const NOTES_DIR = 'notes';
+export const DECISIONS_DIR = 'decisions';
+export const STRUCTURE_DIR = 'structure';
+export const INDEX_FILE = 'INDEX.md';
+export const CURRENT_DIR = 'spec-current';
+export const SUPERPOWERS_DIR = 'superpowers';
+export const ADR_DIR = 'adr';
+
+// A capture stamp as a note id: ':' is illegal in a Windows filename (#132 § 3).
+export const stampToId = (stamp) => stamp.replaceAll(':', '-');
+export const idToStamp = (id) => id.replace(/T(\d\d)-(\d\d)-(\d\d)Z$/, 'T$1:$2:$3Z');
+
+export function slipboxPaths(root) {
+  const specs = path.join(root, DOCS_DIR, SPECS_DIR);
+  return {
+    specs,
+    notes: path.join(specs, NOTES_DIR),
+    decisions: path.join(specs, DECISIONS_DIR),
+    structure: path.join(specs, STRUCTURE_DIR),
+    index: path.join(specs, INDEX_FILE),
+    current: path.join(root, DOCS_DIR, CURRENT_DIR),
+    spSpecs: path.join(root, DOCS_DIR, SUPERPOWERS_DIR, 'specs'),
+    spPlans: path.join(root, DOCS_DIR, SUPERPOWERS_DIR, 'plans'),
+    adr: path.join(root, DOCS_DIR, ADR_DIR),
+    specInbox: path.join(root, '.claude', MACHINERY_DIR, SPEC_INBOX),
+  };
+}
