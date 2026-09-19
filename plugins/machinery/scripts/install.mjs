@@ -11,6 +11,7 @@ import { MACHINERY_OWN } from './lib/own-files.mjs';
 import { migrate } from './lib/migrations.mjs';
 import { readSetting, recorded } from './lib/settings.mjs';
 import { HOSTED_BLOCKS, hostedCheckLine } from './lib/hosted.mjs';
+import { unmigrated, describeUnmigrated } from './lib/unmigrated.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
 // copy holds rather than whatever happens to be lying in the gate directory.
@@ -184,6 +185,9 @@ function installProject() {
   const migrated = migrate(root, git);
   for (const s of migrated) say(`migrated: removed ${s.path} (written by plugin ${s.wroteBy}: ${s.why}${s.tracked ? '; staged as removed' : ''})`);
   if (!migrated.length) say('migration: nothing to migrate');
+  // #132 D13: install detects; it never migrates, because migration needs the AI's judgements.
+  const u = unmigrated(root);
+  if (u.any) say(`slip box: NOT MIGRATED — ${describeUnmigrated(u)}; run node "${path.join(pluginRoot(), 'scripts', 'intake.mjs')}" migrate --plan <file>`);
   git(['config', 'core.hooksPath', '.githooks'], root);
   if (argv.includes('--hosted-ci') && hostedCi(root) !== 0) return 1;
   say(`core.hooksPath: ${git(['config', 'core.hooksPath'], root).stdout}`);

@@ -10,6 +10,7 @@ import { markers, universalInbox, universalRules, projectInbox, pluginRoot } fro
 import { userHome } from './lib/layout.mjs';
 import { pending } from './lib/inbox.mjs';
 import { hostedCheckLine } from './lib/hosted.mjs';
+import { unmigrated, describeUnmigrated } from './lib/unmigrated.mjs';
 
 function banner() {
   const p = readPayload() ?? {};
@@ -42,6 +43,13 @@ function banner() {
     const installed = fs.existsSync(stamp) ? fs.readFileSync(stamp, 'utf8').trim() : null;
     lines.push(`  gate: ${installed === null ? 'not installed' : `installed ${installed} (plugin ${pv})${older(installed, pv) ? ' — older than the plugin; run /machinery:install to migrate' : ''}`}`);
     lines.push(`  hosted check: ${hostedCheckLine(fs.existsSync(path.join(root, '.github', 'workflows', 'machinery.yml')))}`);
+    // #132 Amendment 1 (D13; owner, 2026-09-19: "it has to happen in every repo"). The banner runs
+    // in every project the plugin is enabled in, installed gate or not, so this is where each repo
+    // learns it has a migration to do. A migrated project prints nothing here.
+    try {
+      const u = unmigrated(root);
+      if (u.any) lines.push(`  slip box: NOT MIGRATED — ${describeUnmigrated(u)}; run node "${path.join(pluginRoot(), 'scripts', 'intake.mjs')}" migrate --plan <file>`);
+    } catch (e) { lines.push(`  slip box: could not check — ${e.message}`); }
     try { proj = pending(projectInbox(root)).length; } catch (e) { lines.push(`  project inbox: MALFORMED — ${e.message}`); }
   }
   let univ = 0;
