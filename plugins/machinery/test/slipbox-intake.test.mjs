@@ -130,6 +130,35 @@ test('RED CHECK: an existing note is never overwritten, and an unmigrated projec
   } finally { r.cleanup(); }
 });
 
+test('RED CHECK: a supersede that leaves out a subsystem of the old note is refused before anything is written', () => {
+  const r = project();
+  try {
+    capture(r.root, 'SPEC: old shared rule', '2026-09-01T08:00:00Z');
+    assert.equal(intake(r.root, 'spec', '--stamp', '2026-09-01T08:00:00Z', '--subsystems', 'a,b', '--topic', 'T', '--title', 'Old').code, 0);
+    capture(r.root, 'SPEC: new rule for a only', '2026-09-10T08:00:00Z');
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    const res = intake(r.root, 'spec', '--stamp', '2026-09-10T08:00:00Z', '--subsystems', 'a', '--topic', 'T', '--title', 'New', '--supersedes', '2026-09-01T08-00-00Z');
+    assert.equal(res.code, 1, res.stderr + res.stdout);
+    assert.match(res.stderr, /\bb\b/);
+    assert.match(res.stderr, /--subsystems/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+    assert.equal(pending(slipboxPaths(r.root).specInbox).length, 1);
+  } finally { r.cleanup(); }
+});
+
+test('the commit message carries the dictation byte for byte: blank-line runs, trailing spaces and # lines survive', () => {
+  const r = project();
+  try {
+    const text = 'SPEC: first line\n\n\nafter two blank lines\ntrailing space here \n# not a comment';
+    capture(r.root, text, '2026-09-19T05:00:00Z');
+    const res = fileOne(r.root, '2026-09-19T05:00:00Z');
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    const msg = execFileSync('git', ['log', '-1', '--format=%B'], { cwd: r.root, encoding: 'utf8' });
+    assert.ok(msg.includes(`\n\n${text}\n\n`), msg);
+  } finally { r.cleanup(); }
+});
+
 test('regen rewrites a stale page and the gate-facing files match afterwards', () => {
   const r = project();
   try {

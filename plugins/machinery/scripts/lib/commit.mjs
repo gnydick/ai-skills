@@ -1,7 +1,8 @@
 // Generic: one commit of exactly the named paths (the worktree skill's commit rule). A path that
 // no longer exists is staged as a removal: `git add` refuses a path that is gone from both the
 // tree and the index (a `git mv` source), so those go through `git rm --cached --ignore-unmatch`.
-// Absolute paths are made relative to the repository.
+// Absolute paths are made relative to the repository. The message is committed verbatim: git's
+// default cleanup collapses blank-line runs and strips trailing spaces (#132 § 7).
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './git.mjs';
@@ -14,7 +15,7 @@ export function commitPaths(repo, paths, message) {
   if (add.code !== 0) throw new Error(`git add failed: ${add.stderr}`);
   const rm = gone.length ? git(['rm', '-q', '--cached', '--ignore-unmatch', '--', ...gone], repo) : { code: 0 };
   if (rm.code !== 0) throw new Error(`git rm --cached failed: ${rm.stderr}`);
-  const c = git(['commit', '-q', '-m', message, '--', ...rel], repo);
+  const c = git(['commit', '-q', '--cleanup=verbatim', '-m', message, '--', ...rel], repo);
   if (c.code !== 0) throw new Error(`git commit failed: ${c.stderr}\n${c.stdout}`);
   return rel;
 }

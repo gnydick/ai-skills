@@ -27,6 +27,9 @@ export function fileSpec({ repo, stamp, subsystems, topic, title, supersedes = [
   for (const s of supersedes) {
     if (!box.notes.has(s)) throw new Error(`--supersedes ${s}: no such note`);
     if (!live.has(s)) throw new Error(`--supersedes ${s}: that note is no longer in force — supersede its successor`);
+    // A subsystem left out would lose the old note's embed with nothing placed in its stead.
+    const missing = box.notes.get(s).subsystems.filter((x) => !subsystems.includes(x));
+    if (missing.length) throw new Error(`--supersedes ${s}: that note is also in ${missing.join(', ')} — list every one of its subsystems in --subsystems`);
   }
   const id = stampToId(stamp);
   const partial = versions.length > 0;
