@@ -143,8 +143,12 @@ function design() {
       const r = approveDesign({ repo, file: opt('--approve') });
       process.stdout.write(`approved ${r.id}${r.subsystems.length ? ` — embed its decision heading in ${r.subsystems.join(', ')} with intake design --embed` : ''}\n`);
     } else if (opt('--embed')) {
-      const heading = opt('--heading');
-      embedDesign({ repo, file: opt('--embed'), subsystem: opt('--subsystem'), topic: opt('--topic'), heading });
+      const heading = opt('--heading'), subsystem = opt('--subsystem'), topic = opt('--topic');
+      // Measured 2026-09-19: without these the placement interpolated `null`, writing
+      // structure/null.md and a null row in INDEX.md — a junk subsystem that then refuses every
+      // commit, and D2 forbids deleting a structure note by hand. Guarded before anything is written.
+      if (!subsystem || !topic) die('usage: intake design --embed <path> --subsystem <s> --topic "<t>" --heading "<h>"');
+      embedDesign({ repo, file: opt('--embed'), subsystem, topic, heading });
       process.stdout.write(`embedded heading '${heading}' — it must record a decision, an owner constraint or a principle, never implementation\n`);
     } else if (opt('--file')) {
       fileDesign({ repo, file: opt('--file'), subsystems: csv('--subsystems'), supersedes: csv('--supersedes'), ticket: opt('--ticket') });

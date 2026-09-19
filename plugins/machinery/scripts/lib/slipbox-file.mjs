@@ -133,7 +133,15 @@ export function fileDesign({ repo, file, subsystems = [], supersedes = [], ticke
   const f = superpowersFile(repo, file, 'specs');
   if (f.data.kind) throw new Error(`${file} is already filed as ${f.data.kind}`);
   const box = loadSlipbox(repo);
-  for (const s of supersedes) if (box.notes.get(s)?.kind !== 'design') throw new Error(`--supersedes ${s}: not a design note`);
+  for (const s of supersedes) {
+    const old = box.notes.get(s);
+    if (old?.kind !== 'design') throw new Error(`--supersedes ${s}: not a design note`);
+    // approveDesign strips the old design's heading embeds from EVERY structure note, so a
+    // subsystem left out here would be emptied with nothing placed in its stead — and the gate
+    // would stay green, because expected() then wants nothing there. Same guard as fileSpec's.
+    const missing = old.subsystems.filter((x) => !subsystems.includes(x));
+    if (missing.length) throw new Error(`--supersedes ${s}: that note is also in ${missing.join(', ')} — list every one of its subsystems in --subsystems`);
+  }
   writeText(f.abs, setFrontmatter(f.text, { kind: 'design', status: 'draft', ...(subsystems.length ? { subsystems } : {}), ...(ticket ? { ticket } : {}), ...(supersedes.length ? { supersedes } : {}) }));
 }
 

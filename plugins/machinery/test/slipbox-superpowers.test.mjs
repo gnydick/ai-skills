@@ -100,6 +100,74 @@ test('design --file run in a linked worktree writes that worktree, not the main 
   } finally { r.cleanup(); }
 });
 
+// Measured 2026-09-19: --embed with no --subsystem and no --topic exited 0 and wrote
+// structure/null.md, spec-current/null.md and a `null` row in INDEX.md. That junk subsystem then
+// refuses every commit in the project, and D2 forbids deleting a structure note by hand.
+test('design --embed refuses without --subsystem and --topic, before anything is written', () => {
+  const r = project();
+  try {
+    write(r.root, V1, BODY('Hub'));
+    ok(intake(r.root, 'design', '--file', V1, '--subsystems', 'config'));
+    ok(intake(r.root, 'design', '--approve', V1));
+    const res = intake(r.root, 'design', '--embed', V1, '--heading', 'Decisions (Gabe, 2026-09-02)');
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stderr, /usage: intake design --embed <path> --subsystem <s> --topic "<t>" --heading "<h>"/);
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/structure/null.md')), 'no junk structure note');
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/spec-current/null.md')), 'no junk flat page');
+    const index = path.join(r.root, 'docs/dictated-specs/INDEX.md');
+    if (fs.existsSync(index)) assert.doesNotMatch(read(r.root, 'docs/dictated-specs/INDEX.md'), /null/);
+  } finally { r.cleanup(); }
+});
+
+// Measured 2026-09-19: approveDesign strips the old design's heading embeds from EVERY structure
+// note, so a supersede that drops a subsystem emptied that subsystem with the gate still green.
+// The dictation path has guarded this since Task 5; the design path now does too.
+test('a design superseding one that is also in another subsystem is refused unless it lists them all', () => {
+  const r = project();
+  try {
+    write(r.root, V1, BODY('Hub'));
+    ok(intake(r.root, 'design', '--file', V1, '--subsystems', 'config,hub'));
+    ok(intake(r.root, 'design', '--approve', V1));
+    ok(intake(r.root, 'design', '--embed', V1, '--subsystem', 'config', '--topic', 'Hub', '--heading', 'Decisions (Gabe, 2026-09-02)'));
+    ok(intake(r.root, 'design', '--embed', V1, '--subsystem', 'hub', '--topic', 'Hub', '--heading', 'Decisions (Gabe, 2026-09-02)'));
+    write(r.root, V2, BODY('Hub v2'));
+    const before = read(r.root, V2);
+    const res = intake(r.root, 'design', '--file', V2, '--subsystems', 'config', '--supersedes', '2026-09-02-hub-design');
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stderr, /--supersedes 2026-09-02-hub-design: that note is also in hub — list every one of its subsystems in --subsystems/);
+    assert.equal(read(r.root, V2), before, 'nothing is written before the refusal');
+    assert.match(read(r.root, 'docs/dictated-specs/structure/hub.md'), /!\[\[2026-09-02-hub-design#Decisions \(Gabe, 2026-09-02\)\]\]/);
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
+// Leg 3's two design branches (slipbox-check.mjs), each by its exact refusal line.
+test('the gate refuses an approved design never embedded, and a heading embed of a superseded design', () => {
+  const r = project();
+  try {
+    // A structure note has to exist first, or leg 3 reports the missing note instead.
+    write(r.root, 'docs/superpowers/models/m.html', '<p>x</p>\n');
+    ok(intake(r.root, 'ref', '--subsystem', 'config', '--path', 'docs/superpowers/models/m.html'));
+    write(r.root, V1, BODY('Hub'));
+    ok(intake(r.root, 'design', '--file', V1, '--subsystems', 'config'));
+    ok(intake(r.root, 'design', '--approve', V1));
+    const a = gate(r.root);
+    assert.equal(a.code, 1, a.stdout);
+    assert.match(a.stdout, /docs\/dictated-specs\/structure\/config\.md embeds no heading of the approved design note 2026-09-02-hub-design — run intake\.mjs design --embed/, a.stdout);
+
+    ok(intake(r.root, 'design', '--embed', V1, '--subsystem', 'config', '--topic', 'Hub', '--heading', 'Decisions (Gabe, 2026-09-02)'));
+    write(r.root, V2, BODY('Hub v2'));
+    ok(intake(r.root, 'design', '--file', V2, '--subsystems', 'config', '--supersedes', '2026-09-02-hub-design'));
+    ok(intake(r.root, 'design', '--approve', V2));
+    ok(intake(r.root, 'design', '--embed', V2, '--subsystem', 'config', '--topic', 'Hub', '--heading', 'Decisions (Gabe, 2026-09-02)'));
+    // Put the superseded design's heading embed back by hand: what an edit by hand looks like.
+    write(r.root, ST, read(r.root, ST).replace('![[2026-09-15-hub-v2-design#', '![[2026-09-02-hub-design#Decisions (Gabe, 2026-09-02)]]\n![[2026-09-15-hub-v2-design#'));
+    const b = gate(r.root);
+    assert.equal(b.code, 1, b.stdout);
+    assert.match(b.stdout, /docs\/dictated-specs\/structure\/config\.md embeds 2026-09-02-hub-design#Decisions \(Gabe, 2026-09-02\), which is superseded or consumed — only an approved, in-force design note is embedded by heading/, b.stdout);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: approving a non-draft, embedding a missing heading, and filing a file twice are refused', () => {
   const r = project();
   try {
