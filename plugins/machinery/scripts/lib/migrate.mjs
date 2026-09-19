@@ -81,9 +81,10 @@ export function buildPlan(repo, u = unmigrated(repo)) {
   };
 }
 
-// Every gap in one list, so the AI and the owner fix them in one pass. Nothing here writes.
+// Every gap in one list, so the AI fixes them all in one pass. Nothing here writes.
 export function planProblems(repo, plan, u = unmigrated(repo)) {
-  // Shape first: the owner hand-edits this file, and nothing below can read a malformed plan.
+  // Shape first: the plan is hand-filled between --plan and --apply, and nothing below can
+  // read a malformed one.
   if (plan === null || typeof plan !== 'object' || Array.isArray(plan)) return ['plan: not an object — write a fresh one with migrate --plan'];
   const shape = [];
   if (plan.version !== 1) shape.push(`plan: version ${String(plan.version)} is not supported — this build writes and reads version 1`);

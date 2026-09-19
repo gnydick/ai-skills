@@ -1,6 +1,6 @@
 ---
 name: rule-process
-description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the capture hook says so), when a prompt starts with "N rules pending" or "N specifications pending", or when a commit is refused for a pending inbox entry. Files or dismisses each pending entry and commits. Replaces rule-intake and spec-intake.
+description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the capture hook says so), when a prompt starts with "N rules pending" or "N specifications pending", when a commit is refused for a pending inbox entry or by a slipbox_check leg, when filing an ADR, a design spec, a plan or a living map, and when the banner says the slip box is NOT MIGRATED. Files or dismisses each pending entry and commits. Replaces rule-intake and spec-intake.
 ---
 # Rules and specifications
 
@@ -14,11 +14,45 @@ description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the c
 2. Read each entry's verbatim text and choose its one home:
    - PRULE: a section of a file under `.claude/rules/`.
    - URULE: `~/.claude/rules/universal.md`, as one dated bullet (no section).
-   - SPEC (a specification to implement, not a rule or proposal): the file under `docs/dictated-specs/` that owns the subsystem, as a new section or an amendment to the owning one, keeping the dictated substance. Find its existing tickets; do not invent any.
+   - SPEC (a specification to implement, not a rule or proposal): one note in the slip box, filed by `intake.mjs spec` (§ Filing a SPEC). Find its existing tickets; do not invent any.
    Word a rule as a trigger and an action. Do not repeat it in any other file. Test the section you chose: would that section's remedy have produced this rule's fix? If not, it is the wrong section.
-3. Write a project rule: `node "${CLAUDE_PLUGIN_ROOT}/scripts/place.mjs" --file <file> --section "<Heading>" --text "<wording>"`. Write a specification with Edit.
-4. Commit a project filing and its disposition: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" commit --kind project|spec --stamp <stamp> --home "<file> § <Heading>"`.
+3. Write a project rule: `node "${CLAUDE_PLUGIN_ROOT}/scripts/place.mjs" --file <file> --section "<Heading>" --text "<wording>"`. A specification is written only by `intake.mjs spec`, never with Edit.
+4. Commit a project rule and its disposition: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" commit --kind project --stamp <stamp> --home "<file> § <Heading>"`. A specification commits itself (§ Filing a SPEC).
 5. File a universal rule: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" universal --stamp <stamp> --text "<wording>"`. It appends the dated bullet, dispositions the entry and names the file; there is nothing to build, bump or commit.
 6. Or dismiss a non-rule (a question, a duplicate): `node "${CLAUDE_PLUGIN_ROOT}/scripts/disposition.mjs" --inbox <inbox> --stamp <stamp> --dismissed "<reason>"`, then commit a project inbox (the user's inbox is not in a repository).
 7. After a URULE filing: `node "${CLAUDE_PLUGIN_ROOT}/scripts/reload.mjs" --scratchpad "<this session's scratchpad>"` (`--project` adds `.claude/rules/`, `--all` prints every file; with no scratchpad omit the flag). Read the returned blocks.
 8. Report one line per entry: the file (and `§ Heading` for a project rule or specification), or dismissed with the reason. Work dispatched on a specification cites it by that path.
+
+## Which checkout each command writes
+- `spec` and `migrate` run only in the main checkout, and refuse anywhere else. They write the spec inbox, which every worktree shares.
+- `decision`, `ref`, `design`, `plan`, `map` and `regen` write the checkout you are in, because the gate judges the tree being committed.
+- So on a branch: your dictation note lands in main, your ADR and structure notes land in the worktree. Expect that, and do not go looking for the note on your branch.
+
+## Filing a SPEC
+- A dictation is one note, written once from the inbox entry and never edited. Change is a new note.
+1. Read `docs/dictated-specs/INDEX.md` and the flat pages in `docs/spec-current/`.
+2. Choose the subsystems (existing, or a new one), the `##` topic, the in-force note it supersedes if any, and whether that change is full or partial.
+3. Partial: write the superseded note's full text with the change applied to a scratchpad file. It becomes the version note, composed by you.
+4. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" spec --stamp <stamp> --subsystems <a,b> --topic "<topic>" --title "<short title>" [--supersedes <id>] [--version <file>]`. It writes the notes, updates the structure notes, regenerates, dispositions and commits with the full dictation in the message.
+5. Show the owner the report: subsystems (new ones marked), topic, the change, and any version note in full.
+6. Refused because a supersede left a subsystem out: `--subsystems` must name every subsystem the superseded note is in, or that subsystem would lose its embed with nothing in its stead. Add them and run again.
+7. Refused as not migrated: stop, and migrate the project first (§ Migrating a project).
+
+## Decisions, designs, plans and maps
+- A new ADR: `docs/dictated-specs/decisions/00NN-slug.md`, front matter `kind: decision`, `subsystems`, `rests_on` (the dictation notes behind it). Then `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" decision --file <path>`. To supersede: a new ADR, the old status line flipped to `Superseded by ADR-00NN`, then `decision --file` on the new one.
+- A brainstorming spec, once written: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" design --file <path> --subsystems <a,b> [--ticket <n>] [--supersedes <id>]`. A design that supersedes another must list every subsystem that one is in, for the same reason a dictation must.
+- On the owner's approval: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" design --approve <path>`. Then, for each heading that records a decision, an owner constraint or a principle: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" design --embed <path> --subsystem <s> --topic "<t>" --heading "<h>"`. Never an implementation heading such as "Files touched" or "Tests".
+- A plan: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" plan --file <path> --ticket <n>`; when finished, `plan --file <path> --status done|abandoned`.
+- A living map stays outside the slip box: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" map --file <path>` once, and link it with `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" ref --subsystem <s> --path <path>`. Never embed it.
+- A stale generated page: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" regen`. Never edit `INDEX.md`, `docs/spec-current/` or a structure note by hand.
+
+## Migrating a project
+- You fill the plan and apply it. Nothing waits for the owner. The plan file is the record of what was decided.
+- Write the plan file to this session's scratchpad, never inside the repository: an untracked file there makes `--apply` refuse for a dirty tree, and the recovery command would delete it.
+1. From the main checkout: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" migrate --plan <scratchpad>/plan.json`.
+2. Fill every `null` and empty list: note titles, subsystems and topics; `supersedes` from the old REVERSED and SUPERSEDED marks; `versions` for partial changes; a resolution for each unsettled heading; each superpowers file's kind and status (only what the owner ratified is `approved`, the rest `historical`); design `embeds`; `decisionLinks`; `refs` for living maps; each reference's `replace` pairs with `reviewed: true`.
+3. `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" migrate --apply <plan>`. It makes two commits, and prints a replacement count per reference file: check each against that file's `matches` in the plan.
+4. Refused for a dirty working tree: commit or discard your own changes first, then run again.
+5. Refused because a note it would write already exists: this plan has been applied. Do not force it; work out what is left and write a fresh plan.
+6. Refused for a `docs/adr` file the migration does not move (anything that is not `.md`): move that file yourself, commit, then run again.
+7. Stopped part-way: the error names the command that undoes it — `git reset --hard && git clean -fd`. Run that, fix the plan, and apply again.
