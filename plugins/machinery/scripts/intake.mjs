@@ -10,6 +10,8 @@ import { projectInbox, projectRules, projectSpecInbox, projectIssueTracking, uni
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
 import { UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { fileSpec, regen, fileDecision, fileRef, fileDesign, approveDesign, embedDesign, filePlan, closePlan, fileMap } from './lib/slipbox-file.mjs';
+import { buildPlan, applyPlan } from './lib/migrate.mjs';
+import { writePlan, readPlan } from './lib/migrate-plan.mjs';
 import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -177,6 +179,25 @@ function map() {
   process.stdout.write(`${f} is a living map: kept by hand, never embedded, linked with intake ref\n`);
 }
 
+// #132 § 11: the AI proposes (fills the plan), the owner confirms, --apply carries it out.
+// Root-session and projectRoot, deliberately UNLIKE decision/ref/design/plan/map/regen, which the
+// owner's Task 7 ruling moved to checkoutRoot: --apply rewrites the FILED dispositions in the spec
+// inbox, and that inbox is shared by every worktree and lives in the main checkout.
+function migrate() {
+  const repo = projectRoot(opt('--root') || process.cwd());
+  if (!isRootSession(opt('--root') || process.cwd())) die(`a migration runs only from the root session: run it from ${repo}`);
+  try {
+    if (opt('--plan')) {
+      const plan = buildPlan(repo);
+      writePlan(opt('--plan'), plan);
+      process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, have the owner confirm it, then run intake migrate --apply ${opt('--plan')}\n`);
+    } else if (opt('--apply')) {
+      const r = applyPlan(repo, readPlan(opt('--apply')));
+      process.stdout.write(`migrated in two commits: ${r.commit1.length} path(s), then ${r.commit2.length} old spec file(s) removed\n`);
+    } else die('usage: intake migrate --plan <out.json> | --apply <plan.json>');
+  } catch (e) { die(e.message); }
+}
+
 // checkoutRoot for the same reason as decision(): regen rewrites the generated pages the gate's
 // freshness leg (#132 § 9) compares, and that leg reads the checkout being committed.
 function regenerateCmd() {
@@ -190,4 +211,5 @@ if (cmd === 'list') list(); else if (cmd === 'commit') commit(); else if (cmd ==
 else if (cmd === 'spec') spec(); else if (cmd === 'regen') regenerateCmd();
 else if (cmd === 'decision') decision(); else if (cmd === 'ref') ref();
 else if (cmd === 'design') design(); else if (cmd === 'plan') plan(); else if (cmd === 'map') map();
-else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake decision … | intake ref … | intake design … | intake plan … | intake map … | intake regen');
+else if (cmd === 'migrate') migrate();
+else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake decision … | intake ref … | intake design … | intake plan … | intake map … | intake migrate … | intake regen');
