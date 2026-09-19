@@ -36,6 +36,17 @@ function project() {
   return r;
 }
 const refused = (res, re) => { assert.equal(res.code, 1, res.stdout); assert.match(res.stdout, re, res.stdout); };
+// The gate as a hook runs it from a linked worktree: cwd is the worktree, --root the main checkout.
+const gateIn = (cwd, root) => runScript('scripts/gate/gate.mjs', { args: ['--root', root], cwd });
+// A project whose slip box lives only on the worktree's branch: the notes were filed on main and
+// then removed there, which is what a branch that adds documentation looks like from main's side.
+function worktreeOnly() {
+  const r = project();
+  const wt = addWorktree(r.root, 'feat');
+  g(r.root, 'rm', '-r', '-q', 'docs/dictated-specs', 'docs/spec-current');
+  g(r.root, 'commit', '-q', '-m', 'main drops the slip box');
+  return { r, wt };
+}
 
 test('editing a note, deleting a note, and renaming a note are each refused', () => {
   for (const act of ['edit', 'delete', 'rename']) {
@@ -75,6 +86,41 @@ test('an approved design and a done plan are frozen; a draft design and a live p
     write(r.root, DESIGN, read(r.root, DESIGN) + '\n- more\n'); write(r.root, PLAN, read(r.root, PLAN) + '- [ ] two\n');
     g(r.root, 'add', DESIGN, PLAN);
     assert.match(gate(r.root).stdout, /^slipbox_check: 0 of 2 frozen file\(s\) changed/m);
+  } finally { r.cleanup(); }
+});
+
+// Owner, 2026-09-19: documentation is written on a branch and merged, so the legs judge the
+// CHECKOUT being committed. The spec inbox is the one thing that stays at the main checkout.
+test('the gate run in a worktree judges the worktree\'s notes, with the main checkout holding none', () => {
+  const { r, wt } = worktreeOnly();
+  try {
+    assert.ok(!fs.existsSync(path.join(r.root, NOTE)), 'the main checkout has no slip box');
+    const good = read(wt, NOTE);
+    write(wt, NOTE, good.replace('> SPEC: a rule', '> SPEC: a rule, reworded'));
+    refused(gateIn(wt, r.root), /commit refused: docs\/dictated-specs\/notes\/2026-09-01T08-00-00Z\.md does not quote its inbox entry/);
+    write(wt, NOTE, good);
+    const res = gateIn(wt, r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /^slipbox_check: 0 of 1 dictation note\(s\) not verbatim/m, res.stdout);
+  } finally { r.cleanup(); }
+});
+
+test('a note broken in the MAIN checkout does not refuse a commit made in the worktree', () => {
+  const r = project();
+  try {
+    const wt = addWorktree(r.root, 'feat');
+    write(r.root, NOTE, read(r.root, NOTE).replace('> SPEC: a rule', '> SPEC: a rule, reworded'));
+    refused(gateIn(r.root, r.root), /does not quote its inbox entry/);
+    const res = gateIn(wt, r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+  } finally { r.cleanup(); }
+});
+
+test('a pending entry in the MAIN spec inbox still refuses a commit made in the worktree', () => {
+  const { r, wt } = worktreeOnly();
+  try {
+    appendEntry(slipboxPaths(r.root).specInbox, { marker: 'SPEC', text: 'SPEC: unfiled', session: 's', stamp: '2026-09-20T08:00:00Z' });
+    refused(gateIn(wt, r.root), /^spec_check: 1 of 2 spec inbox entr/m);
   } finally { r.cleanup(); }
 });
 

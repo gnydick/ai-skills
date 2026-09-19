@@ -8,6 +8,7 @@ import path from 'node:path';
 import { report } from '../lib/report.mjs';
 import { parseInbox } from '../lib/inbox.mjs';
 import { git, gitRaw } from '../lib/git.mjs';
+import { checkoutRoot } from '../lib/root.mjs';
 import { parseFrontmatter } from '../lib/frontmatter.mjs';
 import { unquote } from '../lib/blockquote.mjs';
 import { links, section } from '../lib/embed.mjs';
@@ -18,11 +19,6 @@ export const declaration = Object.freeze({ id: 'slipbox_check', run: 'slipboxChe
 
 const VERB = { M: 'modified', D: 'deleted', R: 'renamed', T: 'retyped', C: 'copied' };
 
-// The change is read in the tree the gate RUNS in, never in `root`. In a linked worktree those are
-// two different repositories: projectRoot() resolves a worktree to the main checkout, and measured
-// here on 2026-09-19, diffing the worktree's index against the MAIN checkout's HEAD reported every
-// file this branch had ever added as added by this commit. Paths come back relative to the
-// repository top either way, so the directory tests below are unaffected.
 function changes(root) {
   const parse = (out) => out.split('\n').filter(Boolean).map((l) => { const [st, a, b] = l.split('\t'); return { status: st[0], path: a, to: b ?? null }; });
   const head = git(['rev-parse', '--verify', '-q', 'HEAD'], root);
@@ -38,8 +34,15 @@ const show = (root, ref, rel) => { const r = gitRaw(['show', `${ref}:${rel}`], r
 const frontOf = (text) => { try { return text === null ? null : parseFrontmatter(text).data; } catch { return null; } };
 const withoutStatus = (t) => (t ?? '').split(/\r?\n/).filter((l) => !/^- \*\*Status:\*\* /.test(l)).join('\n').trim();
 
-export function slipboxCheck({ root, specInbox }) {
-  const box = loadSlipbox(root);
+// STATUS 52's split, ruled for the slip box on 2026-09-19: the NOTES are ordinary files written on
+// a branch and merged, so every leg judges the CHECKOUT being committed — from a linked worktree
+// that is the worktree, where the gate's `root` is the main checkout. Only the spec inbox stays at
+// `root`: a capture is shared by every worktree. Measured before the ruling: with `root`, a commit
+// in a worktree had its notes read, and its diff taken, in the main checkout — so the diff called
+// every file the branch had ever added an addition of that one commit.
+export function slipboxCheck({ specInbox }) {
+  const repo = checkoutRoot();
+  const box = loadSlipbox(repo);
   const live = inForce(box);
   let ok = true;
   const leg = (bad, of, note, lines) => {
@@ -48,9 +51,8 @@ export function slipboxCheck({ root, specInbox }) {
     if (lines.length) ok = false;
   };
 
-  const repo = process.cwd(); // the repository this commit is happening in (see changes())
   const ch = changes(repo);
-  const relDir = (abs) => path.relative(root, abs).split(path.sep).join('/');
+  const relDir = (abs) => path.relative(repo, abs).split(path.sep).join('/');
   const directlyIn = (p, abs) => { const d = relDir(abs) + '/'; return p.startsWith(d) && !p.slice(d.length).includes('/'); };
   const P = box.paths;
 
@@ -83,7 +85,7 @@ export function slipboxCheck({ root, specInbox }) {
     .map((p) => `${p} has no front matter — run intake.mjs ${directlyIn(p, P.spPlans) ? 'plan --file <path> --ticket <n>' : 'design --file <path>'}`);
   leg(unfiled.length, added.length, 'added superpowers file(s) unfiled (must be 0)', unfiled);
 
-  const specsRel = path.relative(root, box.paths.specs).split(path.sep).join('/') + '/';
+  const specsRel = path.relative(repo, box.paths.specs).split(path.sep).join('/') + '/';
 
   // Leg 2a — front matter the reader cannot parse, in a file the slip box OWNS. Such a block leaves
   // `kind`, `subsystems` and `supersedes` empty, so a decision note drops out of membership and what
@@ -97,7 +99,7 @@ export function slipboxCheck({ root, specInbox }) {
   // quotes its FILED inbox entry byte for byte.
   const entries = fs.existsSync(specInbox) ? parseInbox(fs.readFileSync(specInbox, 'utf8')) : [];
   const filed = new Map(entries.filter((e) => e.state === 'FILED').map((e) => [e.stamp, e.text]));
-  const inNotes = [...box.notes.values()].filter((n) => n.rel.startsWith(path.relative(root, box.paths.notes).split(path.sep).join('/') + '/'));
+  const inNotes = [...box.notes.values()].filter((n) => n.rel.startsWith(path.relative(repo, box.paths.notes).split(path.sep).join('/') + '/'));
   const verbatim = inNotes.flatMap((n) => {
     if (n.kind === 'version') return [];
     if (n.kind !== 'dictation') return [`${n.rel} is under notes/ but is neither a dictation nor a version note${n.error ? ` (${n.error})` : ''}`];
@@ -151,7 +153,7 @@ export function slipboxCheck({ root, specInbox }) {
   }
   for (const s of box.structures.values()) {
     for (const href of readStructure(s.text).refs) {
-      if (/^([a-z][a-z0-9+.-]*:|#)/i.test(href) || fs.existsSync(path.join(root, path.dirname(s.rel), href))) continue;
+      if (/^([a-z][a-z0-9+.-]*:|#)/i.test(href) || fs.existsSync(path.join(repo, path.dirname(s.rel), href))) continue;
       broken.push(`${s.rel} references ${href}, which does not exist`); badFiles.add(s.rel);
     }
   }
@@ -162,7 +164,7 @@ export function slipboxCheck({ root, specInbox }) {
   const stale = [];
   try { want = regenerate(box); } catch (e) { stale.push(`the current state cannot be generated — ${e.message}`); }
   for (const [rel, text] of want) {
-    const abs = path.join(root, rel);
+    const abs = path.join(repo, rel);
     // Read through the read model, so a CRLF checkout is not reported as a stale page.
     const cur = fs.existsSync(abs) ? readText(abs) : null;
     if (cur !== text) stale.push(`${rel} is ${cur === null ? 'missing' : 'stale'} — run intake.mjs regen`);
