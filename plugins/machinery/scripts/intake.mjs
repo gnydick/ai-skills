@@ -9,7 +9,7 @@ import { projectRoot, checkoutRoot, isRootSession } from './lib/root.mjs';
 import { projectInbox, projectRules, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
 import { UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
-import { fileSpec, regen, fileDecision, fileRef } from './lib/slipbox-file.mjs';
+import { fileSpec, regen, fileDecision, fileRef, fileDesign, approveDesign, embedDesign, filePlan, closePlan, fileMap } from './lib/slipbox-file.mjs';
 import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -134,6 +134,45 @@ function ref() {
   process.stdout.write(`referenced ${r.href} from ${subsystem}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}`);
 }
 
+// checkoutRoot for the same reason as decision(): a design is written, approved and embedded in
+// the checkout it is committed with, which is the tree the gate's legs (#132 § 9) read.
+function design() {
+  const repo = checkoutRoot(opt('--root') || process.cwd());
+  try {
+    if (opt('--approve')) {
+      const r = approveDesign({ repo, file: opt('--approve') });
+      process.stdout.write(`approved ${r.id}${r.subsystems.length ? ` — embed its decision heading in ${r.subsystems.join(', ')} with intake design --embed` : ''}\n`);
+    } else if (opt('--embed')) {
+      const heading = opt('--heading');
+      embedDesign({ repo, file: opt('--embed'), subsystem: opt('--subsystem'), topic: opt('--topic'), heading });
+      process.stdout.write(`embedded heading '${heading}' — it must record a decision, an owner constraint or a principle, never implementation\n`);
+    } else if (opt('--file')) {
+      fileDesign({ repo, file: opt('--file'), subsystems: csv('--subsystems'), supersedes: csv('--supersedes'), ticket: opt('--ticket') });
+      process.stdout.write(`filed ${opt('--file')} as a draft design\n`);
+    } else die('usage: intake design --file <path> [--subsystems a,b] [--ticket n] [--supersedes id] | --approve <path> | --embed <path> --subsystem <s> --topic "<t>" --heading "<h>"');
+  } catch (e) { die(e.message); }
+}
+
+// checkoutRoot for the same reason as decision(): the plan is filed in the checkout being committed.
+function plan() {
+  const repo = checkoutRoot(opt('--root') || process.cwd());
+  const f = opt('--file');
+  if (!f) die('usage: intake plan --file <path> --ticket <n> | --file <path> --status done|abandoned');
+  try {
+    if (opt('--status')) closePlan({ repo, file: f, status: opt('--status') });
+    else filePlan({ repo, file: f, ticket: opt('--ticket') });
+  } catch (e) { die(e.message); }
+  process.stdout.write(`plan ${f}: ${opt('--status') ?? 'in-progress'}\n`);
+}
+
+// checkoutRoot for the same reason as decision(): the map is marked in the checkout being committed.
+function map() {
+  const f = opt('--file');
+  if (!f) die('usage: intake map --file <path>');
+  try { fileMap({ repo: checkoutRoot(opt('--root') || process.cwd()), file: f }); } catch (e) { die(e.message); }
+  process.stdout.write(`${f} is a living map: kept by hand, never embedded, linked with intake ref\n`);
+}
+
 // checkoutRoot for the same reason as decision(): regen rewrites the generated pages the gate's
 // freshness leg (#132 § 9) compares, and that leg reads the checkout being committed.
 function regenerateCmd() {
@@ -146,4 +185,5 @@ function regenerateCmd() {
 if (cmd === 'list') list(); else if (cmd === 'commit') commit(); else if (cmd === 'universal') universal();
 else if (cmd === 'spec') spec(); else if (cmd === 'regen') regenerateCmd();
 else if (cmd === 'decision') decision(); else if (cmd === 'ref') ref();
-else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake decision … | intake ref … | intake regen');
+else if (cmd === 'design') design(); else if (cmd === 'plan') plan(); else if (cmd === 'map') map();
+else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake decision … | intake ref … | intake design … | intake plan … | intake map … | intake regen');

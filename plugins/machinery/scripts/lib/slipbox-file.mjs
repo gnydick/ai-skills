@@ -3,10 +3,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pending, setDisposition } from './inbox.mjs';
-import { parseFrontmatter } from './frontmatter.mjs';
+import { parseFrontmatter, setFrontmatter } from './frontmatter.mjs';
+import { section } from './embed.mjs';
 import { slipboxPaths, stampToId } from './layout.mjs';
 import { loadSlipbox, inForce, readStructure } from './slipbox.mjs';
-import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, placeLink, placeRef, dropSupersededLinks, swapEmbed, dropEmbed, syncGenerated } from './slipbox-write.mjs';
+import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, placeHeadingEmbed, placeLink, placeRef, dropSupersededLinks, swapEmbed, dropEmbed, syncGenerated } from './slipbox-write.mjs';
 import { unmigrated, describeUnmigrated } from './unmigrated.mjs';
 import { commitPaths } from './commit.mjs';
 
@@ -116,4 +117,70 @@ export function fileRef({ repo, subsystem, target }) {
   const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null;
   if (cur === null || !readStructure(cur).refs.includes(href)) writeText(f, placeRef(cur, subsystem, path.basename(abs), href));
   return { href, generated: syncGenerated(repo, loadSlipbox(repo)) };
+}
+
+// #132 § 10. The superpowers plugin keeps writing where it writes; these file its output in place.
+function superpowersFile(repo, file, which) {
+  const p = slipboxPaths(repo);
+  const abs = path.resolve(repo, file);
+  const dir = which === 'plans' ? p.spPlans : p.spSpecs;
+  if (path.dirname(abs) !== dir || !abs.endsWith('.md')) throw new Error(`${file} is not a file directly under ${rel(repo, dir)}/`);
+  const text = fs.readFileSync(abs, 'utf8');
+  return { abs, text, data: parseFrontmatter(text).data ?? {} };
+}
+
+export function fileDesign({ repo, file, subsystems = [], supersedes = [], ticket = null }) {
+  const f = superpowersFile(repo, file, 'specs');
+  if (f.data.kind) throw new Error(`${file} is already filed as ${f.data.kind}`);
+  const box = loadSlipbox(repo);
+  for (const s of supersedes) if (box.notes.get(s)?.kind !== 'design') throw new Error(`--supersedes ${s}: not a design note`);
+  writeText(f.abs, setFrontmatter(f.text, { kind: 'design', status: 'draft', ...(subsystems.length ? { subsystems } : {}), ...(ticket ? { ticket } : {}), ...(supersedes.length ? { supersedes } : {}) }));
+}
+
+export function approveDesign({ repo, file }) {
+  const f = superpowersFile(repo, file, 'specs');
+  // 'unfiled'/'unset', not the issue-tracking state words: only lib/layout.mjs spells those
+  // (issue-tracking-names.test.mjs scans scripts/ for a second spelling).
+  if (f.data.kind !== 'design' || f.data.status !== 'draft') throw new Error(`${file} is not a draft design note (kind ${f.data.kind ?? 'unfiled'}, status ${f.data.status ?? 'unset'})`);
+  writeText(f.abs, setFrontmatter(f.text, { status: 'approved' }));
+  const replaced = listOf(f.data.supersedes);
+  const box = loadSlipbox(repo);
+  for (const [sub, st] of box.structures) {
+    const next = st.text.split('\n').filter((l) => !replaced.some((old) => l.trim().startsWith(`![[${old}#`))).join('\n');
+    if (next !== st.text) writeText(path.join(box.paths.structure, `${sub}.md`), next);
+  }
+  return { id: path.basename(f.abs, '.md'), subsystems: listOf(f.data.subsystems), generated: syncGenerated(repo, loadSlipbox(repo)) };
+}
+
+// D9: only a decision, owner-constraint or principle heading is embedded. The gate cannot judge
+// that; the command's output names the heading so the owner sees it.
+export function embedDesign({ repo, file, subsystem, topic, heading }) {
+  const f = superpowersFile(repo, file, 'specs');
+  if (f.data.kind !== 'design' || f.data.status !== 'approved') throw new Error(`${file} is ${f.data.kind ?? 'unfiled'}${f.data.status ? ` (${f.data.status})` : ''}: only an approved design note is embedded`);
+  if (section(parseFrontmatter(f.text).body, heading) === null) throw new Error(`${file} has no heading '${heading}'`);
+  const st = path.join(slipboxPaths(repo).structure, `${subsystem}.md`);
+  const cur = fs.existsSync(st) ? fs.readFileSync(st, 'utf8') : null;
+  const id = path.basename(f.abs, '.md');
+  if (!(cur ?? '').includes(`![[${id}#${heading}]]`)) writeText(st, placeHeadingEmbed(cur, subsystem, { id, heading, topic }));
+  return { generated: syncGenerated(repo, loadSlipbox(repo)) };
+}
+
+export function filePlan({ repo, file, ticket }) {
+  const f = superpowersFile(repo, file, 'plans');
+  if (f.data.kind) throw new Error(`${file} is already filed as ${f.data.kind}`);
+  if (!ticket) throw new Error('a plan is filed with its ticket: --ticket <n>');
+  writeText(f.abs, setFrontmatter(f.text, { kind: 'plan', ticket, status: 'in-progress' }));
+}
+
+export function closePlan({ repo, file, status }) {
+  const f = superpowersFile(repo, file, 'plans');
+  if (!['done', 'abandoned'].includes(status)) throw new Error(`--status is done or abandoned, not '${status}'`);
+  if (f.data.kind !== 'plan' || f.data.status !== 'in-progress') throw new Error(`${file} is not an in-progress plan (kind ${f.data.kind ?? 'unfiled'}, status ${f.data.status ?? 'unset'})`);
+  writeText(f.abs, setFrontmatter(f.text, { status }));
+}
+
+export function fileMap({ repo, file }) {
+  const f = superpowersFile(repo, file, 'specs');
+  if (f.data.kind) throw new Error(`${file} is already filed as ${f.data.kind}`);
+  writeText(f.abs, setFrontmatter(f.text, { kind: 'map' }));
 }
