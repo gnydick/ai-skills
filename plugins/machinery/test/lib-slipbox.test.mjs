@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, dictationQuote, regenerate, staleGenerated, isSupersededDecision } from '../scripts/lib/slipbox.mjs';
+import { flatten } from '../scripts/lib/embed.mjs';
 
 function tree(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'slipbox-'));
@@ -50,6 +51,25 @@ test('readStructure separates embeds, heading embeds, the Why links and the refe
   assert.deepEqual(s.headingEmbeds.map((l) => `${l.id}#${l.heading}`), ['2026-09-02-x-design#Decisions']);
   assert.deepEqual(s.why, ['0002-second']);
   assert.deepEqual(s.refs, ['../../superpowers/models/p.html']);
+});
+
+// A structure text where a list-item embed, a mid-line embed and a fenced embed and heading are not
+// whole-line embeds outside code; only `![[d]]` and `![[e#H]]` are.
+const MIXED = '# s\n\n## Rules\n\n- ![[a]]\nsee ![[b]] here\n\n```md\n![[c]]\n## Why it is this way\n```\n\n![[d]]\n\n![[e#H]]\n';
+const MIXED_NOTES = Object.fromEntries(['a', 'b', 'c', 'd', 'e'].map((id) => [id, { body: `# ${id}\n\n## H\n\nh\n`, title: id, href: `${id}.md`, label: `<<${id}>>` }]));
+
+test('readStructure counts only whole-line embeds outside code, and a fenced heading switches no section', () => {
+  const s = readStructure(MIXED);
+  assert.deepEqual(s.embeds, ['d']);
+  assert.deepEqual(s.headingEmbeds.map((l) => `${l.id}#${l.heading}`), ['e#H']);
+  assert.deepEqual(s.why, []);
+  assert.deepEqual(s.links.map((l) => l.id), ['a', 'b']);
+});
+
+test('the embeds readStructure reports are exactly the ones flatten expands', () => {
+  const s = readStructure(MIXED);
+  const expanded = [...flatten(MIXED, (id) => MIXED_NOTES[id] ?? null).matchAll(/<<(\w+)>>/g)].map((m) => m[1]);
+  assert.deepEqual([...s.embeds, ...s.headingEmbeds.map((l) => l.id)].sort(), expanded.sort());
 });
 
 test('dictationQuote is the contiguous block quote of a dictation note', () => {

@@ -30,7 +30,7 @@ function fenced(lines) {
 // span (CommonMark: a run of n backticks, closed by the next run of exactly n; a run with no match
 // is literal text) may run across the lines of one paragraph, never across a blank line, a heading
 // or a fence.
-function codeMask(text) {
+function codeMask(text, lines, code) {
   const mask = new Uint8Array(text.length);
   const spans = (from, to) => {
     const runs = [...text.slice(from, to).matchAll(/`+/g)];
@@ -41,8 +41,6 @@ function codeMask(text) {
       a = b;
     }
   };
-  const lines = text.split('\n');
-  const code = fenced(lines);
   let at = 0;
   let para = null;
   lines.forEach((l, k) => {
@@ -62,43 +60,55 @@ function codeMask(text) {
 
 const inCode = (mask, from, length) => mask.subarray(from, from + length).some(Boolean);
 
+// One record per line of `text`, read the way flatten reads it. flatten, section, links and any
+// caller that must count what flatten will expand all read through this, so they cannot disagree.
+// - fenced: the line is a fence or inside a fenced block; nothing else is read from it.
+// - heading: { level, text } for a heading outside fences, else null.
+// - embed: { embed, id, heading, raw, index } when the line is nothing but one embed outside code;
+//   flatten expands exactly these lines.
+// - links: every other link on the line outside code, each with its `index` in the line; flatten
+//   rewrites exactly these to Markdown links, a mid-line `![[x]]` included.
+export function scan(text) {
+  const lines = text.split('\n');
+  const code = fenced(lines);
+  const mask = codeMask(text, lines, code);
+  let at = 0;
+  return lines.map((line, k) => {
+    const start = at;
+    at += line.length + 1;
+    const found = code[k] ? [] : [...line.matchAll(LINK_RE)]
+      .filter((m) => !inCode(mask, start + m.index, m[0].length))
+      .map((m) => ({ embed: m[1] === '!', id: m[2].trim(), heading: m[3]?.trim() ?? null, raw: m[0], index: m.index }));
+    const h = !code[k] && HEADING.exec(line);
+    const embed = EMBED_LINE.test(line) && found.length === 1 && found[0].embed ? found[0] : null;
+    return { line, fenced: code[k], heading: h ? { level: h[1].length, text: h[2] } : null, embed, links: embed ? [] : found };
+  });
+}
+
 export function links(text) {
-  const mask = codeMask(text);
-  return [...text.matchAll(LINK_RE)]
-    .filter((m) => !inCode(mask, m.index, m[0].length))
-    .map((m) => ({ embed: m[1] === '!', id: m[2].trim(), heading: m[3]?.trim() ?? null, raw: m[0] }));
+  return scan(text).flatMap((r) => (r.embed ? [r.embed] : r.links)).map(({ index, ...l }) => l);
 }
 
 // The heading line through the line before the next heading of the same or higher level.
 export function section(body, heading) {
-  const lines = body.split('\n');
-  const code = fenced(lines);
-  const i = lines.findIndex((l, k) => !code[k] && HEADING.exec(l)?.[2] === heading);
+  const rows = scan(body);
+  const i = rows.findIndex((r) => r.heading?.text === heading);
   if (i < 0) return null;
-  const level = /^(#+)/.exec(lines[i])[1].length;
+  const level = rows[i].heading.level;
   let j = i + 1;
-  while (j < lines.length) {
-    const m = !code[j] && /^(#{1,6})\s/.exec(lines[j]);
-    if (m && m[1].length <= level) break;
-    j++;
-  }
-  return lines.slice(i, j).join('\n').replace(/\n+$/, '');
+  while (j < rows.length && !(rows[j].heading && rows[j].heading.level <= level)) j++;
+  return rows.slice(i, j).map((r) => r.line).join('\n').replace(/\n+$/, '');
 }
 
 // A line that is only an embed is replaced by the resolver's label line and the expanded text, set
 // off by one blank line before and after. Any other link becomes a Markdown link to the resolver's
 // href.
 export function flatten(text, resolve, stack = []) {
-  const mask = codeMask(text);
   const out = [];
   const blank = (l) => !l.trim();
   let afterEmbed = false;
-  let at = 0;
-  text.split('\n').forEach((line) => {
-    const start = at;
-    at += line.length + 1;
-    const [l] = EMBED_LINE.test(line) && !inCode(mask, start, line.length) ? links(line) : [];
-    if (l?.embed) {
+  for (const { line, embed: l, links: found } of scan(text)) {
+    if (l) {
       const key = l.heading ? `${l.id}#${l.heading}` : l.id;
       if (stack.includes(l.id)) throw new Error(`embed cycle: ${[...stack, l.id].join(' → ')}`);
       const t = resolve(l.id);
@@ -109,17 +119,18 @@ export function flatten(text, resolve, stack = []) {
       out.push(t.label);
       if (part) out.push('', ...flatten(part, resolve, [...stack, l.id]).split('\n'));
       afterEmbed = true;
-      return;
+      continue;
     }
     if (afterEmbed && !blank(line)) out.push('');
     afterEmbed = false;
+    const rewrite = new Set(found.map((f) => f.index));
     out.push(line.replace(LINK_RE, (raw, bang, id, heading, i) => {
-      if (inCode(mask, start + i, raw.length)) return raw;
+      if (!rewrite.has(i)) return raw;
       const t = resolve(id.trim());
       if (!t) throw new Error(`link to unknown note ${id.trim()}`);
       return `[${t.title}${heading ? ` § ${heading.trim()}` : ''}](${t.href})`;
     }));
-  });
+  }
   return out.join('\n');
 }
 

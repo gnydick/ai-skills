@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter } from './frontmatter.mjs';
-import { links, flatten, rebaseLinks } from './embed.mjs';
+import { scan, flatten, rebaseLinks } from './embed.mjs';
 import { slipboxPaths } from './layout.mjs';
 
 export const WHY = 'Why it is this way';
@@ -84,17 +84,19 @@ export function subsystemsOf(box, live = inForce(box)) {
   return [...s].sort();
 }
 
+// Read through embed.mjs's scan, the reading flatten uses: a section switches only at a `## ` heading
+// outside fences, an embed is a whole-line embed outside code (in any section), and nothing inside
+// code is counted. So `embeds` and `headingEmbeds` are exactly what the generated page expands.
 export function readStructure(text) {
   const out = { embeds: [], headingEmbeds: [], why: [], refs: [], links: [] };
   let sec = null;
-  for (const line of text.split('\n')) {
-    const h = /^## (.+?)\s*$/.exec(line);
-    if (h) { sec = h[1]; continue; }
-    if (sec === REFS) { for (const m of line.matchAll(/\]\(([^)\s]+)\)/g)) out.refs.push(m[1]); continue; }
-    for (const l of links(line)) {
+  for (const r of scan(text)) {
+    if (r.heading?.level === 2) { sec = r.heading.text; continue; }
+    if (r.fenced) continue;
+    if (r.embed) { if (r.embed.heading) out.headingEmbeds.push(r.embed); else out.embeds.push(r.embed.id); continue; }
+    if (sec === REFS) { for (const m of r.line.matchAll(/\]\(([^)\s]+)\)/g)) out.refs.push(m[1]); continue; }
+    for (const l of r.links) {
       if (sec === WHY) out.why.push(l.id);
-      else if (l.embed && l.heading) out.headingEmbeds.push(l);
-      else if (l.embed) out.embeds.push(l.id);
       else out.links.push(l);
     }
   }
