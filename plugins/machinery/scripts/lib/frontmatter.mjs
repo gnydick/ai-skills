@@ -2,13 +2,13 @@
 // slip box writes (#132 § 4): `key: value` lines, where a value is a plain string or a `[a, b]` list.
 // Not YAML: no nesting, no quoting, no anchors. renderFrontmatter refuses any value that
 // parseFrontmatter would read back differently, so a round trip is exact by construction.
-const BLOCK = /^---\r?\n([\s\S]*?)\r?\n?---(?:\r?\n|$)/;
+const BLOCK = /^---\r?\n(?:([\s\S]*?)\r?\n)?---(?:\r?\n|$)/;
 
 export function parseFrontmatter(text) {
   const m = BLOCK.exec(text);
   if (!m) return { data: null, body: text };
   const data = {};
-  for (const line of m[1].split(/\r?\n/)) {
+  for (const line of (m[1] ?? '').split(/\r?\n/)) {
     if (!line.trim() || line.trimStart().startsWith('#')) continue;
     const kv = /^([A-Za-z_][\w-]*):[ \t]*(.*?)[ \t]*$/.exec(line);
     if (!kv) throw new Error(`front matter: cannot read line '${line}'`);

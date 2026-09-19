@@ -28,6 +28,12 @@ test('an unwritable value is refused rather than written in a shape that reads b
   for (const bad of ['a, b', 'x#y', 'two\nlines', ' pad', '[x]']) assert.throws(() => renderFrontmatter({ k: bad }), /cannot be written/, bad);
 });
 
+test('a value ending in --- keeps every key in the block and leaves the body untouched', () => {
+  const { data, body } = parseFrontmatter(renderFrontmatter({ title: 'pros---', id: 'a' }) + '# B\n');
+  assert.deepEqual(data, { title: 'pros---', id: 'a' });
+  assert.equal(body, '# B\n');
+});
+
 test('quote then unquote returns awkward text byte for byte', () => {
   const t = 'SPEC: one\n\n  - indented — dash\n> already quoted\n\nC:\\path *x* "q"';
   assert.equal(unquote(quote(t)), t);
