@@ -68,10 +68,11 @@ the one place a future removal adds its entry.
   in any project) and undispositioned spec entries refuse the commit, a filed
   spec outside `docs/dictated-specs/` refuses it, the slip box check refuses an
   edited note, an edited ADR beyond its status line, a changed approved design
-  or finished plan, a new superpowers file without front matter, a dictation
-  note that no longer quotes its inbox entry, a structure note that embeds a
-  superseded note or misses an in-force one, a broken link, a stale generated
-  page, and a note with two successors, and the sweep guard warns
+  or finished plan, a new superpowers file without front matter, a slip box file
+  whose front matter cannot be read, a dictation note that no longer quotes its
+  inbox entry, a structure note that embeds a superseded note or misses an
+  in-force one, a broken link, a stale generated page, and a note with two
+  successors, and the sweep guard warns
   (never blocks) when a documentation-shaped commit adds a brand-new
   non-documentation file; then the recorded `checks.commit`, then `tiers.fast`
   for the recorded components the staged paths touch.

@@ -24,16 +24,18 @@ description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the c
 8. Report one line per entry: the file (and `§ Heading` for a project rule or specification), or dismissed with the reason. Work dispatched on a specification cites it by that path.
 
 ## Which checkout each command writes
-- `spec` and `migrate` run only in the main checkout, and refuse anywhere else. They write the spec inbox, which every worktree shares.
+- `spec`, `commit` and `migrate` run only in the main checkout, and refuse anywhere else. They write the spec inbox or the rule inbox, which every worktree shares.
+- `spec` and `migrate` write the whole slip box into the main checkout: the notes, the structure notes and the generated pages, not only the dictation note.
 - `decision`, `ref`, `design`, `plan`, `map` and `regen` write the checkout you are in, because the gate judges the tree being committed.
-- So on a branch: your dictation note lands in main, your ADR and structure notes land in the worktree. Expect that, and do not go looking for the note on your branch.
+- So on a branch: your dictation note and its structure note land in main, your ADR lands in the worktree. Expect that, and do not go looking for the note on your branch.
 
 ## Filing a SPEC
 - A dictation is one note, written once from the inbox entry and never edited. Change is a new note.
 1. Read `docs/dictated-specs/INDEX.md` and the flat pages in `docs/spec-current/`.
 2. Choose the subsystems (existing, or a new one), the `##` topic, the in-force note it supersedes if any, and whether that change is full or partial.
 3. Partial: write the superseded note's full text with the change applied to a scratchpad file. It becomes the version note, composed by you.
-4. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" spec --stamp <stamp> --subsystems <a,b> --topic "<topic>" --title "<short title>" [--supersedes <id>] [--version <file>]`. It writes the notes, updates the structure notes, regenerates, dispositions and commits with the full dictation in the message.
+4. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" spec --stamp <stamp> --subsystems <a,b> --topic "<topic>" --title "<short title>" [--supersedes <id,…>] [--version <file,…>]`. It writes the notes, updates the structure notes, regenerates, dispositions and commits with the full dictation in the message.
+   `--supersedes` and `--version` are both comma-separated, and `--version` needs one file per superseded id, in the same order; otherwise it refuses with `--version needs one file per --supersedes id, in the same order`.
 5. Show the owner the report: subsystems (new ones marked), topic, the change, and any version note in full.
 6. Refused because a supersede left a subsystem out: `--subsystems` must name every subsystem the superseded note is in, or that subsystem would lose its embed with nothing in its stead. Add them and run again.
 7. Refused as not migrated: stop, and migrate the project first (§ Migrating a project).
@@ -51,8 +53,9 @@ description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the c
 - Write the plan file to this session's scratchpad, never inside the repository: an untracked file there makes `--apply` refuse for a dirty tree, and the recovery command would delete it.
 1. From the main checkout: `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" migrate --plan <scratchpad>/plan.json`.
 2. Fill every `null` and empty list: note titles, subsystems and topics; `supersedes` from the old REVERSED and SUPERSEDED marks; `versions` for partial changes; a resolution for each unsettled heading; each superpowers file's kind and status (only what the owner ratified is `approved`, the rest `historical`); design `embeds`; `decisionLinks`; `refs` for living maps; each reference's `replace` pairs with `reviewed: true`.
-3. `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" migrate --apply <plan>`. It makes two commits, and prints a replacement count per reference file: check each against that file's `matches` in the plan.
-4. Refused for a dirty working tree: commit or discard your own changes first, then run again.
-5. Refused because a note it would write already exists: this plan has been applied. Do not force it; work out what is left and write a fresh plan.
-6. Refused for a `docs/adr` file the migration does not move (anything that is not `.md`): move that file yourself, commit, then run again.
-7. Stopped part-way: the error names the command that undoes it — `git reset --hard && git clean -fd`. Run that, fix the plan, and apply again.
+3. `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" migrate --apply <plan>`. It makes up to two commits — one for the migrated content, one for the removed old spec files — and skips either when that half has nothing to commit, which is what a second migration looks like. It prints a replacement count per reference file: check each against that file's `matches` in the plan.
+4. Refused with `the plan is not ready:` and a list: every `null` and empty list from step 2 that is still unfilled. Fill exactly what it names and run again. This is the refusal a first run usually meets.
+5. Refused for a dirty working tree: commit or discard your own changes first, then run again.
+6. Refused because a note it would write already exists: this plan has been applied. Do not force it; work out what is left and write a fresh plan.
+7. Refused for a `docs/adr` file the migration does not move (anything that is not `.md`): move that file yourself, commit, then run again.
+8. Stopped part-way: run the command the error names, exactly as it names it. It is `git reset --hard && git clean -fd` when nothing was committed, and `git reset --hard HEAD~1 && git clean -fd` once the first commit has landed. Resetting to HEAD when a commit landed leaves a half-migrated repository that refuses the next `--apply`. Then fix the plan and apply again.
