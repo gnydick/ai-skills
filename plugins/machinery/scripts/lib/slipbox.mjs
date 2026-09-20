@@ -9,6 +9,12 @@ import { slipboxPaths } from './layout.mjs';
 
 export const WHY = 'Why it is this way';
 export const REFS = 'References';
+// The note kinds a structure note embeds whole, and which therefore reach a generated page as the
+// current state. `owner` joined them on 2026-09-19 (owner: "Carry them as owner notes"): a ruling
+// the owner typed into an old spec file by hand, transcribed by the migration. It is never
+// captured, so the verbatim leg cannot judge it, but it is in force and embedded like a dictation.
+// Spelled ONCE: the read model, the gate and the migration all place from this one list.
+export const EMBEDDED_KINDS = Object.freeze(['dictation', 'version', 'owner']);
 const ADR_FILE = /^\d{4}-.*\.md$/;
 const toPosix = (p) => p.split(path.sep).join('/');
 const list = (v) => (v == null || v === '' ? [] : Array.isArray(v) ? v : [v]);
@@ -75,7 +81,7 @@ export function expected(box, subsystem, live = inForce(box)) {
     .filter((n) => live.has(n.id) && n.subsystems.includes(subsystem) && pred(n))
     .map((n) => n.id).sort();
   return {
-    embeds: pick((n) => n.kind === 'dictation' || n.kind === 'version'),
+    embeds: pick((n) => EMBEDDED_KINDS.includes(n.kind)),
     designs: pick((n) => n.kind === 'design' && n.status === 'approved'),
     decisions: pick((n) => n.data.kind === 'decision' && !isSupersededDecision(n)),
   };
@@ -84,7 +90,7 @@ export function expected(box, subsystem, live = inForce(box)) {
 export function subsystemsOf(box, live = inForce(box)) {
   const s = new Set(box.structures.keys());
   for (const n of box.notes.values()) {
-    const counts = ['dictation', 'version'].includes(n.kind) || (n.kind === 'design' && n.status === 'approved');
+    const counts = EMBEDDED_KINDS.includes(n.kind) || (n.kind === 'design' && n.status === 'approved');
     if (counts && live.has(n.id)) for (const x of n.subsystems) s.add(x);
   }
   return [...s].sort();

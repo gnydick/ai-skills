@@ -22,6 +22,19 @@ export function dictationNote({ id, subsystems, supersedes = [], title, text }) 
   return `${renderFrontmatter(fm)}# ${title}\n\n${quote(text)}${tail}\n`;
 }
 
+// An OWNER note (owner, 2026-09-19: "Carry them as owner notes"). The owner's own ruling, typed
+// into an old spec file by hand and never captured, so NO inbox entry holds its words and gate
+// leg 2 can never prove it verbatim. The words are carried anyway — the alternative measured on
+// ferrislicer was commit 2 deleting twelve of them — and the note's own first line tells the
+// reader exactly what the machinery could not check. `source` is the file and heading it came
+// from; after the migration that file is gone, so the source line is where the trail continues.
+export function ownerNote({ id, subsystems, supersedes = [], title, source, text }) {
+  const fm = { id, kind: 'owner', subsystems, ...(supersedes.length ? { supersedes } : {}), source };
+  const tail = supersedes.length ? `\n${supersedes.map((s) => `Supersedes [[${s}]].`).join('\n')}\n` : '';
+  const said = `*Transcribed from ${source}. It was not captured through the \`SPEC:\` marker, so the verbatim check cannot prove it.*`;
+  return `${renderFrontmatter(fm)}# ${title}\n\n${said}\n\n${text.replace(/\n+$/, '')}\n${tail}`;
+}
+
 export function versionNote({ id, subsystems, supersedes, from, text }) {
   const fm = { id, kind: 'version', subsystems, supersedes: [supersedes], from: [from] };
   return `${renderFrontmatter(fm)}*Composed by the assistant from [[${supersedes}]] and [[${from}]]. Not the owner's words.*\n\n${text.replace(/\n+$/, '')}\n\nSupersedes [[${supersedes}]].\n`;

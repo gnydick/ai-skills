@@ -18,12 +18,19 @@ export function parseFrontmatter(text) {
   return { data, body: text.slice(m[0].length) };
 }
 
+// What parseFrontmatter would read back differently, per value. A comma separates a LIST's
+// elements, so an element holding one would come back as two — but a scalar is only read as a list
+// when it is bracketed, so a comma in one round-trips byte for byte. An owner note's `source` is
+// `<file> § <heading>` and the owner's own headings hold commas (#132, 2026-09-19), so the
+// scalar case is spelled as what the round trip can actually prove.
+const UNWRITABLE = { scalar: /[\n\r[\]#]/, element: /[\n\r[\],#]/ };
 export function renderFrontmatter(data) {
   const lines = ['---'];
   for (const [k, v] of Object.entries(data)) {
     if (v === undefined || v === null) continue;
+    const re = Array.isArray(v) ? UNWRITABLE.element : UNWRITABLE.scalar;
     for (const s of Array.isArray(v) ? v : [v]) {
-      if (typeof s !== 'string' || /[\n\r[\],#]/.test(s) || s !== s.trim()) throw new Error(`front matter: ${k} value '${s}' cannot be written in the flat shape`);
+      if (typeof s !== 'string' || re.test(s) || s !== s.trim()) throw new Error(`front matter: ${k} value '${s}' cannot be written in the flat shape`);
     }
     lines.push(`${k}: ${Array.isArray(v) ? `[${v.join(', ')}]` : v}`);
   }

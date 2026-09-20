@@ -7,11 +7,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './git.mjs';
 import { parseInbox, setDisposition } from './inbox.mjs';
-import { slipboxPaths, stampToId, filedPath, subsystemProblem, checkSubsystem } from './layout.mjs';
+import { slipboxPaths, stampToId, filedPath, subsystemProblem, checkSubsystem, insideSpecArea, ownerId, fileNameProblem } from './layout.mjs';
 import { setFrontmatter } from './frontmatter.mjs';
-import { scan } from './embed.mjs';
-import { loadSlipbox, inForce, readStructure, adrStatus, isSupersededDecision } from './slipbox.mjs';
-import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, placeHeadingEmbed, placeLink, placeRef, syncGenerated } from './slipbox-write.mjs';
+import { scan, section, links } from './embed.mjs';
+import { loadSlipbox, inForce, readStructure, adrStatus, isSupersededDecision, readText, EMBEDDED_KINDS } from './slipbox.mjs';
+import { writeOnce, writeText, dictationNote, versionNote, ownerNote, placeEmbed, placeHeadingEmbed, placeLink, placeRef, syncGenerated } from './slipbox-write.mjs';
 import { unmigrated } from './unmigrated.mjs';
 import { commitPaths } from './commit.mjs';
 
@@ -22,7 +22,7 @@ const STATUSES = { design: ['draft', 'approved', 'historical'], plan: ['in-progr
 // `status` null is not a gap to fill: it IS historical, for a design and for a plan alike. An
 // explicit status still wins — this is the default, not an override.
 const DEFAULT_STATUS = 'historical';
-const PLAN_LISTS = ['notes', 'versions', 'unsettled', 'superpowers', 'embeds', 'decisionLinks', 'refs', 'references'];
+const PLAN_LISTS = ['notes', 'versions', 'ownerNotes', 'unsettled', 'superpowers', 'embeds', 'decisionLinks', 'refs', 'references'];
 // Undoing a run that stopped part-way. `git reset --hard`, not `git checkout -- .`: the ADR move
 // is a `git mv`, which stages the rename, and checkout restores the worktree FROM the index, so
 // the move would survive both commands and leave a tree --apply can never accept again. The
@@ -36,6 +36,23 @@ function filedEntries(repo) {
 
 const homeOf = (e) => e.disposition.replace(/^filed\s*→\s*/, '').trim();
 const oldPaths = (u) => u.oldSpecs.map((f) => `docs/dictated-specs/${f}`);
+
+// Which FILED entries this migration must carry into notes. An entry filed into one of the old
+// spec files, of course — and ALSO one filed into a spec-area file that is no longer there.
+// Measured on ferrislicer 2026-09-19: four FILED entries named
+// docs/dictated-specs/extruder-ownership-and-assignment.md, deleted long ago, and the existence
+// filter dropped all four in silence — no note, no unsettled row, no refusal. Their words are in
+// the inbox, so carrying them guesses nothing. An entry filed into a file that IS on disk and is
+// not an old spec file (a note from an earlier migration) is already home and is not carried.
+function carriedEntries(repo, oldRel) {
+  const specs = slipboxPaths(repo).specs;
+  return filedEntries(repo).filter((e) => {
+    const home = filedPath(e.disposition);
+    if (!home) return false;
+    return oldRel.includes(home) || (insideSpecArea(repo, specs, home) && !fs.existsSync(path.join(repo, home)));
+  });
+}
+const homeIsGone = (repo, e) => !fs.existsSync(path.join(repo, filedPath(e.disposition)));
 // An unsettled row names a heading, or the whole file when the file has no heading to name.
 const where = (x) => (x.heading ? `${x.file} § ${x.heading}` : x.file);
 
@@ -56,7 +73,7 @@ function versionIds(plan) {
 
 export function buildPlan(repo, u = unmigrated(repo)) {
   const oldRel = oldPaths(u);
-  const entries = filedEntries(repo).filter((e) => oldRel.includes(filedPath(e.disposition)));
+  const entries = carriedEntries(repo, oldRel);
   const homes = new Set(entries.map(homeOf));
   // A file whose only heading is its `#` title yields no unsettled row, and with no FILED entry
   // pointing at it, no note either — yet commit 2 deletes it and builds its message body from this
@@ -84,8 +101,15 @@ export function buildPlan(repo, u = unmigrated(repo)) {
   }
   return {
     version: 1,
-    notes: entries.map((e) => ({ stamp: e.stamp, oldHome: homeOf(e), preview: e.text.slice(0, 160), title: null, subsystems: [], topic: null, supersedes: [] })),
+    // `oldHomeMissing` is the flag for a row whose old home is already gone: there is no file to
+    // read the surrounding context from, only the inbox entry itself.
+    notes: entries.map((e) => ({ stamp: e.stamp, oldHome: homeOf(e), oldHomeMissing: homeIsGone(repo, e), preview: e.text.slice(0, 160), title: null, subsystems: [], topic: null, supersedes: [] })),
     versions: [],
+    // Left EMPTY on purpose, and never invented here: buildPlan cannot know which of an old spec
+    // file's headings are the owner's own rulings and which are assistant prose. Every uncarried
+    // heading shows up in `unsettled`; the AI moves the owner's rulings across into this list
+    // (owner, 2026-09-19: "Carry them as owner notes").
+    ownerNotes: [],
     unsettled,
     // Exactly the files unmigrated() counts, so a file the migration does not move can never be
     // both moved and read back as a reference afterwards.
@@ -117,6 +141,7 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   const named = [
     ...plan.notes.flatMap((n) => n.subsystems ?? []),
     ...plan.versions.flatMap((v) => v.subsystems ?? []),
+    ...plan.ownerNotes.flatMap((o) => o.subsystems ?? []),
     ...plan.superpowers.flatMap((s) => s.subsystems ?? []),
     ...plan.embeds.map((e) => e.subsystem),
     ...plan.decisionLinks.map((d) => d.subsystem),
@@ -136,9 +161,14 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   const planStamps = new Set(plan.notes.map((n) => n.stamp));
   // The mirror of the staleness check above: commit 2 deletes the old spec files, so a FILED entry
   // whose home is one of them and which no plan row carries would be orphaned, pointing at nothing.
+  // An entry whose home is already gone is orphaned ALREADY, and is refused in the same breath —
+  // the check is over exactly the entries buildPlan carries, so neither can be dropped in silence.
   const oldRel = oldPaths(u);
-  for (const e of entries) {
-    if (oldRel.includes(filedPath(e.disposition)) && !planStamps.has(e.stamp)) out.push(`note ${e.stamp}: filed into ${filedPath(e.disposition)}, which this migration removes, but no plan entry carries it — run migrate --plan again`);
+  for (const e of carriedEntries(repo, oldRel)) {
+    if (planStamps.has(e.stamp)) continue;
+    const home = filedPath(e.disposition);
+    const why = oldRel.includes(home) ? 'which this migration removes' : 'which no longer exists';
+    out.push(`note ${e.stamp}: filed into ${home}, ${why}, but no plan entry carries it — run migrate --plan again`);
   }
   for (const n of plan.notes) {
     if (!stamps.has(n.stamp)) out.push(`note ${n.stamp}: no FILED spec-inbox entry`);
@@ -146,7 +176,31 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   }
 
   const box = loadSlipbox(repo);
-  const known = new Set([...box.notes.keys(), ...plan.notes.map((n) => stampToId(n.stamp))]);
+  // Owner notes (owner, 2026-09-19: "Carry them as owner notes"). The AI writes these rows by
+  // hand, and each becomes a note that is never edited afterwards, so every one of them is
+  // pre-flighted here: the id, the words, and what it supersedes.
+  const ownerRows = plan.ownerNotes.map((o) => ({ o, id: o.heading == null ? null : ownerId(o.heading), at: `owner note ${o.file ?? '?'} § ${o.heading ?? '?'}` }));
+  const known = new Set([...box.notes.keys(), ...plan.notes.map((n) => stampToId(n.stamp)), ...ownerRows.map((r) => r.id).filter(Boolean)]);
+  const seenOwner = new Set();
+  for (const { o, id, at } of ownerRows) {
+    if (!o.file || !o.heading) { out.push(`${at}: file and heading are required — an owner note is transcribed from one heading of one old spec file`); continue; }
+    if (!o.title || !o.topic || !o.subsystems?.length) out.push(`${at}: title, topic and subsystems are required`);
+    if (!id) { out.push(`${at}: no id can be derived from that heading — nothing of it survives as a file name`); continue; }
+    const badId = fileNameProblem(id, 'note id');
+    if (badId) out.push(`${at}: ${badId}`);
+    if (seenOwner.has(id)) out.push(`${at}: two rows would be written to the note ${id} — one of them needs a heading of its own`);
+    seenOwner.add(id);
+    for (const s of o.supersedes ?? []) if (!known.has(s)) out.push(`${at}: supersedes ${s}, which is no note in this plan or in the slip box`);
+    if (!oldRel.includes(o.file)) { out.push(`${at}: not one of the old spec files this migration removes${oldRel.length ? ` (${oldRel.join(', ')})` : ''}`); continue; }
+    const text = readText(path.join(repo, o.file));
+    if (section(text, o.heading) === null) out.push(`${at}: ${o.file} has no heading '${o.heading}'`);
+    // The words are the owner's, so they are COPIED from that file, never retyped. A row whose
+    // text is not in the file is the one thing gate leg 2 can never catch afterwards.
+    if (typeof o.text !== 'string' || !o.text.trim() || !text.includes(o.text)) out.push(`${at}: its text is not in ${o.file} byte for byte — an owner note is copied from that file, never retyped`);
+    // A [[link]] the slip box will not resolve would make gate leg 4 refuse the migration's own
+    // commit, and leg 1 then freezes the note, so there is no legal edit out of it.
+    for (const l of links(typeof o.text === 'string' ? o.text : '')) if (!known.has(l.id)) out.push(`${at}: its text links [[${l.id}]], which is no note — remove that link or the gate refuses the migration's own commit`);
+  }
   for (const { v, from, id } of versionIds(plan)) {
     if (!v.from || !v.supersedes || !v.topic || !v.text || !v.subsystems?.length) { out.push(`version from ${v.from ?? '?'}: from, supersedes, subsystems, topic and text are required`); continue; }
     if (!known.has(from)) out.push(`version from ${v.from}: no note ${from} in this plan or in the slip box`);
@@ -155,7 +209,7 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   }
   // A note is written once, so an already-applied plan refuses HERE, before anything is touched,
   // rather than throwing out of writeOnce with half the migration on disk.
-  for (const id of [...plan.notes.map((n) => stampToId(n.stamp)), ...versionIds(plan).map((x) => x.id)]) {
+  for (const id of [...plan.notes.map((n) => stampToId(n.stamp)), ...versionIds(plan).map((x) => x.id), ...seenOwner]) {
     const f = path.join(p.notes, `${id}.md`);
     if (fs.existsSync(f)) out.push(`note ${id}: ${toPosix(path.relative(repo, f))} already exists — a note is written once; this plan has already been applied`);
   }
@@ -167,6 +221,9 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   for (const file of oldRel) {
     if (entries.some((e) => filedPath(e.disposition) === file)) continue;
     if (plan.unsettled.some((x) => x.file === file)) continue;
+    // An owner note carries it too: a file whose every heading is one of the owner's own rulings
+    // has no unsettled row left once the AI has moved them all across.
+    if (plan.ownerNotes.some((o) => o.file === file)) continue;
     out.push(`old spec ${file}: no note and no unsettled row carries it, but commit 2 deletes it — run migrate --plan again`);
   }
   for (const s of plan.superpowers) {
@@ -217,10 +274,10 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
 
   // A note already in the slip box but not yet embedded has no topic in THIS plan, so the
   // migration cannot place it: it would splice a `## undefined` heading. Caught before any write.
-  const topics = new Set([...plan.notes.map((n) => stampToId(n.stamp)), ...versionIds(plan).map((x) => x.id)]);
+  const topics = new Set([...plan.notes.map((n) => stampToId(n.stamp)), ...versionIds(plan).map((x) => x.id), ...seenOwner]);
   const live = inForce(box);
   for (const n of box.notes.values()) {
-    if (!['dictation', 'version'].includes(n.kind) || !live.has(n.id) || topics.has(n.id)) continue;
+    if (!EMBEDDED_KINDS.includes(n.kind) || !live.has(n.id) || topics.has(n.id)) continue;
     for (const sub of n.subsystems) {
       const f = path.join(p.structure, `${sub}.md`);
       const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
@@ -272,6 +329,13 @@ function applyChanges(repo, plan, u, done) {
     topic.set(id, v.topic);
     touched.add(note(id));
   }
+  // The owner's own rulings, transcribed from the old spec file before commit 2 removes it.
+  for (const o of plan.ownerNotes) {
+    const id = ownerId(o.heading);
+    writeOnce(note(id), ownerNote({ id, subsystems: o.subsystems, supersedes: o.supersedes ?? [], title: o.title, source: `${o.file} § ${o.heading}`, text: o.text }));
+    topic.set(id, o.topic);
+    touched.add(note(id));
+  }
 
   if (u.adr) {
     fs.mkdirSync(p.decisions, { recursive: true });
@@ -321,7 +385,7 @@ function applyChanges(repo, plan, u, done) {
   const cur = (sub) => (fs.existsSync(structure(sub)) ? fs.readFileSync(structure(sub), 'utf8') : null);
   // Each placement happens only when the structure note does not already hold it, exactly as
   // fileSpec, fileDecision and fileRef do: migrating a project twice places nothing twice.
-  for (const n of [...box.notes.values()].filter((x) => ['dictation', 'version'].includes(x.kind) && live.has(x.id)).sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const n of [...box.notes.values()].filter((x) => EMBEDDED_KINDS.includes(x.kind) && live.has(x.id)).sort((a, b) => a.id.localeCompare(b.id))) {
     for (const sub of n.subsystems) {
       if ((cur(sub) ?? '').includes(`![[${n.id}]]`)) continue;
       const t = topic.get(n.id);

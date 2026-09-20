@@ -104,21 +104,27 @@ export function slipboxCheck({ specInbox }) {
   const unreadable = owned.filter((n) => n.error).map((n) => `${n.rel} has front matter this reader cannot read — ${n.error}; fix the --- block`);
   leg(unreadable.length, owned.length + box.structures.size, 'slip box file(s) whose front matter cannot be read (must be 0)', unreadable);
 
-  // Leg 2 — verbatim. Every file under notes/ is a dictation or version note, and a dictation note
-  // quotes its FILED inbox entry byte for byte.
+  // Leg 2 — verbatim. Every file under notes/ is a dictation, a version or an owner note, and a
+  // dictation note quotes its FILED inbox entry byte for byte.
+  //
+  // An OWNER note is skipped, denominator included (owner, 2026-09-19: "Carry them as owner
+  // notes"). It was transcribed from an old spec file the owner typed by hand, so BY DEFINITION it
+  // has no inbox entry and this leg can never prove it: the note says so in its own first line.
+  // Leg 1 still freezes it — an owner note is never edited — and leg 3 still demands its embed.
   const entries = fs.existsSync(specInbox) ? parseInbox(fs.readFileSync(specInbox, 'utf8')) : [];
   const filed = new Map(entries.filter((e) => e.state === 'FILED').map((e) => [e.stamp, e.text]));
   const inNotes = [...box.notes.values()].filter((n) => n.rel.startsWith(path.relative(repo, box.paths.notes).split(path.sep).join('/') + '/'));
+  const unjudgeable = (n) => ['version', 'owner'].includes(n.kind);
   const verbatim = inNotes.flatMap((n) => {
-    if (n.kind === 'version') return [];
-    if (n.kind !== 'dictation') return [`${n.rel} is under notes/ but is neither a dictation nor a version note${n.error ? ` (${n.error})` : ''}`];
+    if (unjudgeable(n)) return [];
+    if (n.kind !== 'dictation') return [`${n.rel} is under notes/ but is neither a dictation, a version nor an owner note${n.error ? ` (${n.error})` : ''}`];
     const want = filed.get(idToStamp(n.id));
     if (want === undefined) return [`${n.rel} has no FILED spec-inbox entry with stamp ${idToStamp(n.id)} — a dictation note is written only by intake.mjs spec`];
     let got = null;
     try { const q = dictationQuote(n.body); got = q === null ? null : unquote(q); } catch {}
     return got === want ? [] : [`${n.rel} does not quote its inbox entry ${idToStamp(n.id)} byte for byte — restore it from the inbox; a dictation note is never edited`];
   });
-  leg(verbatim.length, inNotes.filter((n) => n.kind !== 'version').length, 'dictation note(s) not verbatim (must be 0)', verbatim);
+  leg(verbatim.length, inNotes.filter((n) => !unjudgeable(n)).length, 'dictation note(s) not verbatim (must be 0)', verbatim);
 
   // Leg 3 — membership (#132 § 5).
   const why = (id) => {

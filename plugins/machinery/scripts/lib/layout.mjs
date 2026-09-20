@@ -108,19 +108,33 @@ export const ADR_DIR = 'adr';
 // writes. The illegal set is Windows's, which is the stricter of the two; '.' and '..' are path
 // segments that are not names, and a trailing dot or space is a name Windows cannot create.
 const ILLEGAL_IN_A_FILENAME = /[\\/:*?"<>|\u0000-\u001f]/;
-export function subsystemProblem(name) {
+// Generic: is `name` writable as one file name? A subsystem is one (structure/<name>.md) and so is
+// a note id (notes/<id>.md), and both are refused BEFORE anything is written, so `what` names the
+// thing in the message rather than each caller spelling the test again.
+export function fileNameProblem(name, what = 'name') {
   const s = typeof name === 'string' ? name : String(name ?? '');
-  const bad = (why) => `subsystem '${s}': ${why}`;
-  if (!s.trim()) return bad('a subsystem name may not be empty');
-  if (ILLEGAL_IN_A_FILENAME.test(s)) return bad('a subsystem is one path segment — no / \\ : * ? " < > | or control character');
-  if (s === '.' || s === '..') return bad('a subsystem is one path segment, not \'.\' or \'..\'');
-  if (/[. ]$/.test(s)) return bad('a subsystem may not end in a dot or a space — no such file name exists on Windows');
+  const bad = (why) => `${what} '${s}': ${why}`;
+  if (!s.trim()) return bad(`a ${what} may not be empty`);
+  if (ILLEGAL_IN_A_FILENAME.test(s)) return bad(`a ${what} is one path segment — no / \\ : * ? " < > | or control character`);
+  if (s === '.' || s === '..') return bad(`a ${what} is one path segment, not '.' or '..'`);
+  if (/[. ]$/.test(s)) return bad(`a ${what} may not end in a dot or a space — no such file name exists on Windows`);
   return null;
 }
+export const subsystemProblem = (name) => fileNameProblem(name, 'subsystem');
 export function checkSubsystem(name) {
   const problem = subsystemProblem(name);
   if (problem) throw new Error(problem);
   return name;
+}
+
+// An OWNER note's id (#132; owner, 2026-09-19: "Carry them as owner notes"). Such a note was typed
+// into an old spec file by hand, never captured, so it has no stamp to take an id from: the id is
+// derived from the heading it was transcribed from. The `owner-` prefix keeps it out of the stamp
+// ids' space — a stamp id always begins with a digit — and the slug is a legal file name by
+// construction. null when nothing of the heading survives, which the caller refuses.
+export function ownerId(heading) {
+  const slug = String(heading ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug ? `owner-${slug}` : null;
 }
 
 // A capture stamp as a note id: ':' is illegal in a Windows filename (#132 § 3).

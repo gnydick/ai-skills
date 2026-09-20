@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { makeRepo } from './helpers/repo.mjs';
-import { runScript } from './helpers/run.mjs';
+import { runScript, PLUGIN } from './helpers/run.mjs';
 import { formatEntry } from '../scripts/lib/inbox.mjs';
 import { unmigrated } from '../scripts/lib/unmigrated.mjs';
 
@@ -41,6 +41,26 @@ function oldProject() {
   return r;
 }
 const planFile = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plan-')), 'plan.json');
+
+// Owner ruling (Gabe, 2026-09-19): "Carry them as owner notes". Twelve of ferrislicer's rulings
+// were typed into an old spec file by hand and never captured through `SPEC:`, so no inbox entry
+// holds their words and commit 2 would have deleted them. One such section, here:
+const HEADING = 'D. Ruling (Gabe, 2026-09-19)';
+const RULING = 'extruder_offset is read at tool change and applied on one side only.';
+const OWNER = 'owner-d-ruling-gabe-2026-09-19';
+const COLLISION = 'docs/dictated-specs/collision.md';
+function withRuling(r) {
+  write(r.root, COLLISION, read(r.root, COLLISION) + `\n### ${HEADING}\n\n${RULING}\n`);
+  g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'a ruling the owner typed by hand');
+}
+const ownerRow = (over = {}) => ({ file: COLLISION, heading: HEADING, title: 'extruder_offset is applied on one side only', subsystems: ['extruders'], topic: 'Defaults', supersedes: [], text: RULING, ...over });
+// The AI moves the heading out of `unsettled` — where buildPlan leaves every uncarried heading —
+// into `ownerNotes`. buildPlan cannot make that judgement itself.
+function asOwnerNote(p, over = {}) {
+  p.unsettled = p.unsettled.filter((u) => u.heading !== HEADING);
+  p.ownerNotes.push(ownerRow(over));
+  return p;
+}
 
 function fill(p) {
   const byStamp = Object.fromEntries(p.notes.map((n) => [n.stamp, n]));
@@ -497,4 +517,153 @@ test('RED CHECK: a superpowers row with no status migrates as historical, and an
     assert.match(read(r.root, 'docs/superpowers/specs/2026-06-21-hub-design.md'), /kind: design\nstatus: historical\n/);
     assert.match(read(r.root, 'docs/superpowers/plans/2026-06-21-hub.md'), /kind: plan\nstatus: done\n/);
   } finally { r.cleanup(); }
+});
+
+// Ferrislicer trial, ruling 1 (Gabe, 2026-09-19: "Carry them as owner notes"). The words are the
+// owner's, typed into the old spec file; nothing captured them, so the verbatim leg can never
+// cover them. They are carried anyway, byte for byte, saying in their own first line what could
+// not be proved — and they are in force and embedded exactly like a dictation note.
+test('RED CHECK: a hand-typed ruling migrates as an owner note — transcribed, in force, embedded, and the gate accepts it', () => {
+  const r = oldProject();
+  try {
+    withRuling(r);
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const skeleton = JSON.parse(fs.readFileSync(out, 'utf8'));
+    // buildPlan does NOT invent these rows: it cannot know which headings are the owner's rulings.
+    assert.deepEqual(skeleton.ownerNotes, []);
+    assert.ok(skeleton.unsettled.some((u) => u.heading === HEADING), 'the heading shows up as unsettled until the AI moves it');
+    // It supersedes the later dictation, as ferrislicer's § 8.A reverses the note the page shows.
+    fs.writeFileSync(out, JSON.stringify(asOwnerNote(fill(skeleton), { supersedes: ['2026-09-09T10-00-00Z'] })));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+
+    const note = read(r.root, `docs/dictated-specs/notes/${OWNER}.md`);
+    assert.match(note, new RegExp(`^---\\nid: ${OWNER}\\nkind: owner\\nsubsystems: \\[extruders\\]\\nsupersedes: \\[2026-09-09T10-00-00Z\\]\\nsource: ${COLLISION} § ${HEADING.replace(/[().]/g, '\\$&')}\\n---\\n`));
+    assert.match(note, /^# extruder_offset is applied on one side only$/m);
+    assert.match(note, /transcribed from/i);
+    assert.match(note, /not captured through the `SPEC:` marker/);
+    assert.ok(note.includes(RULING), 'the owner\'s words, byte for byte');
+    assert.match(note, /Supersedes \[\[2026-09-09T10-00-00Z\]\]\./);
+
+    const st = read(r.root, 'docs/dictated-specs/structure/extruders.md');
+    assert.match(st, new RegExp(`!\\[\\[${OWNER}\\]\\]`));
+    assert.doesNotMatch(st, /!\[\[2026-09-09T10-00-00Z\]\]/, 'the note it supersedes is no longer embedded');
+    assert.ok(read(r.root, 'docs/spec-current/extruders.md').includes(RULING));
+    // The old file is gone, and its ruling is not gone with it.
+    assert.equal(fs.existsSync(path.join(r.root, COLLISION)), false);
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
+test('RED CHECK: every unfillable owner note row is refused by name, and nothing is written', () => {
+  const r = oldProject();
+  try {
+    withRuling(r);
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const base = asOwnerNote(fill(JSON.parse(fs.readFileSync(out, 'utf8'))));
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    const refuse = (over, re) => {
+      const p = JSON.parse(JSON.stringify(base));
+      Object.assign(p.ownerNotes[0], over);
+      fs.writeFileSync(out, JSON.stringify(p));
+      assert.match(intake(r.root, 'migrate', '--apply', out).stderr, re);
+    };
+    const at = `owner note ${COLLISION} § ${HEADING}`.replace(/[().]/g, '\\$&');
+    refuse({ title: null }, new RegExp(`${at}: title, topic and subsystems are required`));
+    refuse({ subsystems: [] }, new RegExp(`${at}: title, topic and subsystems are required`));
+    refuse({ subsystems: ['tooling/deep'] }, /one path segment/);
+    refuse({ text: 'words the owner never typed' }, new RegExp(`${at}: its text is not in ${COLLISION} byte for byte`));
+    refuse({ heading: 'Nope' }, new RegExp(`owner note ${COLLISION} § Nope: ${COLLISION} has no heading 'Nope'`));
+    refuse({ file: 'docs/dictated-specs/README.md' }, /owner note docs\/dictated-specs\/README\.md § .*: not one of the old spec files this migration removes/);
+    refuse({ supersedes: ['no-such-note'] }, new RegExp(`${at}: supersedes no-such-note, which is no note in this plan or in the slip box`));
+    refuse({ heading: '— —' }, /owner note .*: no id can be derived from that heading/);
+
+    const twice = JSON.parse(JSON.stringify(base));
+    // Two headings that differ only in punctuation slugify to one id, so one would silently
+    // overwrite the other. `D. Ruling (Gabe, 2026-09-19)` and `D Ruling Gabe 2026 09 19` are that.
+    twice.ownerNotes.push(ownerRow({ heading: 'D Ruling Gabe 2026 09 19' }));
+    fs.writeFileSync(out, JSON.stringify(twice));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, new RegExp(`owner note .*: two rows would be written to the note ${OWNER}`));
+
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/notes')));
+  } finally { r.cleanup(); }
+});
+
+// An owner note is written once, like every other note, and it is the only thing that can carry a
+// file whose every heading is the owner's own ruling.
+test('RED CHECK: an owner note alone carries its old spec file, and a plan already applied is refused before anything is written', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, '.claude/machinery/spec-inbox.md', '');
+    write(r.root, 'docs/dictated-specs/rulings.md', '# Rulings\n\n## 1. The ruling\n\nThe printhead model is the collision model.\n');
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'rulings typed by hand');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = JSON.parse(fs.readFileSync(out, 'utf8'));
+    p.unsettled = [];
+    p.ownerNotes.push({ file: 'docs/dictated-specs/rulings.md', heading: '1. The ruling', title: 'The printhead model is the collision model', subsystems: ['collision'], topic: 'What the collision model is', supersedes: [], text: 'The printhead model is the collision model.' });
+    fs.writeFileSync(out, JSON.stringify(p));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.ok(read(r.root, 'docs/dictated-specs/notes/owner-1-the-ruling.md').includes('The printhead model is the collision model.'));
+    assert.equal(fs.existsSync(path.join(r.root, 'docs/dictated-specs/rulings.md')), false);
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+
+    const again = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(again.code, 1, again.stdout);
+    assert.match(again.stderr, /note owner-1-the-ruling: docs\/dictated-specs\/notes\/owner-1-the-ruling\.md already exists — a note is written once/);
+  } finally { r.cleanup(); }
+});
+
+// Ferrislicer trial, ruling 2. Four FILED entries name an old spec file deleted long ago.
+// buildPlan filtered entries down to the files still on disk, so those four were dropped in
+// silence: no note, no unsettled row, no refusal. Their words are in the inbox, so nothing is
+// guessed by carrying them.
+test('RED CHECK: a FILED entry whose old home is gone still becomes a note, marked, and dropping it is refused', () => {
+  const r = oldProject();
+  try {
+    const C = '2026-09-10T09:00:00Z';
+    const GONE = 'docs/dictated-specs/extruder-ownership.md';
+    write(r.root, '.claude/machinery/spec-inbox.md', read(r.root, '.claude/machinery/spec-inbox.md') + filed(C, 'SPEC: a printer switch resets the plate extruder', `${GONE} § 2`));
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'an entry filed into a file since deleted');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = JSON.parse(fs.readFileSync(out, 'utf8'));
+    assert.deepEqual(p.notes.map((n) => [n.stamp, n.oldHomeMissing]), [[A, false], [B, false], [C, true]]);
+
+    const dropped = fill(JSON.parse(JSON.stringify(p)));
+    dropped.notes = dropped.notes.filter((n) => n.stamp !== C);
+    fs.writeFileSync(out, JSON.stringify(dropped));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, new RegExp(`note ${C}: filed into ${GONE.replace(/[./]/g, '\\$&')}, which no longer exists, but no plan entry carries it`));
+
+    const good = fill(JSON.parse(JSON.stringify(p)));
+    Object.assign(good.notes.find((n) => n.stamp === C), { title: 'A printer switch resets the plate extruder', subsystems: ['extruders'], topic: 'Defaults' });
+    fs.writeFileSync(out, JSON.stringify(good));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.match(read(r.root, 'docs/dictated-specs/notes/2026-09-10T09-00-00Z.md'), /> SPEC: a printer switch resets the plate extruder\n/);
+    assert.match(read(r.root, '.claude/machinery/spec-inbox.md'), /filed → docs\/dictated-specs\/notes\/2026-09-10T09-00-00Z\.md/);
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
+// Ferrislicer trial, ruling 3 (Gabe, 2026-09-19: "fix the path strings"), and the map row the
+// trial found buildPlan never emits. Both are instructions to the migrator, and the skill is the
+// file an assistant follows: a migration that trusts the sweep breaks the project's own CI gate.
+test('RED CHECK: the skill says the reference sweep is literal-only, and that owner notes and map rows are hand-filled', () => {
+  const copies = [
+    path.join(PLUGIN, 'skills', 'rule-process', 'SKILL.md'),
+    path.join(PLUGIN, '..', '..', 'claude-code', 'machinery', 'rule-process', 'SKILL.md'),
+  ].map((f) => fs.readFileSync(f, 'utf8'));
+  assert.equal(copies[0], copies[1], 'both copies of the skill must say the same thing');
+  for (const t of copies) {
+    assert.match(t, /finds literal strings only/, 'the sweep\'s blind spot is stated plainly');
+    assert.match(t, /os\.path\.join/, 'the measured example of a path built in pieces');
+    assert.match(t, /`ownerNotes`/, 'the plan list the AI fills for a hand-typed ruling');
+    assert.match(t, /never emits `kind: map`/, 'a living map is hand-edited into the plan');
+  }
 });

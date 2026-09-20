@@ -139,6 +139,33 @@ test('front matter the reader cannot parse is refused in the slip box and tolera
   } finally { r.cleanup(); }
 });
 
+// Owner ruling (Gabe, 2026-09-19): "Carry them as owner notes". A ruling the owner typed into an
+// old spec file by hand was never captured, so it has NO inbox entry and leg 2 can never prove it
+// verbatim. It is carried all the same: the leg skips it, and it is in force and embedded exactly
+// like a dictation. A note of a kind nobody defined is still refused.
+test('RED CHECK: an owner note passes the verbatim leg, is embedded like a dictation, and an unknown kind is still refused', () => {
+  const r = superseded();
+  try {
+    const owner = 'docs/dictated-specs/notes/owner-8-a.md';
+    write(r.root, owner, ['---', 'id: owner-8-a', 'kind: owner', 'subsystems: [extruders]',
+      'source: docs/dictated-specs/by-object.md § 8.A — the ruling (Gabe, 2026-09-07)', '---',
+      '# nozzle_height leaves ClearanceParams', '',
+      '*Transcribed from docs/dictated-specs/by-object.md § 8.A — the ruling (Gabe, 2026-09-07), not captured through the SPEC: marker, so the verbatim check cannot prove it.*', '',
+      'nozzle_height comes out of ClearanceParams entirely.', ''].join('\n'));
+    write(r.root, ST, read(r.root, ST).replace(`![[${NEW}]]`, `![[${NEW}]]\n![[owner-8-a]]`));
+    assert.equal(runScript('scripts/intake.mjs', { args: ['regen', '--root', r.root], cwd: r.root, env: env() }).code, 0);
+    const res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    // The denominator is the notes this leg can judge: the owner note is not one of them.
+    assert.match(res.stdout, /^slipbox_check: 0 of 2 dictation note\(s\) not verbatim/m, res.stdout);
+    assert.match(res.stdout, /^slipbox_check: 0 of 1 subsystem\(s\) with wrong membership/m, res.stdout);
+    assert.match(read(r.root, 'docs/spec-current/extruders.md'), /nozzle_height comes out of ClearanceParams entirely\./);
+
+    write(r.root, 'docs/dictated-specs/notes/sketch.md', '---\nid: sketch\nkind: sketch\nsubsystems: [extruders]\n---\n# S\n');
+    refused(gate(r.root), /notes\/sketch\.md is under notes\/ but is neither a dictation, a version nor an owner note/);
+  } finally { r.cleanup(); }
+});
+
 test('RED CHECK: two notes superseding one note is a fork, refused', () => {
   const r = superseded();
   try {
