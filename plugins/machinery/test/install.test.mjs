@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { makeRepo } from './helpers/repo.mjs';
+import { makeRepo, addWorktree } from './helpers/repo.mjs';
 import { runScript, PLUGIN } from './helpers/run.mjs';
 
 const version = JSON.parse(fs.readFileSync(path.join(PLUGIN, '.claude-plugin/plugin.json'), 'utf8')).version;
@@ -28,7 +28,7 @@ test('the installed gate runs standalone from the project (no plugin path baked 
   const r = makeRepo();
   try {
     install(r.root);
-    for (const f of ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']) assert.ok(!fs.readFileSync(path.join(r.root, '.githooks/machinery', f), 'utf8').includes(PLUGIN.replace(/\\/g, '/')));
+    for (const f of ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'slipbox-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']) assert.ok(!fs.readFileSync(path.join(r.root, '.githooks/machinery', f), 'utf8').includes(PLUGIN.replace(/\\/g, '/')));
     fs.writeFileSync(path.join(r.root, 'docs.md', ), 'x'); execFileSync('git', ['add', '-A'], { cwd: r.root });
     const g = execFileSync(process.execPath, [path.join(r.root, '.githooks/machinery/gate.mjs')], { cwd: r.root, encoding: 'utf8', env: { ...process.env, CLAUDE_PLUGIN_ROOT: '' } });
     assert.match(g, /register_check: 0 of 0/);
@@ -61,7 +61,7 @@ test('every relative import reachable from any installed gate file resolves insi
     };
     const roots = fs.readdirSync(dir).filter((f) => f.endsWith('.mjs'));
     for (const f of roots) walk(path.join(dir, f));
-    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs', 'tiers.mjs'], 'exactly the generated CHECK_FILES, plus the runner, the manifest and the tier runner');
+    assert.deepEqual(roots.slice().sort(), ['gate.mjs', 'manifest.mjs', 'register-check.mjs', 'slipbox-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs', 'tiers.mjs'], 'exactly the generated CHECK_FILES, plus the runner, the manifest and the tier runner');
     assert.ok(seen.size >= 5,`the walk saw ${seen.size} files — the observer must see the gate's own imports`);
     assert.deepEqual(missing, []);
   } finally { r.cleanup(); }
@@ -375,5 +375,20 @@ test('a fresh install reports nothing to migrate and removes nothing (#107, no f
     assert.match(res.stdout, /^migration: nothing to migrate$/m, res.stdout);
     assert.doesNotMatch(res.stdout, /^migrated: /m);
     assert.equal(fs.readFileSync(path.join(r.root, '.claude', 'machinery', 'notes.md'), 'utf8'), 'the developer\'s own\n');
+  } finally { r.cleanup(); }
+});
+
+// Merge review (coherence). install resolved the slip box check against the project root while
+// banner.mjs resolved it against the checkout, so one session in a linked worktree could be told
+// both MIGRATED and NOT MIGRATED. Both read the checkout being worked in now.
+test('RED CHECK: the slip box check reads the checkout being worked in, as the banner does', () => {
+  const r = makeRepo();
+  try {
+    const wt = addWorktree(r.root, 'feature');
+    fs.mkdirSync(path.join(wt, 'docs', 'adr'), { recursive: true });
+    fs.writeFileSync(path.join(wt, 'docs', 'adr', '0001-x.md'), '# ADR\n');
+    const res = runScript('scripts/install.mjs', { cwd: wt });
+    assert.equal(res.code, 0, res.stderr);
+    assert.match(res.stdout, /^slip box: NOT MIGRATED — docs\/adr\/ \(1 file\(s\)\)/m, res.stdout);
   } finally { r.cleanup(); }
 });
