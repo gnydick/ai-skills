@@ -1,3 +1,8 @@
+---
+kind: plan
+ticket: 132
+status: in-progress
+---
 # Zettelkasten Slip Box Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -2508,9 +2513,10 @@ export function readPlan(file) { return JSON.parse(fs.readFileSync(file, 'utf8')
 - [ ] **Step 4: Write `scripts/lib/migrate.mjs`**
 
 ```js
-// Story: #132 § 11 and Amendment 1. Migration of one project into the slip box: the AI proposes
-// (the plan), the owner confirms, this applies. A dictation note's words come from the spec
-// inbox, never from the old spec file (D11: assistant readings are not carried over).
+// Story: #132 § 11 and Amendment 1. Migration of one project into the slip box: the AI writes the
+// plan, fills it and applies it, with no pause, in any checkout (D14). A dictation note's words
+// come from the spec inbox, never from the old spec file (D11: assistant readings are not carried
+// over).
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './git.mjs';
@@ -2678,7 +2684,7 @@ import { writePlan, readPlan } from './lib/migrate-plan.mjs';
 Command:
 
 ```js
-// #132 § 11: the AI proposes (fills the plan), the owner confirms, --apply carries it out.
+// #132 § 11: the AI fills the plan and --apply carries it out. Nothing pauses (D14).
 function migrate() {
   const repo = projectRoot(opt('--root') || process.cwd());
   if (!isRootSession(opt('--root') || process.cwd())) die(`a migration runs only from the root session: run it from ${repo}`);
@@ -2686,7 +2692,7 @@ function migrate() {
     if (opt('--plan')) {
       const plan = buildPlan(repo);
       writePlan(opt('--plan'), plan);
-      process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, have the owner confirm it, then run intake migrate --apply ${opt('--plan')}\n`);
+      process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, then run intake migrate --apply ${opt('--plan')}\n`);
     } else if (opt('--apply')) {
       const r = applyPlan(repo, readPlan(opt('--apply')));
       process.stdout.write(`migrated in two commits: ${r.commit1.length} path(s), then ${r.commit2.length} old spec file(s) removed\n`);
@@ -2715,7 +2721,7 @@ Expected: PASS.
 ```bash
 node plugins/machinery/scripts/bump.mjs --plugin plugins/machinery
 git add plugins/machinery/scripts/lib/migrate-plan.mjs plugins/machinery/scripts/lib/migrate.mjs plugins/machinery/test/slipbox-migrate.test.mjs
-git commit -m "intake migrate: the AI proposes a plan, the owner confirms, two commits apply it (#132 § 11, D10, D11, D13)
+git commit -m "intake migrate: the AI fills a plan and two commits apply it (#132 § 11, D10, D11, D13)
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>" -- plugins/machinery/scripts/lib/migrate-plan.mjs plugins/machinery/scripts/lib/migrate.mjs plugins/machinery/scripts/intake.mjs plugins/machinery/test/gate-purity.test.mjs plugins/machinery/test/slipbox-migrate.test.mjs plugins/machinery/.claude-plugin/plugin.json
 ```
@@ -2833,7 +2839,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>" -- claude-code/machinery/
 ## After this plan
 
 - Merge needs the owner's approval (`reviewBeforeMain: person`).
-- After merge, this repository's own banner will read NOT MIGRATED (its `docs/superpowers/` files have no front matter). Its migration is the first run of Task 10, with the owner confirming the plan.
+- After merge, this repository's own banner will read NOT MIGRATED (its `docs/superpowers/` files have no front matter). Its migration is the first run of Task 10.
 - ferrislicer and every other repository migrate the same way when a session opens there (D13).
 
 ## Glossary
