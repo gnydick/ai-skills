@@ -181,3 +181,18 @@ test('RED CHECK: approving a non-draft, embedding a missing heading, and filing 
     assert.match(intake(r.root, 'plan', '--file', 'docs/superpowers/plans/x.md', '--status', 'done').stderr, /is not an in-progress plan/);
   } finally { r.cleanup(); }
 });
+
+// Merge review (deferred, must-fix). fileRef only checked that the target existed, so a path
+// outside the repository committed a `../../../..` href that resolves on this machine alone —
+// gate leg 4 then refuses for everyone else who clones.
+test('RED CHECK: ref refuses a path outside the repository, before writing the structure note', () => {
+  const r = project();
+  try {
+    const outside = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'outside-')), 'map.html');
+    fs.writeFileSync(outside, '<p>x</p>\n');
+    const res = intake(r.root, 'ref', '--subsystem', 'config', '--path', outside);
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stderr, /outside this repository/, res.stderr);
+    assert.ok(!fs.existsSync(path.join(r.root, ST)), 'nothing was written');
+  } finally { r.cleanup(); }
+});

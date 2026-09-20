@@ -112,6 +112,11 @@ export function fileRef({ repo, subsystem, target }) {
   const p = slipboxPaths(repo);
   const abs = path.resolve(repo, target);
   if (!fs.existsSync(abs)) throw new Error(`--path ${target}: no such file`);
+  // The href below is relative to the structure note, and it is COMMITTED. A target outside the
+  // repository makes it a `../../..` path that resolves on this machine alone, so gate leg 4
+  // refuses it for everyone else who clones.
+  const inside = path.relative(repo, abs);
+  if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) throw new Error(`--path ${target}: outside this repository — a structure note may only reference a file in this project`);
   const f = path.join(p.structure, `${subsystem}.md`);
   const href = path.relative(p.structure, abs).split(path.sep).join('/');
   const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null;

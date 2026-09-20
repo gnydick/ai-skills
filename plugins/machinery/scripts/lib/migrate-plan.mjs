@@ -6,7 +6,7 @@ import fs from 'node:fs';
 
 export function writePlan(file, plan) { fs.writeFileSync(file, JSON.stringify(plan, null, 2) + '\n', 'utf8'); }
 
-// The plan is hand-filled between --plan and --apply, so every way it can come back wrong is
+// The AI fills the plan between --plan and --apply, so every way it can come back wrong is
 // named rather than thrown as a parser message with no context. The SHAPE is checked in
 // planProblems, with the rest.
 export function readPlan(file) {

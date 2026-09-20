@@ -42,7 +42,16 @@ const withoutStatus = (t) => (t ?? '').split(/\r?\n/).filter((l) => !/^- \*\*Sta
 // every file the branch had ever added an addition of that one commit.
 export function slipboxCheck({ specInbox }) {
   const repo = checkoutRoot();
-  const box = loadSlipbox(repo);
+  // loadSlipbox throws when two files share an id. Unwrapped, that throw escapes to gate.mjs and
+  // becomes `gate check slipbox_check could not run`: no leg, no denominator, no fix named — and
+  // it refuses every commit in the project, the rename that cures it included, so only --no-verify
+  // gets out. An unmigrated project can hit it too. As a leg it prints its denominator and the fix.
+  let box;
+  try { box = loadSlipbox(repo); } catch (e) {
+    report('slipbox_check', 1, 1, 'slip box file(s) with a clashing id (must be 0)');
+    process.stdout.write(`commit refused: the slip box cannot be read — ${e.message}; rename one of them so every note has its own id, and commit that rename\n`);
+    return false;
+  }
   const live = inForce(box);
   let ok = true;
   const leg = (bad, of, note, lines) => {

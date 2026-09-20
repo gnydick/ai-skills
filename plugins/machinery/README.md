@@ -103,6 +103,12 @@ is the one agent definition.
 - Inboxes: `~/.claude/machinery/inbox.md` for the user's universal captures;
   `.claude/machinery/inbox.md` and `.claude/machinery/spec-inbox.md` for a
   project's rule and specification captures.
+  Every inbox is append-only. An entry is never removed, reworded or rewrapped;
+  only its disposition line changes, and a duplicate is dismissed rather than
+  deleted. `spec-inbox.md` keeps every `FILED` entry for the life of the
+  project: the gate's verbatim leg reads each dictation note back against its
+  `FILED` entry there, so an entry dropped from that file refuses every commit
+  with "restore it from the inbox" and nothing left to restore it from.
 - `docs/dictated-specs/` — the slip box: `notes/` (one file per dictation, and
   version notes), `decisions/` (ADRs), `structure/` (one current-state page per
   subsystem) and a generated `INDEX.md`. `docs/spec-current/` holds the

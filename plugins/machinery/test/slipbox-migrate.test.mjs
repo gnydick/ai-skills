@@ -338,3 +338,65 @@ test('RED CHECK: --apply refuses an unfilled plan, lists every gap, and changes 
     assert.equal(g(r.root, 'rev-list', '--count', 'HEAD'), '2');
   } finally { r.cleanup(); }
 });
+
+// Merge review B2. headingsOf keeps only levels 2-4, so an old spec file with a `#` title, prose
+// and bullets yielded no unsettled row; with no FILED entry pointing at it, it yielded no note
+// either. Commit 2 deleted it all the same, and commit 2's body is built from plan.unsettled, so
+// nothing anywhere recorded that the file had existed.
+test('RED CHECK: an old spec file that yields no note and no heading is listed whole as unsettled, and its resolution reaches the commit that deletes it', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, '.claude/machinery/spec-inbox.md', '');
+    write(r.root, 'docs/dictated-specs/orphan.md', '# Orphan\n\nsome prose nobody ever filed\n\n- a bullet\n');
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'an orphan spec file');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = JSON.parse(fs.readFileSync(out, 'utf8'));
+    assert.deepEqual(p.notes, []);
+    assert.deepEqual(p.unsettled, [{ file: 'docs/dictated-specs/orphan.md', heading: null, resolution: null }]);
+
+    // And a plan that carries neither is refused rather than deleting the file in silence.
+    const bad = JSON.parse(JSON.stringify(p));
+    bad.unsettled = [];
+    fs.writeFileSync(out, JSON.stringify(bad));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, /old spec docs\/dictated-specs\/orphan\.md: no note and no unsettled row carries it/);
+
+    p.unsettled[0].resolution = 'prose only; nothing was ever dictated from it';
+    fs.writeFileSync(out, JSON.stringify(p));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/orphan.md')));
+    assert.match(g(r.root, 'log', '-1', '--format=%B'), /^docs\/dictated-specs\/orphan\.md: prose only; nothing was ever dictated from it$/m);
+  } finally { r.cleanup(); }
+});
+
+// Merge review B3. planProblems pre-flighted the notes it writes but not the placements: an embed
+// missing for one subsystem of an approved design, a decision link to a docs/adr file that is not
+// named 00NN-slug.md (it moves byte-identical, and loadSlipbox never loads it), and a ref to a
+// file that is not there each landed in a structure note that gate leg 3 or leg 4 then refused.
+test('RED CHECK: an embed missing for one subsystem, a decision link the box will not hold, and a ref to a missing file are each refused', () => {
+  const r = oldProject();
+  try {
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const base = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+
+    const twoSubs = JSON.parse(JSON.stringify(base));
+    twoSubs.superpowers.find((s) => s.path.endsWith('hub-design.md')).subsystems = ['extruders', 'hubs'];
+    fs.writeFileSync(out, JSON.stringify(twoSubs));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, /superpowers docs\/superpowers\/specs\/2026-06-21-hub-design\.md: subsystem hubs has no heading in "embeds"/);
+
+    const badDecision = JSON.parse(JSON.stringify(base));
+    badDecision.decisionLinks.push({ subsystem: 'extruders', decision: 'README' });
+    fs.writeFileSync(out, JSON.stringify(badDecision));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, /decision link README: the slip box will hold no decision note with that id/);
+
+    const badRef = JSON.parse(JSON.stringify(base));
+    badRef.refs.push({ subsystem: 'extruders', path: 'docs/superpowers/models/gone.html' });
+    fs.writeFileSync(out, JSON.stringify(badRef));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, /ref docs\/superpowers\/models\/gone\.html: no such file/);
+
+    assert.equal(g(r.root, 'status', '--porcelain'), '');
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/notes')), 'nothing was written');
+  } finally { r.cleanup(); }
+});

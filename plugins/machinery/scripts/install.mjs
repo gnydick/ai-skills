@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './lib/git.mjs';
-import { projectRoot } from './lib/root.mjs';
+import { projectRoot, checkoutRoot } from './lib/root.mjs';
 import { pluginRoot, projectIssueTracking, universalRules } from './lib/config.mjs';
 import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
@@ -204,7 +204,10 @@ function installProject() {
   // would otherwise escape installProject with the gate written, the hooks path unset and nothing
   // staged: a half install that looks like a crash. A failure costs this one line and nothing else.
   try {
-    const u = unmigrated(root);
+    // checkoutRoot, not root: banner.mjs reads the checkout being worked in (STATUS 52), and two
+    // answers to the same question in one session is a session that contradicts itself. An
+    // explicit --root is the caller naming the tree, so that one is honoured as given.
+    const u = unmigrated(opt('--root') ? root : checkoutRoot(process.cwd()));
     if (u.any) say(`slip box: NOT MIGRATED — ${describeUnmigrated(u)}; run node "${path.join(pluginRoot(), 'scripts', 'intake.mjs')}" migrate --plan <file>`);
   } catch (e) { say(`slip box: could not check — ${e.message}`); }
   return 0;

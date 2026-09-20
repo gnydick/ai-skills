@@ -39,6 +39,10 @@ description: Load the moment a PRULE:, URULE: or SPEC: prompt is captured (the c
 5. Show the owner the report: subsystems (new ones marked), topic, the change, and any version note in full.
 6. Refused because a supersede left a subsystem out: `--subsystems` must name every subsystem the superseded note is in, or that subsystem would lose its embed with nothing in its stead. Add them and run again.
 7. Refused as not migrated: stop, and migrate the project first (§ Migrating a project).
+8. Refused by the gate, after the notes were written: `spec` writes the notes, the structure notes and the generated pages and dispositions the entry, and commits LAST — so a gate refusal leaves every one of those on disk, uncommitted, and a re-run refuses with `refusing to overwrite … a note is written once`. Undo the run by hand, in this order, then fix what the gate named and run `spec` again.
+   - Delete each note the command wrote: `docs/dictated-specs/notes/<id>.md`, plus one `docs/dictated-specs/notes/<id>-v<n>.md` per `--version` file. `<id>` is the stamp with its colons turned into hyphens.
+   - Restore the structure notes and the generated pages: `git checkout -- docs/dictated-specs docs/spec-current`. A brand-new subsystem's structure note and flat page are untracked instead, so `git status` lists them; delete those two.
+   - Put the inbox entry back: in `.claude/machinery/spec-inbox.md`, change that entry's `## FILED` heading to `## PENDING` and its `disposition:` line to `disposition: PENDING`. Never `git checkout` that file — the capture itself may not be committed yet. The disposition line is the one line of an entry you may edit.
 
 ## Decisions, designs, plans and maps
 - A new ADR: `docs/dictated-specs/decisions/00NN-slug.md`, front matter `kind: decision`, `subsystems`, `rests_on` (the dictation notes behind it). Then `node "${CLAUDE_PLUGIN_ROOT}/scripts/intake.mjs" decision --file <path>`. To supersede: a new ADR, the old status line flipped to `Superseded by ADR-00NN`, then `decision --file` on the new one.

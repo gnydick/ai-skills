@@ -31,6 +31,8 @@ function filedEntries(repo) {
 
 const homeOf = (e) => e.disposition.replace(/^filed\s*→\s*/, '').trim();
 const oldPaths = (u) => u.oldSpecs.map((f) => `docs/dictated-specs/${f}`);
+// An unsettled row names a heading, or the whole file when the file has no heading to name.
+const where = (x) => (x.heading ? `${x.file} § ${x.heading}` : x.file);
 
 // Read through embed.mjs's scan, like every other reader in this feature: a `## ` line inside a
 // fenced block is code, not a heading, and is never listed as an unsettled heading.
@@ -51,9 +53,16 @@ export function buildPlan(repo, u = unmigrated(repo)) {
   const oldRel = oldPaths(u);
   const entries = filedEntries(repo).filter((e) => oldRel.includes(filedPath(e.disposition)));
   const homes = new Set(entries.map(homeOf));
-  const unsettled = oldRel.flatMap((file) => headingsOf(fs.readFileSync(path.join(repo, file), 'utf8'))
-    .filter((h) => !homes.has(`${file} § ${h}`))
-    .map((heading) => ({ file, heading, resolution: null })));
+  // A file whose only heading is its `#` title yields no unsettled row, and with no FILED entry
+  // pointing at it, no note either — yet commit 2 deletes it and builds its message body from this
+  // list. The WHOLE file is listed then (`heading: null`), so its resolution is recorded somewhere.
+  const unsettled = oldRel.flatMap((file) => {
+    const rows = headingsOf(fs.readFileSync(path.join(repo, file), 'utf8'))
+      .filter((h) => !homes.has(`${file} § ${h}`))
+      .map((heading) => ({ file, heading, resolution: null }));
+    if (rows.length || entries.some((e) => filedPath(e.disposition) === file)) return rows;
+    return [{ file, heading: null, resolution: null }];
+  });
   const needles = [...(u.adr ? ['docs/adr'] : []), ...oldRel];
   const skip = new Set([...oldRel, ...u.adrFiles.map((f) => `docs/adr/${f}`), '.claude/machinery/spec-inbox.md']);
   const references = [];
@@ -83,7 +92,7 @@ export function buildPlan(repo, u = unmigrated(repo)) {
 
 // Every gap in one list, so the AI fixes them all in one pass. Nothing here writes.
 export function planProblems(repo, plan, u = unmigrated(repo)) {
-  // Shape first: the plan is hand-filled between --plan and --apply, and nothing below can
+  // Shape first: the AI fills the plan between --plan and --apply, and nothing below can
   // read a malformed one.
   if (plan === null || typeof plan !== 'object' || Array.isArray(plan)) return ['plan: not an object — write a fresh one with migrate --plan'];
   const shape = [];
@@ -131,11 +140,46 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
     if (fs.existsSync(f)) out.push(`note ${id}: ${toPosix(path.relative(repo, f))} already exists — a note is written once; this plan has already been applied`);
   }
 
-  for (const x of plan.unsettled) if (!x.resolution) out.push(`unsettled ${x.file} § ${x.heading}: no resolution`);
+  for (const x of plan.unsettled) if (!x.resolution) out.push(`unsettled ${where(x)}: no resolution`);
+  // Commit 2 deletes every old spec file. One carried by neither a FILED entry nor an unsettled
+  // row would go with nothing recording it — buildPlan lists such a file whole, so this only
+  // catches a plan that has since been edited or gone stale.
+  for (const file of oldRel) {
+    if (entries.some((e) => filedPath(e.disposition) === file)) continue;
+    if (plan.unsettled.some((x) => x.file === file)) continue;
+    out.push(`old spec ${file}: no note and no unsettled row carries it, but commit 2 deletes it — run migrate --plan again`);
+  }
   for (const s of plan.superpowers) {
     if (!STATUSES[s.kind]) out.push(`superpowers ${s.path}: kind must be design, plan or map`);
     else if (s.kind !== 'map' && !STATUSES[s.kind].includes(s.status)) out.push(`superpowers ${s.path}: status is required for a ${s.kind} (${STATUSES[s.kind].join(', ')})`);
-    if (s.kind === 'design' && s.status === 'approved' && s.subsystems?.length && !plan.embeds.some((e) => s.path.endsWith(`/${e.note}.md`))) out.push(`superpowers ${s.path}: an approved design with subsystems needs a heading in "embeds"`);
+    // EACH subsystem, not merely one row somewhere: a subsystem with no heading embed of an
+    // approved design is what gate leg 3 refuses with "embeds no heading of the approved design".
+    if (s.kind === 'design' && s.status === 'approved') {
+      const id = path.basename(String(s.path ?? ''), '.md');
+      for (const sub of s.subsystems ?? []) {
+        if (!plan.embeds.some((e) => e.note === id && e.subsystem === sub)) out.push(`superpowers ${s.path}: subsystem ${sub} has no heading in "embeds"`);
+      }
+    }
+  }
+  // Amendment 2 promises every note this writes is pre-flighted. The placements are notes too: each
+  // is spliced into a structure note that gate leg 3 or leg 4 then judges.
+  for (const e of plan.embeds) {
+    if (!e.subsystem || !e.note || !e.heading || !e.topic) { out.push(`embed ${e.note ?? '?'}: subsystem, note, heading and topic are required`); continue; }
+    if (!box.notes.has(e.note)) out.push(`embed ${e.note}: no superpowers file of that id is in the slip box`);
+  }
+  // A docs/adr file that is not named 00NN-slug.md moves byte-identical and loadSlipbox never loads
+  // it (slipbox.mjs's ADR_FILE), so a link to it is a broken link in every structure note.
+  const willBeDecisions = new Set([
+    ...u.adrFiles.filter((f) => /^\d{4}-.*\.md$/.test(f)).map((f) => f.slice(0, -3)),
+    ...[...box.notes.values()].filter((n) => n.kind === 'decision').map((n) => n.id),
+  ]);
+  for (const d of plan.decisionLinks) {
+    if (!d.subsystem || !d.decision) { out.push(`decision link ${d.decision ?? '?'}: subsystem and decision are required`); continue; }
+    if (!willBeDecisions.has(d.decision)) out.push(`decision link ${d.decision}: the slip box will hold no decision note with that id — a decision note is docs/dictated-specs/decisions/00NN-slug.md; rename the file first`);
+  }
+  for (const x of plan.refs) {
+    if (!x.subsystem || !x.path) { out.push(`ref ${x.path ?? '?'}: subsystem and path are required`); continue; }
+    if (!fs.existsSync(path.join(repo, x.path))) out.push(`ref ${x.path}: no such file`);
   }
   for (const r of plan.references) if (!r.reviewed) out.push(`reference ${r.path}: not reviewed`);
 
@@ -275,7 +319,7 @@ function applyChanges(repo, plan, u, done) {
   for (const f of old) fs.rmSync(f);
   // The resolutions belong in the message of the commit that deletes the files they are about:
   // git then holds the reasoning, which the plan file — written outside the project — does not.
-  const body = plan.unsettled.map((x) => `${x.file} § ${x.heading}: ${x.resolution}`);
+  const body = plan.unsettled.map((x) => `${where(x)}: ${x.resolution}`);
   const message = ['slip box migration 2/2: remove the old spec files; their dictations are notes now (#132)', ...(body.length ? ['', ...body] : [])].join('\n');
   const commit2 = old.length ? commitPaths(repo, old, message) : [];
   return { commit1, commit2, references };

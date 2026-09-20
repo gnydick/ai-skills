@@ -146,3 +146,20 @@ test('RED CHECK: two notes superseding one note is a fork, refused', () => {
     refused(gate(r.root), new RegExp(`commit refused: ${OLD} is superseded by 2 notes`));
   } finally { r.cleanup(); }
 });
+
+// Merge review B1. An id clash threw out of loadSlipbox before leg 1 ran, and gate.mjs turned the
+// throw into `gate check slipbox_check could not run`. That refused EVERY commit in the project —
+// including the rename that cures it — and named no fix. It is a leg refusal now, with its own
+// denominator; it bites unmigrated projects too, so the message says what to rename.
+test('RED CHECK: two files sharing an id refuse as a leg naming the rename, not as a check that could not run', () => {
+  const r = project();
+  try {
+    write(r.root, 'docs/superpowers/specs/dup.md', '---\nkind: design\nstatus: draft\n---\n\n# Dup\n');
+    write(r.root, 'docs/superpowers/plans/dup.md', '---\nkind: plan\nstatus: in-progress\nticket: "1"\n---\n\n# Dup\n');
+    const res = gate(r.root);
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stdout, /^slipbox_check: 1 of 1 slip box file\(s\) with a clashing id \(must be 0\)$/m, res.stdout);
+    assert.match(res.stdout, /commit refused: the slip box cannot be read — two notes share the id dup: docs\/superpowers\/specs\/dup\.md and docs\/superpowers\/plans\/dup\.md; rename one of them/, res.stdout);
+    assert.doesNotMatch(res.stdout, /could not run/, res.stdout);
+  } finally { r.cleanup(); }
+});
