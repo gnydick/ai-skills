@@ -25,9 +25,34 @@ test('setFrontmatter adds a block to a bare file and patches an existing one, bo
 });
 
 test('an unwritable value is refused rather than written in a shape that reads back differently', () => {
-  for (const bad of ['x#y', 'two\nlines', ' pad', '[x]']) assert.throws(() => renderFrontmatter({ k: bad }), /cannot be written/, bad);
+  for (const bad of ['two\nlines', ' pad', '[x]']) assert.throws(() => renderFrontmatter({ k: bad }), /cannot be written/, bad);
   // A comma is what SEPARATES a list's elements, so an element holding one would read back as two.
   assert.throws(() => renderFrontmatter({ k: ['a, b'] }), /cannot be written/);
+});
+
+// Fix wave 4, measured on ferrislicer: one of the twelve owner rulings to carry is
+// `§ D. Storage, persistence and GUI recovery — folds into #966/#967`. Its `source` threw inside
+// applyChanges, after notes were already on disk. A `#` is only a comment in YAML, and this shape
+// is explicitly not YAML: parseFrontmatter no longer strips one, so it round-trips like any other
+// character — which is the only property renderFrontmatter is entitled to refuse for.
+test('RED CHECK: a value holding # round-trips byte for byte, inside a heading and on its own', () => {
+  const D = 'docs/dictated-specs/by-object-collision-model.md § D. Storage, persistence and GUI recovery — folds into #966/#967';
+  for (const v of [D, 'x#y', '#966', 'a # b', 'trailing #']) {
+    const text = renderFrontmatter({ id: 'owner-d', source: v }) + '# T\n';
+    assert.equal(text, `---\nid: owner-d\nsource: ${v}\n---\n# T\n`, v);
+    assert.equal(parseFrontmatter(text).data.source, v, v);
+  }
+  // A list element keeps its own rule: a comma would read back as two elements, a # would not.
+  assert.deepEqual(parseFrontmatter(renderFrontmatter({ subsystems: ['a#1', 'b'] })).data.subsystems, ['a#1', 'b']);
+});
+
+// A whole line that is a comment is still skipped. Dropping THAT would make a hand-written file
+// carrying one unreadable, and gate leg 2a refuses a slip box file whose front matter cannot be
+// read — so the cost of keeping it is nothing (a `key:` line never starts with `#`) and the cost
+// of removing it is a project that cannot commit.
+test('RED CHECK: a whole-line comment is skipped, and a value is never truncated at a #', () => {
+  const { data } = parseFrontmatter('---\n# a note to the reader\nid: a\nsource: x § folds into #966/#967\n---\nbody\n');
+  assert.deepEqual(data, { id: 'a', source: 'x § folds into #966/#967' });
 });
 
 // An owner note's `source` is `<file> § <heading>`, and the owner's own headings hold commas

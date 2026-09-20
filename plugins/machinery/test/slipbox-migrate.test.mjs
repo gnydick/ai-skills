@@ -619,6 +619,41 @@ test('RED CHECK: an owner note alone carries its old spec file, and a plan alrea
   } finally { r.cleanup(); }
 });
 
+// Fix wave 4. planProblems pre-flighted an owner row's id, text, links and supersedes, but never
+// asked whether the front matter it would write can be written at all. A value that cannot threw
+// inside applyChanges — after notes were on disk and possibly after the ADR `git mv` — with a
+// message naming neither the row nor the heading. Every front matter this plan writes is now asked
+// about first, and a refusal before any write beats a throw part-way through.
+test('RED CHECK: front matter the migration could not write is refused when the plan is checked, not thrown mid-run', () => {
+  const r = oldProject();
+  try {
+    withRuling(r);
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const base = asOwnerNote(fill(JSON.parse(fs.readFileSync(out, 'utf8'))));
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    const refuse = (edit, re) => {
+      const p = JSON.parse(JSON.stringify(base));
+      edit(p);
+      fs.writeFileSync(out, JSON.stringify(p));
+      const res = intake(r.root, 'migrate', '--apply', out);
+      assert.equal(res.code, 1, res.stdout);
+      assert.match(res.stderr, re);
+    };
+    // A comma and a bracket are both legal in a FILE name, so subsystemProblem passes them — and
+    // the front matter would then read back as two subsystems, or as a list.
+    refuse((p) => { p.ownerNotes[0].subsystems = ['a,b']; }, /owner note .*: front matter: subsystems value 'a,b' cannot be written in the flat shape/);
+    refuse((p) => { p.notes[0].subsystems = ['[x]']; }, /note 2026-09-01T08:00:00Z: front matter: subsystems value '\[x\]' cannot be written in the flat shape/);
+    // The `source` itself — the value the measured throw came from.
+    refuse((p) => { p.ownerNotes[0].heading = 'D. Ruling\nsecond line'; }, /owner note [\s\S]*: front matter: source value '[\s\S]*' cannot be written in the flat shape/);
+
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/notes')));
+    assert.ok(fs.existsSync(path.join(r.root, 'docs/adr/0001-x.md')), 'the ADR move never started');
+  } finally { r.cleanup(); }
+});
+
 // Ferrislicer trial, ruling 2. Four FILED entries name an old spec file deleted long ago.
 // buildPlan filtered entries down to the files still on disk, so those four were dropped in
 // silence: no note, no unsettled row, no refusal. Their words are in the inbox, so nothing is

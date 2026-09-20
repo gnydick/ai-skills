@@ -16,8 +16,15 @@ export function writeText(abs, text) {
   fs.writeFileSync(abs, text, 'utf8');
 }
 
+// The front matter each note kind carries, spelled ONCE. The migration asks whether a planned note
+// can be written at all (frontmatterProblem) using the very object its writer will render, so the
+// question and the answer can never drift apart (#132 fix wave 4).
+export const dictationFrontmatter = ({ id, subsystems, supersedes = [] }) => ({ id, kind: 'dictation', subsystems, ...(supersedes.length ? { supersedes } : {}) });
+export const ownerFrontmatter = ({ id, subsystems, supersedes = [], source }) => ({ id, kind: 'owner', subsystems, ...(supersedes.length ? { supersedes } : {}), source });
+export const versionFrontmatter = ({ id, subsystems, supersedes, from }) => ({ id, kind: 'version', subsystems, supersedes: [supersedes], from: [from] });
+
 export function dictationNote({ id, subsystems, supersedes = [], title, text }) {
-  const fm = { id, kind: 'dictation', subsystems, ...(supersedes.length ? { supersedes } : {}) };
+  const fm = dictationFrontmatter({ id, subsystems, supersedes });
   const tail = supersedes.length ? `\n\n${supersedes.map((s) => `Supersedes [[${s}]].`).join('\n')}` : '';
   return `${renderFrontmatter(fm)}# ${title}\n\n${quote(text)}${tail}\n`;
 }
@@ -29,14 +36,14 @@ export function dictationNote({ id, subsystems, supersedes = [], title, text }) 
 // reader exactly what the machinery could not check. `source` is the file and heading it came
 // from; after the migration that file is gone, so the source line is where the trail continues.
 export function ownerNote({ id, subsystems, supersedes = [], title, source, text }) {
-  const fm = { id, kind: 'owner', subsystems, ...(supersedes.length ? { supersedes } : {}), source };
+  const fm = ownerFrontmatter({ id, subsystems, supersedes, source });
   const tail = supersedes.length ? `\n${supersedes.map((s) => `Supersedes [[${s}]].`).join('\n')}\n` : '';
   const said = `*Transcribed from ${source}. It was not captured through the \`SPEC:\` marker, so the verbatim check cannot prove it.*`;
   return `${renderFrontmatter(fm)}# ${title}\n\n${said}\n\n${text.replace(/\n+$/, '')}\n${tail}`;
 }
 
 export function versionNote({ id, subsystems, supersedes, from, text }) {
-  const fm = { id, kind: 'version', subsystems, supersedes: [supersedes], from: [from] };
+  const fm = versionFrontmatter({ id, subsystems, supersedes, from });
   return `${renderFrontmatter(fm)}*Composed by the assistant from [[${supersedes}]] and [[${from}]]. Not the owner's words.*\n\n${text.replace(/\n+$/, '')}\n\nSupersedes [[${supersedes}]].\n`;
 }
 

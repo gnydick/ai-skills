@@ -8,10 +8,10 @@ import path from 'node:path';
 import { git } from './git.mjs';
 import { parseInbox, setDisposition } from './inbox.mjs';
 import { slipboxPaths, stampToId, filedPath, subsystemProblem, checkSubsystem, insideSpecArea, ownerId, fileNameProblem } from './layout.mjs';
-import { setFrontmatter } from './frontmatter.mjs';
+import { setFrontmatter, frontmatterProblem } from './frontmatter.mjs';
 import { scan, section, links } from './embed.mjs';
 import { loadSlipbox, inForce, readStructure, adrStatus, isSupersededDecision, readText, EMBEDDED_KINDS } from './slipbox.mjs';
-import { writeOnce, writeText, dictationNote, versionNote, ownerNote, placeEmbed, placeHeadingEmbed, placeLink, placeRef, syncGenerated } from './slipbox-write.mjs';
+import { writeOnce, writeText, dictationNote, versionNote, ownerNote, dictationFrontmatter, versionFrontmatter, ownerFrontmatter, placeEmbed, placeHeadingEmbed, placeLink, placeRef, syncGenerated } from './slipbox-write.mjs';
 import { unmigrated } from './unmigrated.mjs';
 import { commitPaths } from './commit.mjs';
 
@@ -172,7 +172,12 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   }
   for (const n of plan.notes) {
     if (!stamps.has(n.stamp)) out.push(`note ${n.stamp}: no FILED spec-inbox entry`);
-    if (!n.title || !n.topic || !n.subsystems?.length) out.push(`note ${n.stamp}: title, topic and subsystems are required`);
+    if (!n.title || !n.topic || !n.subsystems?.length) { out.push(`note ${n.stamp}: title, topic and subsystems are required`); continue; }
+    // Can this note's front matter be written at all? A comma and a bracket are both legal in a
+    // FILE name, so subsystemProblem passes them, and the block would then read back as something
+    // else. Asked here, not thrown from applyChanges once notes are already on disk.
+    const bad = frontmatterProblem(dictationFrontmatter({ id: stampToId(n.stamp), subsystems: n.subsystems, supersedes: n.supersedes ?? [] }));
+    if (bad) out.push(`note ${n.stamp}: ${bad}`);
   }
 
   const box = loadSlipbox(repo);
@@ -191,6 +196,12 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
     if (seenOwner.has(id)) out.push(`${at}: two rows would be written to the note ${id} — one of them needs a heading of its own`);
     seenOwner.add(id);
     for (const s of o.supersedes ?? []) if (!known.has(s)) out.push(`${at}: supersedes ${s}, which is no note in this plan or in the slip box`);
+    // Can this note's front matter be written at all? `source` is `<file> § <heading>` and the
+    // heading is the owner's own prose. Measured on ferrislicer before this check existed: one of
+    // the twelve rulings to carry threw from inside applyChanges, after notes were on disk, with a
+    // message naming neither the row nor the heading.
+    const fmBad = frontmatterProblem(ownerFrontmatter({ id, subsystems: o.subsystems ?? [], supersedes: o.supersedes ?? [], source: `${o.file} § ${o.heading}` }));
+    if (fmBad) out.push(`${at}: ${fmBad}`);
     if (!oldRel.includes(o.file)) { out.push(`${at}: not one of the old spec files this migration removes${oldRel.length ? ` (${oldRel.join(', ')})` : ''}`); continue; }
     const text = readText(path.join(repo, o.file));
     if (section(text, o.heading) === null) out.push(`${at}: ${o.file} has no heading '${o.heading}'`);
@@ -203,6 +214,8 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   }
   for (const { v, from, id } of versionIds(plan)) {
     if (!v.from || !v.supersedes || !v.topic || !v.text || !v.subsystems?.length) { out.push(`version from ${v.from ?? '?'}: from, supersedes, subsystems, topic and text are required`); continue; }
+    const fmBad = frontmatterProblem(versionFrontmatter({ id, subsystems: v.subsystems, supersedes: v.supersedes, from }));
+    if (fmBad) out.push(`version from ${v.from}: ${fmBad}`);
     if (!known.has(from)) out.push(`version from ${v.from}: no note ${from} in this plan or in the slip box`);
     if (!known.has(v.supersedes)) out.push(`version supersedes ${v.supersedes}: no such note in this plan or in the slip box`);
     if (id === from) out.push(`version from ${v.from}: would overwrite the dictation note itself`);
