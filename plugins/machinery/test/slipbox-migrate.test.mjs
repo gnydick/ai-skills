@@ -582,7 +582,7 @@ test('RED CHECK: every unfillable owner note row is refused by name, and nothing
     // Trial 2, ruling 2: D11 says assistant readings are not migrated, and an owner note is
     // TRUSTED rather than proven, so the assistant's prose must not ride into the current state
     // inside one. The fixture's section A carries ferrislicer's own measured marker.
-    refuse({ text: 'ASSISTANT, offered so it can be struck: maybe per group' }, /owner note .*: its text holds "ASSISTANT, offered so it can be struck"/);
+    refuse({ text: 'ASSISTANT, offered so it can be struck: maybe per group' }, /owner note .*: line 1 of its text is assistant prose/);
 
     const twice = JSON.parse(JSON.stringify(base));
     // Two headings that differ only in punctuation slugify to one id, so one would silently
@@ -690,6 +690,132 @@ test('RED CHECK: a FILED entry whose old home is gone still becomes a note, mark
   } finally { r.cleanup(); }
 });
 
+// Trial 3, item 2. Measured over ferrislicer's three old spec files: 11 lines carry an ASSISTANT
+// marker, and every one of them is decorated — `> `, `**`, or both. The exact string of wave 5
+// caught 5; a rule reading the first non-space characters catches 0. Reading the first characters
+// PAST the decoration catches 9, and the 2 it leaves are mid-sentence mentions inside the owner's
+// own words, which must not be refused. All four shapes are pinned here.
+test('RED CHECK: assistant prose is refused whatever decoration it carries, and a mention inside a ruling is not', () => {
+  const r = oldProject();
+  try {
+    const prose = [
+      '> ASSISTANT reading, offered so it could be struck: specs 5 and 6 describe one shape',
+      '**ASSISTANT, offered so it can be struck.** Related tickets found by searching the tracker',
+      '> **ASSISTANT observation, marked so it can be struck — one observation, nothing more:**',
+    ];
+    const mention = 'Gabe ruled on the ASSISTANT-marked reading above: it stands as written.';
+    write(r.root, COLLISION, `${read(r.root, COLLISION)}\n### ${HEADING}\n\n${RULING}\n\n${prose.join('\n\n')}\n\n${mention}\n`);
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'a ruling with the assistant\'s readings beside it');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const base = asOwnerNote(fill(JSON.parse(fs.readFileSync(out, 'utf8'))));
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    for (const [i, line] of prose.entries()) {
+      const p = JSON.parse(JSON.stringify(base));
+      // Each `text` must be in the file byte for byte, so only the first prose line follows the
+      // ruling contiguously; the others are carried alone. The refusal names the line it found.
+      p.ownerNotes[0].text = i === 0 ? `${RULING}\n\n${line}` : line;
+      fs.writeFileSync(out, JSON.stringify(p));
+      const res = intake(r.root, 'migrate', '--apply', out);
+      assert.equal(res.code, 1, res.stdout);
+      assert.match(res.stderr, new RegExp(`owner note .*: line ${i === 0 ? 3 : 1} of its text is assistant prose`), line);
+      assert.ok(res.stderr.includes(line.slice(0, 40)), `the refusal quotes the line it found: ${line}`);
+    }
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+
+    // The owner's own sentence mentioning the assistant is a ruling, not assistant prose.
+    const ok = JSON.parse(JSON.stringify(base));
+    ok.ownerNotes[0].text = mention;
+    fs.writeFileSync(out, JSON.stringify(ok));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.ok(read(r.root, `docs/dictated-specs/notes/${OWNER}.md`).includes(mention));
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
+// Trial 3, item 1. `git grep -F` finds a literal string only, and two whole shapes went past it on
+// ferrislicer — identically on two runs: two `os.path.join(REPO, "docs", "adr")` constructions
+// (without which the project's own CI gate fails after migration), and twelve relative links
+// across three files, two of which the literal pass never listed at all. Two more passes, and
+// every row still arrives as a row to REVIEW, saying why it matched.
+test('RED CHECK: the sweep lists a path built in pieces and a relative link, each row saying why it matched', () => {
+  const r = oldProject();
+  try {
+    write(r.root, 'scripts/adr_provenance_gate.py', 'ADR_DIR = os.path.join(REPO, "docs", "adr")\n');
+    write(r.root, 'docs/guide.md', 'See [the ADRs](adr/0001-x.md), and [again](../adr/0001-x.md).\n');
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'a path built in pieces, and two relative links');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = JSON.parse(fs.readFileSync(out, 'utf8'));
+    const by = Object.fromEntries(p.references.map((x) => [x.path, x]));
+
+    assert.deepEqual(by['scripts/adr_gate.py'].found, ['literal'], 'a literal hit still says so');
+    assert.deepEqual(by['scripts/adr_gate.py'].mentions, ['docs/adr']);
+
+    const built = by['scripts/adr_provenance_gate.py'];
+    assert.ok(built, 'a path built in pieces is in the plan');
+    assert.deepEqual(built.found, ['segment']);
+    assert.deepEqual(built.mentions, [], 'no literal path is in it to mention');
+    assert.deepEqual(built.matches, [{ line: 1, text: 'ADR_DIR = os.path.join(REPO, "docs", "adr")' }]);
+    assert.equal(built.reviewed, false);
+    assert.deepEqual(built.replace, []);
+
+    const links = by['docs/guide.md'];
+    assert.ok(links, 'a relative link is in the plan');
+    assert.deepEqual(links.found, ['relative-link']);
+    assert.deepEqual(links.matches, [{ line: 1, text: 'See [the ADRs](adr/0001-x.md), and [again](../adr/0001-x.md).' }]);
+
+    // They are rows, not refusals — but they are rows that must be READ, like every other one.
+    const unreviewed = fill(JSON.parse(JSON.stringify(p)));
+    unreviewed.references.find((x) => x.path === 'docs/guide.md').reviewed = false;
+    fs.writeFileSync(out, JSON.stringify(unreviewed));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, /reference docs\/guide\.md: not reviewed/);
+
+    const good = fill(JSON.parse(JSON.stringify(p)));
+    Object.assign(good.references.find((x) => x.path === 'docs/guide.md'), { replace: [['](adr/', '](dictated-specs/decisions/'], ['](../adr/', '](../dictated-specs/decisions/']], reviewed: true });
+    Object.assign(good.references.find((x) => x.path === 'scripts/adr_provenance_gate.py'), { replace: [['os.path.join(REPO, "docs", "adr")', 'os.path.join(REPO, "docs", "dictated-specs", "decisions")']], reviewed: true });
+    fs.writeFileSync(out, JSON.stringify(good));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.match(res.stdout, /reference scripts\/adr_provenance_gate\.py: 1 replacement\(s\)/);
+    assert.match(res.stdout, /reference docs\/guide\.md: 2 replacement\(s\)/);
+    assert.equal(read(r.root, 'scripts/adr_provenance_gate.py'), 'ADR_DIR = os.path.join(REPO, "docs", "dictated-specs", "decisions")\n');
+    assert.equal(read(r.root, 'docs/guide.md'), 'See [the ADRs](dictated-specs/decisions/0001-x.md), and [again](../dictated-specs/decisions/0001-x.md).\n');
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
+// Re-review item 2. applyChanges calls setFrontmatter on every superpowers row, so a value that
+// cannot be written — or an existing block the reader cannot parse — threw mid-run, after the
+// notes were written and the ADRs moved. The other three note kinds were pre-flighted in wave 4;
+// these are now too.
+test('RED CHECK: a superpowers row whose front matter could not be written is refused before anything is written', () => {
+  const r = oldProject();
+  try {
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const base = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+    const head = g(r.root, 'rev-parse', 'HEAD');
+
+    const bad = JSON.parse(JSON.stringify(base));
+    bad.superpowers.find((s) => s.path.endsWith('hub-design.md')).supersedes = ['a,b'];
+    fs.writeFileSync(out, JSON.stringify(bad));
+    assert.match(intake(r.root, 'migrate', '--apply', out).stderr, /superpowers docs\/superpowers\/specs\/2026-06-21-hub-design\.md: front matter: supersedes value 'a,b' cannot be written in the flat shape/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+
+    // An existing block the reader cannot parse makes setFrontmatter throw just as surely.
+    write(r.root, 'docs/superpowers/specs/2026-07-01-odd.md', '---\ntitle: odd\n- not a key\n---\n# Odd\n');
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'a superpowers file with a block the reader cannot parse');
+    const out2 = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out2).code, 0);
+    fs.writeFileSync(out2, JSON.stringify(fill(JSON.parse(fs.readFileSync(out2, 'utf8')))));
+    assert.match(intake(r.root, 'migrate', '--apply', out2).stderr, /superpowers docs\/superpowers\/specs\/2026-07-01-odd\.md: its front matter cannot be read — front matter: cannot read line '- not a key'; fix the --- block first/);
+  } finally { r.cleanup(); }
+});
+
 // Trial 2, ruling 1. An ADR's own `docs/adr/…` citations were swept PAST — the reference sweep
 // excludes the files that are about to move — and then frozen: leg 1 lets a `00NN-*.md` in
 // decisions/ change only its status line. So `decisions/README.md` went on telling readers to
@@ -730,15 +856,18 @@ test('RED CHECK: an ADR moved into decisions/ has its own docs/adr citations rew
 // Ferrislicer trial, ruling 3 (Gabe, 2026-09-19: "fix the path strings"), and the map row the
 // trial found buildPlan never emits. Both are instructions to the migrator, and the skill is the
 // file an assistant follows: a migration that trusts the sweep breaks the project's own CI gate.
-test('RED CHECK: the skill says the reference sweep is literal-only, and that owner notes and map rows are hand-filled', () => {
+test('RED CHECK: the skill names the sweep\'s three passes and its blind spot, and says what the assistant-prose check matches', () => {
   const copies = [
     path.join(PLUGIN, 'skills', 'rule-process', 'SKILL.md'),
     path.join(PLUGIN, '..', '..', 'claude-code', 'machinery', 'rule-process', 'SKILL.md'),
   ].map((f) => fs.readFileSync(f, 'utf8'));
   assert.equal(copies[0], copies[1], 'both copies of the skill must say the same thing');
   for (const t of copies) {
-    assert.match(t, /finds literal strings only/, 'the sweep\'s blind spot is stated plainly');
+    for (const pass of ['`literal`', '`segment`', '`relative-link`']) assert.ok(t.includes(pass), `the sweep's ${pass} pass is named`);
+    assert.match(t, /assembled at RUN TIME/, 'the sweep\'s blind spot is stated plainly');
     assert.match(t, /os\.path\.join/, 'the measured example of a path built in pieces');
+    assert.match(t, /a line that BEGINS with `ASSISTANT`/, 'what the prose check matches');
+    assert.match(t, /9 of their 11/, 'measured, not asserted');
     assert.match(t, /`ownerNotes`/, 'the plan list the AI fills for a hand-typed ruling');
     assert.match(t, /never emits `kind: map`/, 'a living map is hand-edited into the plan');
     // Trial 2, ruling 2: what goes INTO an owner note, and why it matters more than usual.

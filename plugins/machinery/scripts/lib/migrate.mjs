@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './git.mjs';
 import { parseInbox, setDisposition } from './inbox.mjs';
-import { slipboxPaths, stampToId, filedPath, subsystemProblem, checkSubsystem, insideSpecArea, ownerId, fileNameProblem } from './layout.mjs';
+import { slipboxPaths, stampToId, filedPath, subsystemProblem, checkSubsystem, insideSpecArea, ownerId, fileNameProblem, ADR_DIR, DOCS_DIR } from './layout.mjs';
 import { setFrontmatter, frontmatterProblem } from './frontmatter.mjs';
 import { scan, section, links } from './embed.mjs';
 import { loadSlipbox, inForce, readStructure, adrStatus, isSupersededDecision, readText, EMBEDDED_KINDS } from './slipbox.mjs';
@@ -28,13 +28,20 @@ const PLAN_LISTS = ['notes', 'versions', 'ownerNotes', 'unsettled', 'superpowers
 // the move would survive both commands and leave a tree --apply can never accept again. The
 // clean-tree precondition is what makes a reset safe here: nothing of the user's is in the way.
 const RECOVERY = 'git reset --hard && git clean -fd';
-// One KNOWN shape of assistant prose, measured in ferrislicer's own spec files (trial 2): an
-// owner note carried "ASSISTANT, offered so it can be struck: maybe per group" into the current
-// state, presented as the owner's words. D11 says assistant readings are not migrated, and an
-// owner note is trusted rather than proven, so this is the one thing a machine can check here.
-// It is an EXACT string and catches exactly this one shape: nothing here judges prose in general,
-// and a project whose assistant prose is written any other way passes this check untouched.
-const ASSISTANT_PROSE = 'ASSISTANT, offered so it can be struck';
+// Assistant prose, as far as a machine can tell: a LINE that BEGINS with ASSISTANT, past whatever
+// Markdown decoration the writer put in front of it — blockquote markers, a list bullet, an
+// emphasis run. D11 says assistant readings are not migrated, and an owner note is trusted rather
+// than proven (no inbox entry backs it, gate leg 2 skips it), so this is the one thing that can be
+// checked here at all.
+//
+// MEASURED over ferrislicer's three old spec files, which hold 11 lines naming ASSISTANT:
+// wave 5's exact string caught 5; reading the first NON-SPACE characters — the letter of the
+// wave 6 ruling — catches 0, because every marker there is written `> ASSISTANT…`, `**ASSISTANT…`
+// or `> **ASSISTANT…`; reading the first characters past the decoration catches 9. The 2 it leaves
+// are mid-sentence mentions inside the owner's own words ("the ASSISTANT-marked reading above"),
+// which must NOT be refused — so they are not a miss to close, they are the boundary.
+// It judges where a line STARTS and nothing else. It cannot judge prose in general.
+const ASSISTANT_LINE = /^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+|\d+\.[ \t]+)?[*_]*ASSISTANT/;
 
 function filedEntries(repo) {
   const p = slipboxPaths(repo);
@@ -67,6 +74,15 @@ const where = (x) => (x.heading ? `${x.file} § ${x.heading}` : x.file);
 // fenced block is code, not a heading, and is never listed as an unsettled heading.
 const headingsOf = (text) => scan(text).filter((r) => r.heading && r.heading.level >= 2 && r.heading.level <= 4).map((r) => r.heading.text);
 
+// The front matter a superpowers row gets, spelled once: applyChanges renders it through
+// setFrontmatter, and planProblems asks whether it CAN be rendered before anything is written.
+const superpowersFrontmatter = (s) => (s.kind === 'map' ? { kind: 'map' } : {
+  kind: s.kind, status: s.status ?? DEFAULT_STATUS,
+  ...(s.subsystems?.length ? { subsystems: s.subsystems } : {}),
+  ...(s.ticket ? { ticket: String(s.ticket) } : {}),
+  ...(s.supersedes?.length ? { supersedes: s.supersedes } : {}),
+});
+
 // The ids applyPlan will write for the plan's version notes, derived once so planProblems can
 // pre-flight them against the notes already on disk.
 function versionIds(plan) {
@@ -76,6 +92,68 @@ function versionIds(plan) {
     const k = (counts.get(from) ?? 0) + 1; counts.set(from, k);
     return { v, from, id: `${from}-v${k > 1 ? k : ''}` };
   });
+}
+
+// The reference sweep, in THREE passes (trial 3, item 1). `git grep -F` finds a literal string
+// only, and two whole shapes went past it on ferrislicer — identically on runs 2 and 3:
+//   literal        `docs/adr` written out in one piece, and every old spec path.
+//   segment        the bare directory name as a path SEGMENT — `"adr"` in
+//                  os.path.join(REPO, "docs", "adr") (two of these; without them the project's own
+//                  CI gate fails after the migration), or `/adr/` inside a longer path.
+//   relative-link  a Markdown link `](adr/…)` or `](../adr/…)` — twelve across three files, two of
+//                  which the literal pass never listed at all.
+// None of this refuses anything: every row arrives to be READ, with its matching lines, an empty
+// `replace` and `reviewed: false`, and says which pass found it. A path assembled at RUN TIME is
+// still invisible to all three, which the skill says in as many words.
+const SEGMENT = new RegExp(`(["'\`])${ADR_DIR}\\1|[/\\\\]${ADR_DIR}[/\\\\]`);
+const RELATIVE_LINK = new RegExp(`\\]\\((?:\\.\\.?/)*${ADR_DIR}/`);
+
+function sweep(repo, u, oldRel) {
+  // The files being MOVED are in the rewrite set (trial 2, ruling 1): the move is the only legal
+  // moment to fix their own citations, because leg 1 then freezes every `00NN-*.md` in decisions/
+  // to its status line. The old spec files stay out of it — commit 2 deletes them.
+  const skip = new Set([...oldRel, '.claude/machinery/spec-inbox.md']);
+  const rows = new Map();
+  const listed = (r) => r.stdout.split('\n').filter(Boolean).filter((f) => !skip.has(f));
+  const hits = (text, test) => text.split('\n').flatMap((line, i) => (test(line) ? [{ line: i + 1, text: line }] : []));
+  const read = (f) => fs.readFileSync(path.join(repo, f), 'utf8');
+  // Every matching line travels with the plan, so what a rewrite will change is recorded where the
+  // decision is, and a count that does not match it is visible afterwards.
+  const add = (f, found, lines) => {
+    if (!lines.length) return null;
+    const row = rows.get(f) ?? { path: f, mentions: [], found: [], matches: [], replace: [], reviewed: false };
+    if (!row.found.includes(found)) row.found.push(found);
+    for (const h of lines) if (!row.matches.some((m) => m.line === h.line)) row.matches.push(h);
+    row.matches.sort((a, b) => a.line - b.line);
+    rows.set(f, row);
+    return row;
+  };
+
+  const needles = [...(u.adr ? [`${DOCS_DIR}/${ADR_DIR}`] : []), ...oldRel];
+  if (needles.length) {
+    for (const f of listed(git(['grep', '-l', '-I', '-F', ...needles.flatMap((n) => ['-e', n])], repo))) {
+      const text = read(f);
+      const mentions = needles.filter((n) => text.includes(n));
+      const row = add(f, 'literal', hits(text, (l) => mentions.some((n) => l.includes(n))));
+      if (row) row.mentions = mentions;
+    }
+  }
+  if (u.adr) {
+    // One candidate list for both remaining passes: every file holding the directory name at all.
+    // The passes themselves decide, so a word that merely contains `adr` never becomes a row.
+    for (const f of listed(git(['grep', '-l', '-I', '-F', '-e', ADR_DIR], repo))) {
+      const text = read(f);
+      // Each LINE is claimed by the first pass that can explain it — a literal `docs/adr/x.md`
+      // also holds `/adr/`, and `](../adr/x.md)` holds it too. Without that precedence the row's
+      // `found` would say "segment" about lines a reader can see are something more specific.
+      const taken = new Set((rows.get(f)?.matches ?? []).map((m) => m.line));
+      const relative = hits(text, (l) => RELATIVE_LINK.test(l)).filter((h) => !taken.has(h.line));
+      for (const h of relative) taken.add(h.line);
+      add(f, 'relative-link', relative);
+      add(f, 'segment', hits(text, (l) => SEGMENT.test(l)).filter((h) => !taken.has(h.line)));
+    }
+  }
+  return [...rows.values()];
 }
 
 export function buildPlan(repo, u = unmigrated(repo)) {
@@ -92,26 +170,7 @@ export function buildPlan(repo, u = unmigrated(repo)) {
     if (rows.length || entries.some((e) => filedPath(e.disposition) === file)) return rows;
     return [{ file, heading: null, resolution: null }];
   });
-  const needles = [...(u.adr ? ['docs/adr'] : []), ...oldRel];
-  // The files being MOVED are in the rewrite set too (trial 2, ruling 1). They used to be skipped
-  // — they are about to move, so why rewrite them? — and the answer measured on ferrislicer is
-  // that the move is the only legal moment: once a `00NN-*.md` lands in decisions/, gate leg 1
-  // lets it change only its status line, so an ADR citing `docs/adr/…`, and a README telling
-  // readers to create ADRs there, were frozen pointing at a directory that no longer exists.
-  // The old spec files are still skipped: commit 2 deletes them.
-  const skip = new Set([...oldRel, '.claude/machinery/spec-inbox.md']);
-  const references = [];
-  if (needles.length) {
-    const grep = git(['grep', '-l', '-F', ...needles.flatMap((n) => ['-e', n])], repo);
-    for (const f of grep.stdout.split('\n').filter(Boolean).filter((f) => !skip.has(f))) {
-      const text = fs.readFileSync(path.join(repo, f), 'utf8');
-      const mentions = needles.filter((n) => text.includes(n));
-      // Every matching line travels with the plan, so what a rewrite will change is recorded
-      // where the decision is, and a count that does not match it is visible afterwards.
-      const matches = text.split('\n').flatMap((line, i) => (mentions.some((n) => line.includes(n)) ? [{ line: i + 1, text: line }] : []));
-      references.push({ path: f, mentions, matches, replace: [], reviewed: false });
-    }
-  }
+  const references = sweep(repo, u, oldRel);
   return {
     version: 1,
     // `oldHomeMissing` is the flag for a row whose old home is already gone: there is no file to
@@ -221,7 +280,10 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
     // The words are the owner's, so they are COPIED from that file, never retyped. A row whose
     // text is not in the file is the one thing gate leg 2 can never catch afterwards.
     if (typeof o.text !== 'string' || !o.text.trim() || !text.includes(o.text)) out.push(`${at}: its text is not in ${o.file} byte for byte — an owner note is copied from that file, never retyped`);
-    else if (o.text.includes(ASSISTANT_PROSE)) out.push(`${at}: its text holds "${ASSISTANT_PROSE}" — an owner note carries the owner's ruling and nothing beside it; leave the assistant's prose out and say so in that heading's unsettled resolution`);
+    else {
+      const n = o.text.split('\n').findIndex((l) => ASSISTANT_LINE.test(l));
+      if (n >= 0) out.push(`${at}: line ${n + 1} of its text is assistant prose — "${o.text.split('\n')[n].trim().slice(0, 80)}"; an owner note carries the owner's ruling and nothing beside it, so leave that line out and say so in this heading's unsettled resolution`);
+    }
     // A [[link]] the slip box will not resolve would make gate leg 4 refuse the migration's own
     // commit, and leg 1 then freezes the note, so there is no legal edit out of it.
     for (const l of links(typeof o.text === 'string' ? o.text : '')) if (!known.has(l.id)) out.push(`${at}: its text links [[${l.id}]], which is no note — remove that link or the gate refuses the migration's own commit`);
@@ -258,6 +320,17 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
     // A null status is the owner's default, not a gap; a status that is spelled must be one of the
     // kind's own.
     else if (s.kind !== 'map' && s.status != null && !STATUSES[s.kind].includes(s.status)) out.push(`superpowers ${s.path}: status '${s.status}' is not one of a ${s.kind}'s (${STATUSES[s.kind].join(', ')}), and null migrates as ${DEFAULT_STATUS}`);
+    // Can this row's front matter be written? setFrontmatter MERGES with what the file already
+    // holds, so both halves are asked about: a block the reader cannot parse throws from inside
+    // applyChanges just as surely as an unwritable value does, after the notes are on disk and the
+    // ADRs are moved (re-review item 2). The gate tolerates such a block in a superpowers file —
+    // an unmigrated project stays committable (D13) — so this is the only place it is caught.
+    const held = box.notes.get(path.basename(String(s.path ?? ''), '.md'));
+    if (held?.error) out.push(`superpowers ${s.path}: its front matter cannot be read — ${held.error}; fix the --- block first`);
+    else {
+      const fmBad = frontmatterProblem({ ...(held?.data ?? {}), ...superpowersFrontmatter(s) });
+      if (fmBad) out.push(`superpowers ${s.path}: ${fmBad}`);
+    }
     // EACH subsystem, not merely one row somewhere: a subsystem with no heading embed of an
     // approved design is what gate leg 3 refuses with "embeds no heading of the approved design".
     if (s.kind === 'design' && s.status === 'approved') {
@@ -379,13 +452,7 @@ function applyChanges(repo, plan, u, done) {
 
   for (const s of plan.superpowers) {
     const abs = path.join(repo, s.path);
-    const fm = s.kind === 'map' ? { kind: 'map' } : {
-      kind: s.kind, status: s.status ?? DEFAULT_STATUS,
-      ...(s.subsystems?.length ? { subsystems: s.subsystems } : {}),
-      ...(s.ticket ? { ticket: String(s.ticket) } : {}),
-      ...(s.supersedes?.length ? { supersedes: s.supersedes } : {}),
-    };
-    writeText(abs, setFrontmatter(fs.readFileSync(abs, 'utf8'), fm));
+    writeText(abs, setFrontmatter(fs.readFileSync(abs, 'utf8'), superpowersFrontmatter(s)));
     touched.add(abs);
   }
 
