@@ -28,6 +28,13 @@ const PLAN_LISTS = ['notes', 'versions', 'ownerNotes', 'unsettled', 'superpowers
 // the move would survive both commands and leave a tree --apply can never accept again. The
 // clean-tree precondition is what makes a reset safe here: nothing of the user's is in the way.
 const RECOVERY = 'git reset --hard && git clean -fd';
+// One KNOWN shape of assistant prose, measured in ferrislicer's own spec files (trial 2): an
+// owner note carried "ASSISTANT, offered so it can be struck: maybe per group" into the current
+// state, presented as the owner's words. D11 says assistant readings are not migrated, and an
+// owner note is trusted rather than proven, so this is the one thing a machine can check here.
+// It is an EXACT string and catches exactly this one shape: nothing here judges prose in general,
+// and a project whose assistant prose is written any other way passes this check untouched.
+const ASSISTANT_PROSE = 'ASSISTANT, offered so it can be struck';
 
 function filedEntries(repo) {
   const p = slipboxPaths(repo);
@@ -86,7 +93,13 @@ export function buildPlan(repo, u = unmigrated(repo)) {
     return [{ file, heading: null, resolution: null }];
   });
   const needles = [...(u.adr ? ['docs/adr'] : []), ...oldRel];
-  const skip = new Set([...oldRel, ...u.adrFiles.map((f) => `docs/adr/${f}`), '.claude/machinery/spec-inbox.md']);
+  // The files being MOVED are in the rewrite set too (trial 2, ruling 1). They used to be skipped
+  // — they are about to move, so why rewrite them? — and the answer measured on ferrislicer is
+  // that the move is the only legal moment: once a `00NN-*.md` lands in decisions/, gate leg 1
+  // lets it change only its status line, so an ADR citing `docs/adr/…`, and a README telling
+  // readers to create ADRs there, were frozen pointing at a directory that no longer exists.
+  // The old spec files are still skipped: commit 2 deletes them.
+  const skip = new Set([...oldRel, '.claude/machinery/spec-inbox.md']);
   const references = [];
   if (needles.length) {
     const grep = git(['grep', '-l', '-F', ...needles.flatMap((n) => ['-e', n])], repo);
@@ -208,6 +221,7 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
     // The words are the owner's, so they are COPIED from that file, never retyped. A row whose
     // text is not in the file is the one thing gate leg 2 can never catch afterwards.
     if (typeof o.text !== 'string' || !o.text.trim() || !text.includes(o.text)) out.push(`${at}: its text is not in ${o.file} byte for byte — an owner note is copied from that file, never retyped`);
+    else if (o.text.includes(ASSISTANT_PROSE)) out.push(`${at}: its text holds "${ASSISTANT_PROSE}" — an owner note carries the owner's ruling and nothing beside it; leave the assistant's prose out and say so in that heading's unsettled resolution`);
     // A [[link]] the slip box will not resolve would make gate leg 4 refuse the migration's own
     // commit, and leg 1 then freezes the note, so there is no legal edit out of it.
     for (const l of links(typeof o.text === 'string' ? o.text : '')) if (!known.has(l.id)) out.push(`${at}: its text links [[${l.id}]], which is no note — remove that link or the gate refuses the migration's own commit`);
@@ -375,9 +389,13 @@ function applyChanges(repo, plan, u, done) {
     touched.add(abs);
   }
 
+  // A reference row for a file the ADR move has just carried away names its OLD path — that is
+  // where the plan's matching lines were read — so the rewrite is applied at its NEW one. This is
+  // what makes a moved ADR's own citations fixable at all: afterwards leg 1 freezes it.
+  const moved = new Map(u.adrFiles.map((f) => [toPosix(path.relative(repo, path.join(p.adr, f))), path.join(p.decisions, f)]));
   const references = [];
   for (const r of plan.references) {
-    const abs = path.join(repo, r.path);
+    const abs = moved.get(r.path) ?? path.join(repo, r.path);
     const before = fs.readFileSync(abs, 'utf8');
     let text = before, count = 0;
     for (const [from, to] of r.replace ?? []) {

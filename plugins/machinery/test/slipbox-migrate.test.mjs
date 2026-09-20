@@ -579,6 +579,10 @@ test('RED CHECK: every unfillable owner note row is refused by name, and nothing
     refuse({ file: 'docs/dictated-specs/README.md' }, /owner note docs\/dictated-specs\/README\.md § .*: not one of the old spec files this migration removes/);
     refuse({ supersedes: ['no-such-note'] }, new RegExp(`${at}: supersedes no-such-note, which is no note in this plan or in the slip box`));
     refuse({ heading: '— —' }, /owner note .*: no id can be derived from that heading/);
+    // Trial 2, ruling 2: D11 says assistant readings are not migrated, and an owner note is
+    // TRUSTED rather than proven, so the assistant's prose must not ride into the current state
+    // inside one. The fixture's section A carries ferrislicer's own measured marker.
+    refuse({ text: 'ASSISTANT, offered so it can be struck: maybe per group' }, /owner note .*: its text holds "ASSISTANT, offered so it can be struck"/);
 
     const twice = JSON.parse(JSON.stringify(base));
     // Two headings that differ only in punctuation slugify to one id, so one would silently
@@ -686,6 +690,43 @@ test('RED CHECK: a FILED entry whose old home is gone still becomes a note, mark
   } finally { r.cleanup(); }
 });
 
+// Trial 2, ruling 1. An ADR's own `docs/adr/…` citations were swept PAST — the reference sweep
+// excludes the files that are about to move — and then frozen: leg 1 lets a `00NN-*.md` in
+// decisions/ change only its status line. So `decisions/README.md` went on telling readers to
+// create ADRs in a directory that no longer exists, and no legal edit could fix it. The move is
+// the only moment those files can be rewritten, so the move now rewrites them.
+test('RED CHECK: an ADR moved into decisions/ has its own docs/adr citations rewritten during the move, and is otherwise byte-identical', () => {
+  const r = oldProject();
+  try {
+    const cite = '# ADR 2\n\n- **Status:** Accepted\n\n## Context\n\nSee docs/adr/0001-x.md for the earlier decision.\n';
+    write(r.root, 'docs/adr/0002-y.md', cite);
+    write(r.root, 'docs/adr/README.md', '# ADRs\n\nCreate a new ADR as docs/adr/00NN-slug.md.\n');
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'an ADR citing another, and a README that names the directory');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+    // The files being moved are in the rewrite set now, with their matching lines, like any other
+    // referencing file — that is what makes them reviewable before anything is written.
+    const rows = p.references.filter((x) => x.path.startsWith('docs/adr/'));
+    assert.deepEqual(rows.map((x) => x.path), ['docs/adr/0002-y.md', 'docs/adr/README.md']);
+    assert.deepEqual(rows[0].matches, [{ line: 7, text: 'See docs/adr/0001-x.md for the earlier decision.' }]);
+    for (const x of rows) Object.assign(x, { replace: [['docs/adr', 'docs/dictated-specs/decisions']], reviewed: true });
+    fs.writeFileSync(out, JSON.stringify(p));
+
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.match(res.stdout, /reference docs\/adr\/0002-y\.md: 1 replacement\(s\)/);
+    assert.match(res.stdout, /reference docs\/adr\/README\.md: 1 replacement\(s\)/);
+    assert.equal(read(r.root, 'docs/dictated-specs/decisions/0002-y.md'), cite.replace('docs/adr/0001-x.md', 'docs/dictated-specs/decisions/0001-x.md'));
+    assert.equal(read(r.root, 'docs/dictated-specs/decisions/README.md'), '# ADRs\n\nCreate a new ADR as docs/dictated-specs/decisions/00NN-slug.md.\n');
+    // The ADR with nothing to rewrite still moves byte for byte.
+    assert.equal(read(r.root, 'docs/dictated-specs/decisions/0001-x.md'), ADR);
+    assert.ok(!fs.existsSync(path.join(r.root, 'docs/adr')));
+    assert.equal(g(r.root, 'status', '--porcelain'), '');
+    assert.equal(gate(r.root).code, 0, gate(r.root).stdout);
+  } finally { r.cleanup(); }
+});
+
 // Ferrislicer trial, ruling 3 (Gabe, 2026-09-19: "fix the path strings"), and the map row the
 // trial found buildPlan never emits. Both are instructions to the migrator, and the skill is the
 // file an assistant follows: a migration that trusts the sweep breaks the project's own CI gate.
@@ -700,5 +741,8 @@ test('RED CHECK: the skill says the reference sweep is literal-only, and that ow
     assert.match(t, /os\.path\.join/, 'the measured example of a path built in pieces');
     assert.match(t, /`ownerNotes`/, 'the plan list the AI fills for a hand-typed ruling');
     assert.match(t, /never emits `kind: map`/, 'a living map is hand-edited into the plan');
+    // Trial 2, ruling 2: what goes INTO an owner note, and why it matters more than usual.
+    assert.match(t, /the owner's ruling and nothing beside it/, 'assistant prose is left behind');
+    assert.match(t, /trusted, not proven/, 'the reader is told what the gate cannot check');
   }
 });
