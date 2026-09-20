@@ -13,7 +13,7 @@ import { parseFrontmatter } from '../lib/frontmatter.mjs';
 import { unquote } from '../lib/blockquote.mjs';
 import { links, section } from '../lib/embed.mjs';
 import { idToStamp } from '../lib/layout.mjs';
-import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, regenerate, staleGenerated, dictationQuote, isSupersededDecision, readText } from '../lib/slipbox.mjs';
+import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, regenerate, renderCurrent, staleGenerated, dictationQuote, isSupersededDecision, readText } from '../lib/slipbox.mjs';
 
 export const declaration = Object.freeze({ id: 'slipbox_check', run: 'slipboxCheck', blocking: true, wired: true });
 
@@ -169,17 +169,29 @@ export function slipboxCheck({ specInbox }) {
   leg(badFiles.size, texts.length, 'file(s) with broken links (must be 0)', broken);
 
   // Leg 5 — generated pages are fresh. Compared in memory; the gate never writes.
-  let want = new Map();
-  const stale = [];
-  try { want = regenerate(box); } catch (e) { stale.push(`the current state cannot be generated — ${e.message}`); }
-  for (const [rel, text] of want) {
-    const abs = path.join(repo, rel);
-    // Read through the read model, so a CRLF checkout is not reported as a stale page.
-    const cur = fs.existsSync(abs) ? readText(abs) : null;
-    if (cur !== text) stale.push(`${rel} is ${cur === null ? 'missing' : 'stale'} — run intake.mjs regen`);
+  //
+  // ONE page that cannot be generated used to cascade: `want` stayed empty, so the orphan sweep
+  // below reported every existing generated page as "has no structure note behind it", and the
+  // denominator read 0 — no count behind a wall of wrong advice (merge review 2, F6). A failure is
+  // now reported as itself, against the number of pages this leg covers, and the sweep does not
+  // run: with nothing generated there is nothing to compare an existing page against.
+  let want = null;
+  try { want = regenerate(box); } catch (e) {
+    const who = [...box.structures.keys()].find((s) => { try { renderCurrent(box, s); return false; } catch { return true; } });
+    const which = who ? relDir(path.join(P.current, `${who}.md`)) : 'the slip box';
+    leg(1, box.structures.size + 1, 'generated page(s) stale (must be 0)', [`${which} cannot be generated — ${e.message}; fix what that names, then run intake.mjs regen`]);
   }
-  for (const rel of staleGenerated(box, want)) stale.push(`${rel} has no structure note behind it — run intake.mjs regen`);
-  leg(stale.length, want.size, 'generated page(s) stale (must be 0)', stale);
+  if (want) {
+    const stale = [];
+    for (const [rel, text] of want) {
+      const abs = path.join(repo, rel);
+      // Read through the read model, so a CRLF checkout is not reported as a stale page.
+      const cur = fs.existsSync(abs) ? readText(abs) : null;
+      if (cur !== text) stale.push(`${rel} is ${cur === null ? 'missing' : 'stale'} — run intake.mjs regen`);
+    }
+    for (const rel of staleGenerated(box, want)) stale.push(`${rel} has no structure note behind it — run intake.mjs regen`);
+    leg(stale.length, want.size, 'generated page(s) stale (must be 0)', stale);
+  }
 
   // Leg 6 — no fork: each note has at most one successor.
   const by = new Map();

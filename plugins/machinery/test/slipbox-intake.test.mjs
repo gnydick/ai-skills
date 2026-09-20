@@ -6,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { makeRepo } from './helpers/repo.mjs';
-import { runScript } from './helpers/run.mjs';
-import { appendEntry, pending, parseInbox } from '../scripts/lib/inbox.mjs';
+import { runScript, PLUGIN } from './helpers/run.mjs';
+import { appendEntry, pending, parseInbox, setDisposition } from '../scripts/lib/inbox.mjs';
 import { slipboxPaths } from '../scripts/lib/layout.mjs';
 
 const g = (root, ...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' }).trim();
@@ -169,5 +169,105 @@ test('regen rewrites a stale page and the gate-facing files match afterwards', (
     assert.equal(res.code, 0, res.stderr);
     assert.match(res.stdout, /regenerated docs\/spec-current\/extruders\.md/);
     assert.match(read(r.root, 'docs/spec-current/extruders.md'), /SPEC: y/);
+  } finally { r.cleanup(); }
+});
+
+// Merge review 2, F3. A subsystem name becomes a FILE NAME. `--subsystems tooling/deep` wrote
+// docs/dictated-specs/structure/tooling/deep.md, which the non-recursive read model never finds,
+// while subsystemsOf still reported 'tooling/deep' — leg 3 then refused every commit in the
+// project with advice that cannot work, and the note is immutable. Every entry point that takes a
+// subsystem refuses such a name BEFORE it writes.
+test('RED CHECK: a subsystem name that is not one path segment is refused by every entry point, before anything is written', () => {
+  const r = project();
+  try {
+    capture(r.root, 'SPEC: nested', '2026-09-19T06:00:00Z');
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    const spec = intake(r.root, 'spec', '--stamp', '2026-09-19T06:00:00Z', '--subsystems', 'tooling/deep', '--topic', 'T', '--title', 'Nested');
+    assert.equal(spec.code, 1, spec.stdout);
+    assert.match(spec.stderr, /tooling\/deep/);
+    assert.match(spec.stderr, /one path segment/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+    assert.equal(pending(slipboxPaths(r.root).specInbox).length, 1);
+
+    const ref = intake(r.root, 'ref', '--subsystem', 'tooling\\deep', '--path', 'README.md');
+    assert.equal(ref.code, 1, ref.stdout);
+    assert.match(ref.stderr, /one path segment/);
+
+    write(r.root, 'docs/dictated-specs/decisions/0001-x.md', '---\nkind: decision\nsubsystems: [../escape]\n---\n# ADR\n\n- **Status:** Accepted\n');
+    const dec = intake(r.root, 'decision', '--file', 'docs/dictated-specs/decisions/0001-x.md');
+    assert.equal(dec.code, 1, dec.stdout);
+    assert.match(dec.stderr, /one path segment/);
+    const design = 'docs/superpowers/specs/2026-09-02-hub-design.md';
+    write(r.root, design, '# Hub\n\n## Decisions\n\n- one hub\n');
+    const filed = intake(r.root, 'design', '--file', design, '--subsystems', 'tooling/deep');
+    assert.equal(filed.code, 1, filed.stdout);
+    assert.match(filed.stderr, /one path segment/);
+    assert.equal(read(r.root, design), '# Hub\n\n## Decisions\n\n- one hub\n', 'no front matter was written');
+
+    assert.equal(intake(r.root, 'design', '--file', design, '--subsystems', 'tooling').code, 0);
+    assert.equal(intake(r.root, 'design', '--approve', design).code, 0);
+    const emb = intake(r.root, 'design', '--embed', design, '--subsystem', 'tooling/deep', '--topic', 'T', '--heading', 'Decisions');
+    assert.equal(emb.code, 1, emb.stdout);
+    assert.match(emb.stderr, /one path segment/);
+
+    assert.equal(fs.existsSync(path.join(r.root, 'docs/dictated-specs/structure')), false, 'no structure note was written by any of the five');
+  } finally { r.cleanup(); }
+});
+
+// Merge review 2, F2. `spec` runs `git add` before `git commit`, so a gate refusal leaves the whole
+// filing in the INDEX as well as in the tree. `git checkout -- <dirs>` restores FROM the index, so
+// the documented recovery was a no-op: after both its steps the tree was byte-for-byte what it had
+// been and the re-run met "a note is written once" for ever. This runs the command the skill
+// actually prints and demands it take the tree and the index back to HEAD.
+const SKILL_COPIES = [
+  path.join(PLUGIN, 'skills', 'rule-process', 'SKILL.md'),
+  path.join(PLUGIN, '..', '..', 'claude-code', 'machinery', 'rule-process', 'SKILL.md'),
+];
+function documentedRestore() {
+  const found = SKILL_COPIES.map((f) => {
+    const t = fs.readFileSync(f, 'utf8');
+    assert.doesNotMatch(t, /git checkout -- docs\/dictated-specs/, `${f}: checkout restores FROM the index, which still holds the refused filing`);
+    const m = /`(git restore [^`]+)`/.exec(t);
+    assert.ok(m, `${f}: names no git restore that undoes a filing the gate refused`);
+    return m[1];
+  });
+  assert.equal(found[0], found[1], 'both copies of the skill must print the same recovery command');
+  return found[0].split(' ').slice(1);
+}
+
+test('RED CHECK: the recovery the skill documents really undoes a filing the gate refused, and the re-run is accepted', () => {
+  const r = project();
+  try {
+    assert.equal(runScript('scripts/install.mjs', { args: ['--root', r.root], cwd: r.root }).code, 0);
+    assert.equal(runScript('scripts/setup.mjs', { args: ['set', 'components', 'docs=docs'], cwd: r.root }).code, 0);
+    assert.equal(runScript('scripts/setup.mjs', { args: ['set', 'tiers.fast', 'node --version <components>'], cwd: r.root }).code, 0);
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'install machinery');
+    const stamp = '2026-09-19T07:00:00Z';
+    // Captured but not committed: an installed gate refuses a commit that carries a PENDING entry.
+    appendEntry(slipboxPaths(r.root).specInbox, { marker: 'SPEC', text: 'SPEC: refused once', session: 's', stamp });
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    // An approved design in the same subsystem, never embedded: leg 3 refuses the filing's commit.
+    const poison = 'docs/superpowers/specs/2026-09-02-hub-design.md';
+    write(r.root, poison, '---\nkind: design\nstatus: approved\nsubsystems: [extruders]\n---\n# Hub\n\n## Decisions\n\n- one hub\n');
+
+    const refused = fileOne(r.root, stamp);
+    assert.equal(refused.code, 1, refused.stdout);
+    assert.match(refused.stderr + refused.stdout, /embeds no heading of the approved design note/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head, 'nothing was committed');
+    assert.notEqual(g(r.root, 'diff', '--cached', '--name-only'), '', 'the refusal leaves the filing STAGED, not merely on disk');
+
+    g(r.root, ...documentedRestore());
+    // The skill's second step: delete whatever is left untracked under those two directories.
+    const left = g(r.root, 'status', '--porcelain', '--', 'docs/dictated-specs', 'docs/spec-current');
+    for (const l of left.split('\n').filter(Boolean)) fs.rmSync(path.join(r.root, l.slice(3).trim()), { recursive: true, force: true });
+    assert.equal(g(r.root, 'status', '--porcelain', '--', 'docs/dictated-specs', 'docs/spec-current'), '', 'the tree and the index are back at HEAD');
+
+    // The one line of the inbox entry the skill allows you to edit, and the fix the gate named.
+    setDisposition(slipboxPaths(r.root).specInbox, stamp, { state: 'PENDING', detail: 'PENDING' });
+    fs.rmSync(path.join(r.root, poison));
+    const again = fileOne(r.root, stamp);
+    assert.equal(again.code, 0, again.stderr + again.stdout);
+    assert.equal(g(r.root, 'rev-list', '--count', `${head}..HEAD`), '1');
   } finally { r.cleanup(); }
 });

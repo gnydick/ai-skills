@@ -99,6 +99,30 @@ export const CURRENT_DIR = 'spec-current';
 export const SUPERPOWERS_DIR = 'superpowers';
 export const ADR_DIR = 'adr';
 
+// A subsystem name is a FILE NAME: docs/dictated-specs/structure/<name>.md and
+// docs/spec-current/<name>.md. Measured 2026-09-19 (merge review 2, F3): `--subsystems
+// "tooling/deep"` wrote structure/tooling/deep.md, which the read model's non-recursive mdFiles
+// never finds, while subsystemsOf still reported 'tooling/deep' — gate leg 3 then refused every
+// commit in the project with advice that cannot work, the note was immutable, and --no-verify was
+// the only way out. So every entry point that accepts a subsystem checks the name BEFORE it
+// writes. The illegal set is Windows's, which is the stricter of the two; '.' and '..' are path
+// segments that are not names, and a trailing dot or space is a name Windows cannot create.
+const ILLEGAL_IN_A_FILENAME = /[\\/:*?"<>|\u0000-\u001f]/;
+export function subsystemProblem(name) {
+  const s = typeof name === 'string' ? name : String(name ?? '');
+  const bad = (why) => `subsystem '${s}': ${why}`;
+  if (!s.trim()) return bad('a subsystem name may not be empty');
+  if (ILLEGAL_IN_A_FILENAME.test(s)) return bad('a subsystem is one path segment — no / \\ : * ? " < > | or control character');
+  if (s === '.' || s === '..') return bad('a subsystem is one path segment, not \'.\' or \'..\'');
+  if (/[. ]$/.test(s)) return bad('a subsystem may not end in a dot or a space — no such file name exists on Windows');
+  return null;
+}
+export function checkSubsystem(name) {
+  const problem = subsystemProblem(name);
+  if (problem) throw new Error(problem);
+  return name;
+}
+
 // A capture stamp as a note id: ':' is illegal in a Windows filename (#132 § 3).
 export const stampToId = (stamp) => stamp.replaceAll(':', '-');
 export const idToStamp = (id) => id.replace(/T(\d\d)-(\d\d)-(\d\d)Z$/, 'T$1:$2:$3Z');

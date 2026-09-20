@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pending, setDisposition } from './inbox.mjs';
 import { parseFrontmatter, setFrontmatter } from './frontmatter.mjs';
 import { section } from './embed.mjs';
-import { slipboxPaths, stampToId } from './layout.mjs';
+import { slipboxPaths, stampToId, checkSubsystem } from './layout.mjs';
 import { loadSlipbox, inForce, readStructure } from './slipbox.mjs';
 import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, placeHeadingEmbed, placeLink, placeRef, dropSupersededLinks, swapEmbed, dropEmbed, syncGenerated } from './slipbox-write.mjs';
 import { unmigrated, describeUnmigrated } from './unmigrated.mjs';
@@ -20,6 +20,7 @@ export function refuseUnmigrated(repo) {
 
 export function fileSpec({ repo, stamp, subsystems, topic, title, supersedes = [], versions = [] }) {
   refuseUnmigrated(repo);
+  subsystems.forEach(checkSubsystem);
   if (versions.length && versions.length !== supersedes.length) throw new Error('--version needs one file per --supersedes id, in the same order');
   const p = slipboxPaths(repo);
   const entry = pending(p.specInbox).find((e) => e.stamp === stamp);
@@ -91,6 +92,7 @@ export function fileDecision({ repo, file }) {
   if (data?.kind !== 'decision') throw new Error(`${rel(repo, abs)} needs front matter with kind: decision, subsystems and rests_on`);
   const subsystems = listOf(data.subsystems);
   if (!subsystems.length) throw new Error(`${rel(repo, abs)} names no subsystems`);
+  subsystems.forEach(checkSubsystem);
   const box = loadSlipbox(repo);
   for (const d of listOf(data.rests_on)) if (box.notes.get(d)?.kind !== 'dictation') throw new Error(`rests_on ${d}: not a dictation note`);
   const id = path.basename(abs, '.md');
@@ -109,6 +111,7 @@ export function fileDecision({ repo, file }) {
 
 // D12: a living map stays outside the slip box; a structure note may only link to it.
 export function fileRef({ repo, subsystem, target }) {
+  checkSubsystem(subsystem);
   const p = slipboxPaths(repo);
   const abs = path.resolve(repo, target);
   if (!fs.existsSync(abs)) throw new Error(`--path ${target}: no such file`);
@@ -135,6 +138,7 @@ function superpowersFile(repo, file, which) {
 }
 
 export function fileDesign({ repo, file, subsystems = [], supersedes = [], ticket = null }) {
+  subsystems.forEach(checkSubsystem);
   const f = superpowersFile(repo, file, 'specs');
   if (f.data.kind) throw new Error(`${file} is already filed as ${f.data.kind}`);
   const box = loadSlipbox(repo);
@@ -168,6 +172,7 @@ export function approveDesign({ repo, file }) {
 // D9: only a decision, owner-constraint or principle heading is embedded. The gate cannot judge
 // that; the command's output names the heading so the owner sees it.
 export function embedDesign({ repo, file, subsystem, topic, heading }) {
+  checkSubsystem(subsystem);
   const f = superpowersFile(repo, file, 'specs');
   if (f.data.kind !== 'design' || f.data.status !== 'approved') throw new Error(`${file} is ${f.data.kind ?? 'unfiled'}${f.data.status ? ` (${f.data.status})` : ''}: only an approved design note is embedded`);
   if (section(parseFrontmatter(f.text).body, heading) === null) throw new Error(`${file} has no heading '${heading}'`);

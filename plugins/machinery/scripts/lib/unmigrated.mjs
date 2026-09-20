@@ -7,9 +7,16 @@ import { parseFrontmatter } from './frontmatter.mjs';
 import { slipboxPaths, INDEX_FILE } from './layout.mjs';
 import { mdFiles } from './slipbox.mjs';
 
+// The old layout kept each spec as a top-level file under docs/dictated-specs/. Two names there
+// are never one of those, and the distinction matters twice over: an old spec file makes a project
+// read as UNMIGRATED, and commit 2 of the migration DELETES every one of them. Measured 2026-09-19
+// (merge review 2, F8): a project's docs/dictated-specs/README.md was counted as an old spec, so
+// the migration would have deleted it. INDEX.md is generated; README.md is the reader's own.
+const NOT_AN_OLD_SPEC = new Set([INDEX_FILE, 'README.md']);
+
 export function unmigrated(root) {
   const p = slipboxPaths(root);
-  const oldSpecs = mdFiles(p.specs).filter((f) => f !== INDEX_FILE);
+  const oldSpecs = mdFiles(p.specs).filter((f) => !NOT_AN_OLD_SPEC.has(f));
   const adr = fs.existsSync(p.adr);
   const adrFiles = adr ? mdFiles(p.adr) : [];
   const bare = [];

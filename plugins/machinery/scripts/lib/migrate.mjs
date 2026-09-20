@@ -7,16 +7,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './git.mjs';
 import { parseInbox, setDisposition } from './inbox.mjs';
-import { slipboxPaths, stampToId, filedPath } from './layout.mjs';
+import { slipboxPaths, stampToId, filedPath, subsystemProblem, checkSubsystem } from './layout.mjs';
 import { setFrontmatter } from './frontmatter.mjs';
 import { scan } from './embed.mjs';
-import { loadSlipbox, inForce, readStructure } from './slipbox.mjs';
+import { loadSlipbox, inForce, readStructure, adrStatus, isSupersededDecision } from './slipbox.mjs';
 import { writeOnce, writeText, dictationNote, versionNote, placeEmbed, placeHeadingEmbed, placeLink, placeRef, syncGenerated } from './slipbox-write.mjs';
 import { unmigrated } from './unmigrated.mjs';
 import { commitPaths } from './commit.mjs';
 
 const toPosix = (p) => p.split(path.sep).join('/');
 const STATUSES = { design: ['draft', 'approved', 'historical'], plan: ['in-progress', 'done', 'abandoned', 'historical'], map: [null] };
+// The owner ruled on 2026-09-19 that only ratified work is approved and "the rest historical".
+// A migration of a large project is ~240 judgements, most of them this one, so a row that leaves
+// `status` null is not a gap to fill: it IS historical, for a design and for a plan alike. An
+// explicit status still wins — this is the default, not an override.
+const DEFAULT_STATUS = 'historical';
 const PLAN_LISTS = ['notes', 'versions', 'unsettled', 'superpowers', 'embeds', 'decisionLinks', 'refs', 'references'];
 // Undoing a run that stopped part-way. `git reset --hard`, not `git checkout -- .`: the ADR move
 // is a `git mv`, which stages the rename, and checkout restores the worktree FROM the index, so
@@ -85,6 +90,9 @@ export function buildPlan(repo, u = unmigrated(repo)) {
     // Exactly the files unmigrated() counts, so a file the migration does not move can never be
     // both moved and read back as a reference afterwards.
     adr: { files: u.adrFiles },
+    // `status: null` is not a gap here: it migrates as `historical` (DEFAULT_STATUS, the owner's
+    // 2026-09-19 ruling). Fill it only where the owner ratified something — a design that is
+    // `approved` or still `draft`, a plan that is `in-progress`, `done` or `abandoned`.
     superpowers: u.bare.map((p) => ({ path: p, kind: p.includes('/superpowers/plans/') ? 'plan' : 'design', status: null, subsystems: [], ticket: null, supersedes: [] })),
     embeds: [], decisionLinks: [], refs: [], references,
   };
@@ -103,6 +111,18 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
 
   const out = [];
   const p = slipboxPaths(repo);
+  // A subsystem name is a file name (F3). Checked HERE, over every list that names one, so the
+  // migration never writes structure/a/b.md — a file the non-recursive read model cannot see, in a
+  // project whose every commit would then be refused with advice that cannot work.
+  const named = [
+    ...plan.notes.flatMap((n) => n.subsystems ?? []),
+    ...plan.versions.flatMap((v) => v.subsystems ?? []),
+    ...plan.superpowers.flatMap((s) => s.subsystems ?? []),
+    ...plan.embeds.map((e) => e.subsystem),
+    ...plan.decisionLinks.map((d) => d.subsystem),
+    ...plan.refs.map((x) => x.subsystem),
+  ].filter((s) => s != null);
+  for (const s of new Set(named)) { const bad = subsystemProblem(s); if (bad) out.push(bad); }
   const planned = new Set(plan.superpowers.map((s) => s.path));
   for (const b of u.bare) if (!planned.has(b)) out.push(`superpowers ${b}: not in the plan — the plan is stale; run migrate --plan again`);
   // A file in docs/adr that unmigrated() does not count would be swept away with the directory.
@@ -151,7 +171,9 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   }
   for (const s of plan.superpowers) {
     if (!STATUSES[s.kind]) out.push(`superpowers ${s.path}: kind must be design, plan or map`);
-    else if (s.kind !== 'map' && !STATUSES[s.kind].includes(s.status)) out.push(`superpowers ${s.path}: status is required for a ${s.kind} (${STATUSES[s.kind].join(', ')})`);
+    // A null status is the owner's default, not a gap; a status that is spelled must be one of the
+    // kind's own.
+    else if (s.kind !== 'map' && s.status != null && !STATUSES[s.kind].includes(s.status)) out.push(`superpowers ${s.path}: status '${s.status}' is not one of a ${s.kind}'s (${STATUSES[s.kind].join(', ')}), and null migrates as ${DEFAULT_STATUS}`);
     // EACH subsystem, not merely one row somewhere: a subsystem with no heading embed of an
     // approved design is what gate leg 3 refuses with "embeds no heading of the approved design".
     if (s.kind === 'design' && s.status === 'approved') {
@@ -169,13 +191,23 @@ export function planProblems(repo, plan, u = unmigrated(repo)) {
   }
   // A docs/adr file that is not named 00NN-slug.md moves byte-identical and loadSlipbox never loads
   // it (slipbox.mjs's ADR_FILE), so a link to it is a broken link in every structure note.
+  const adrIds = u.adrFiles.filter((f) => /^\d{4}-.*\.md$/.test(f));
   const willBeDecisions = new Set([
-    ...u.adrFiles.filter((f) => /^\d{4}-.*\.md$/.test(f)).map((f) => f.slice(0, -3)),
+    ...adrIds.map((f) => f.slice(0, -3)),
     ...[...box.notes.values()].filter((n) => n.kind === 'decision').map((n) => n.id),
+  ]);
+  // A decision whose status line already reads "Superseded by …" leaves every "Why" section, so
+  // leg 3 would refuse the migration's own commit — and the command it names, `decision --file` on
+  // the successor, refuses in turn, because a migrated ADR has no front matter (F7). The same test
+  // the gate uses, over the ADRs about to move and the decision notes already filed.
+  const superseded = new Set([
+    ...adrIds.filter((f) => /^Superseded by/.test(adrStatus(fs.readFileSync(path.join(p.adr, f), 'utf8')) ?? '')).map((f) => f.slice(0, -3)),
+    ...[...box.notes.values()].filter((n) => isSupersededDecision(n)).map((n) => n.id),
   ]);
   for (const d of plan.decisionLinks) {
     if (!d.subsystem || !d.decision) { out.push(`decision link ${d.decision ?? '?'}: subsystem and decision are required`); continue; }
     if (!willBeDecisions.has(d.decision)) out.push(`decision link ${d.decision}: the slip box will hold no decision note with that id — a decision note is docs/dictated-specs/decisions/00NN-slug.md; rename the file first`);
+    else if (superseded.has(d.decision)) out.push(`decision link ${d.decision}: its status line reads "Superseded by …", and a structure note never links a superseded decision — link its successor instead, or drop this link`);
   }
   for (const x of plan.refs) {
     if (!x.subsystem || !x.path) { out.push(`ref ${x.path ?? '?'}: subsystem and path are required`); continue; }
@@ -257,7 +289,7 @@ function applyChanges(repo, plan, u, done) {
   for (const s of plan.superpowers) {
     const abs = path.join(repo, s.path);
     const fm = s.kind === 'map' ? { kind: 'map' } : {
-      kind: s.kind, status: s.status,
+      kind: s.kind, status: s.status ?? DEFAULT_STATUS,
       ...(s.subsystems?.length ? { subsystems: s.subsystems } : {}),
       ...(s.ticket ? { ticket: String(s.ticket) } : {}),
       ...(s.supersedes?.length ? { supersedes: s.supersedes } : {}),
@@ -283,7 +315,9 @@ function applyChanges(repo, plan, u, done) {
 
   const box = loadSlipbox(repo);
   const live = inForce(box);
-  const structure = (sub) => path.join(p.structure, `${sub}.md`);
+  // planProblems has already refused a bad name; this is the single place every placement below
+  // turns a subsystem into a path, so no future caller can get one past it.
+  const structure = (sub) => path.join(p.structure, `${checkSubsystem(sub)}.md`);
   const cur = (sub) => (fs.existsSync(structure(sub)) ? fs.readFileSync(structure(sub), 'utf8') : null);
   // Each placement happens only when the structure note does not already hold it, exactly as
   // fileSpec, fileDecision and fileRef do: migrating a project twice places nothing twice.

@@ -163,3 +163,28 @@ test('RED CHECK: two files sharing an id refuse as a leg naming the rename, not 
     assert.doesNotMatch(res.stdout, /could not run/, res.stdout);
   } finally { r.cleanup(); }
 });
+
+// Merge review 2, F6. Leg 5 used to build `want` inside a try and carry on with it EMPTY when
+// regeneration threw: every existing generated page was then reported as "has no structure note
+// behind it", and the denominator read 0 — one un-generatable page buried under a cascade with no
+// count behind it. The failure is now reported as itself, and the orphan sweep does not run.
+test('RED CHECK: one page that cannot be generated is reported alone, with a denominator, and no orphan cascade', () => {
+  const r = project();
+  try {
+    file(r.root, '2026-09-01T08:00:00Z', 'SPEC: extruder rule');
+    appendEntry(slipboxPaths(r.root).specInbox, { marker: 'SPEC', text: 'SPEC: plate rule', session: 's', stamp: '2026-09-02T08:00:00Z' });
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'capture');
+    const second = runScript('scripts/intake.mjs', { args: ['spec', '--root', r.root, '--stamp', '2026-09-02T08:00:00Z', '--subsystems', 'plates', '--topic', 'Defaults', '--title', 'P'], cwd: r.root, env: env() });
+    assert.equal(second.code, 0, second.stderr + second.stdout);
+    // A note that embeds itself: every link RESOLVES, so leg 4 is content, but flatten cycles — a
+    // page that cannot be generated at all, which is what leg 5 used to cascade on.
+    const note = 'docs/dictated-specs/notes/2026-09-01T08-00-00Z.md';
+    write(r.root, note, `${read(r.root, note)}\n![[2026-09-01T08-00-00Z]]\n`);
+
+    const out = gate(r.root).stdout;
+    assert.match(out, /slipbox_check: 1 of 3 generated page\(s\) stale/, out);
+    assert.match(out, /docs\/spec-current\/extruders\.md cannot be generated — embed cycle/, out);
+    assert.doesNotMatch(out, /has no structure note behind it/, out);
+    assert.equal(gate(r.root).code, 1);
+  } finally { r.cleanup(); }
+});

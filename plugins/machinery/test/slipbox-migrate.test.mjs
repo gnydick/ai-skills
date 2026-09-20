@@ -27,6 +27,8 @@ function oldProject() {
   // The fenced `## ` line is not a heading: headings are read through embed.mjs's scan, like
   // everywhere else in this feature, so it is never listed as an unsettled heading.
   write(r.root, 'docs/dictated-specs/collision.md', '# Collision\n\n### A — REVERSED 2026-09-09\n\neach object has its own extruder (reworded)\n\nASSISTANT, offered so it can be struck: maybe per group\n\n### B\n\nobjects need not\n\n### C. never filed\n\ntext\n\n```\n## Not a heading\n```\n');
+  // Not an old spec file, and not a migration trigger: it must survive both commits (F8).
+  write(r.root, 'docs/dictated-specs/README.md', '# Dictated specifications\n\n## How this works\n\nRead INDEX.md.\n');
   write(r.root, 'docs/adr/0001-x.md', ADR);
   write(r.root, 'docs/adr/README.md', '# ADRs\n');
   write(r.root, 'docs/superpowers/specs/2026-06-21-hub-design.md', '# Hub\n\n## Decisions\n\n- one hub\n\n## Files touched\n\n- hub.rs\n');
@@ -67,7 +69,9 @@ test('--plan writes a skeleton listing every item, and changes nothing in the pr
     assert.equal(g(r.root, 'status', '--porcelain'), '');
     const p = JSON.parse(fs.readFileSync(out, 'utf8'));
     assert.deepEqual(p.notes.map((n) => [n.stamp, n.oldHome]), [[A, 'docs/dictated-specs/collision.md § A'], [B, 'docs/dictated-specs/collision.md § B']]);
+    // docs/dictated-specs/README.md is not an old spec file, so it carries no unsettled row (F8).
     assert.deepEqual(p.unsettled.map((u) => u.heading), ['A — REVERSED 2026-09-09', 'C. never filed']);
+    assert.deepEqual(p.unsettled.map((u) => u.file), ['docs/dictated-specs/collision.md', 'docs/dictated-specs/collision.md']);
     assert.deepEqual(p.adr.files, ['0001-x.md', 'README.md']);
     assert.deepEqual(p.superpowers.map((s) => [s.path, s.kind]), [
       ['docs/superpowers/specs/2026-06-21-hub-design.md', 'design'],
@@ -102,6 +106,9 @@ test('--apply migrates in two commits: notes from the inbox, ADRs moved intact, 
     assert.match(read(r.root, 'docs/dictated-specs/notes/2026-09-01T08-00-00Z.md'), /> SPEC: each object has its own extruder\n/);
     assert.doesNotMatch(read(r.root, 'docs/dictated-specs/notes/2026-09-01T08-00-00Z.md'), /reworded/);
     assert.equal(read(r.root, 'docs/dictated-specs/decisions/0001-x.md'), ADR);
+    // Commit 2 deletes every old spec file; the README is not one of them (F8).
+    assert.equal(read(r.root, 'docs/dictated-specs/README.md'), '# Dictated specifications\n\n## How this works\n\nRead INDEX.md.\n');
+    assert.equal(fs.existsSync(path.join(r.root, 'docs/dictated-specs/collision.md')), false);
     assert.ok(!fs.existsSync(path.join(r.root, 'docs/adr')));
     assert.equal(read(r.root, 'scripts/adr_gate.py'), 'ADR_DIR = "docs/dictated-specs/decisions"\n');
     assert.match(read(r.root, 'docs/superpowers/plans/2026-06-21-hub.md'), /^---\nkind: plan\nstatus: done\nticket: 3\n---\n/);
@@ -332,7 +339,8 @@ test('RED CHECK: --apply refuses an unfilled plan, lists every gap, and changes 
     assert.equal(res.code, 1);
     assert.match(res.stderr, /note 2026-09-01T08:00:00Z: title, topic and subsystems are required/);
     assert.match(res.stderr, /unsettled docs\/dictated-specs\/collision\.md § C\. never filed: no resolution/);
-    assert.match(res.stderr, /superpowers docs\/superpowers\/plans\/2026-06-21-hub\.md: status is required for a plan/);
+    // A null status is NOT a gap (the owner's 2026-09-19 ruling): it migrates as historical.
+    assert.doesNotMatch(res.stderr, /superpowers docs\/superpowers\/plans\/2026-06-21-hub\.md/);
     assert.match(res.stderr, /reference scripts\/adr_gate\.py: not reviewed/);
     assert.equal(g(r.root, 'status', '--porcelain'), '');
     assert.equal(g(r.root, 'rev-list', '--count', 'HEAD'), '2');
@@ -398,5 +406,95 @@ test('RED CHECK: an embed missing for one subsystem, a decision link the box wil
 
     assert.equal(g(r.root, 'status', '--porcelain'), '');
     assert.ok(!fs.existsSync(path.join(r.root, 'docs/dictated-specs/notes')), 'nothing was written');
+  } finally { r.cleanup(); }
+});
+
+// Merge review 2, F3. A subsystem name is a file name. Caught when the plan is checked, so the
+// migration never writes structure/tooling/deep.md — a file the read model cannot see, in a
+// project whose every commit would then be refused with advice that cannot work.
+test('RED CHECK: a subsystem name that is not one path segment is refused when the plan is checked, before anything is written', () => {
+  const r = oldProject();
+  try {
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+    p.notes[0].subsystems = ['tooling/deep'];
+    fs.writeFileSync(out, JSON.stringify(p));
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stderr, /tooling\/deep/);
+    assert.match(res.stderr, /one path segment/);
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+  } finally { r.cleanup(); }
+});
+
+// Merge review 2, F7. planProblems guarded decisionLinks against a filename that is not an ADR,
+// but not against an ADR that is already superseded. Leg 3 strips such a link from every "Why"
+// section, so the migration's own commit was refused, and the advice leg 3 prints — run
+// `decision --file` on the successor — refuses too, because a migrated ADR has no front matter.
+test('RED CHECK: a decision link to a superseded ADR is refused when the plan is checked, and the successor is accepted', () => {
+  const r = oldProject();
+  try {
+    write(r.root, 'docs/adr/0001-x.md', '# ADR 1\n\n- **Status:** Superseded by ADR-0002\n');
+    write(r.root, 'docs/adr/0002-y.md', '# ADR 2\n\n- **Status:** Accepted\n');
+    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'supersede 0001');
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+    fs.writeFileSync(out, JSON.stringify(p));
+    const head = g(r.root, 'rev-parse', 'HEAD');
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 1, res.stdout);
+    assert.match(res.stderr, /decision link 0001-x/);
+    assert.match(res.stderr, /[Ss]uperseded/);
+    assert.match(res.stderr, /successor/);
+    assert.doesNotMatch(res.stderr, /intake\.mjs decision --file/, 'that command refuses on a migrated ADR: it has no front matter');
+    assert.equal(g(r.root, 'rev-parse', 'HEAD'), head);
+    assert.equal(g(r.root, 'status', '--porcelain'), '', 'nothing was written');
+
+    p.decisionLinks = [{ subsystem: 'extruders', decision: '0002-y' }];
+    fs.writeFileSync(out, JSON.stringify(p));
+    const ok2 = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(ok2.code, 0, ok2.stderr + ok2.stdout);
+    const st = read(r.root, 'docs/dictated-specs/structure/extruders.md');
+    assert.match(st, /- \[\[0002-y\]\]/);
+    assert.doesNotMatch(st, /0001-x/);
+  } finally { r.cleanup(); }
+});
+
+// Merge review 2, F8. unmigrated() read every top-level .md under docs/dictated-specs except
+// INDEX.md as an old spec file, and commit 2 deletes every old spec file. A project with a README
+// there would have lost it, and would have been called unmigrated for ever after.
+test('RED CHECK: docs/dictated-specs/README.md is neither a migration trigger nor a file the migration deletes', () => {
+  const r = makeRepo();
+  try {
+    write(r.root, 'docs/dictated-specs/README.md', '# Dictated specifications\n\n## How this works\n\nRead INDEX.md.\n');
+    const u = unmigrated(r.root);
+    assert.deepEqual(u.oldSpecs, [], 'a README is not an old spec file');
+    assert.equal(u.any, false, 'a README alone does not make a project unmigrated');
+  } finally { r.cleanup(); }
+});
+
+// The owner ruled on 2026-09-19 that only ratified work is approved and "the rest historical".
+// A plan row that leaves `status` null is therefore not a gap: it IS historical, for a design and
+// for a plan alike. An explicit status still wins.
+test('RED CHECK: a superpowers row with no status migrates as historical, and an explicit status is untouched', () => {
+  const r = oldProject();
+  try {
+    const out = planFile();
+    assert.equal(intake(r.root, 'migrate', '--plan', out).code, 0);
+    const p = fill(JSON.parse(fs.readFileSync(out, 'utf8')));
+    const design = p.superpowers.find((s) => s.path.endsWith('hub-design.md'));
+    Object.assign(design, { status: null, subsystems: [] });
+    p.embeds.length = 0;
+    // The plan row keeps the explicit 'done' that fill() gave it.
+    assert.equal(p.superpowers.find((s) => s.path.endsWith('plans/2026-06-21-hub.md')).status, 'done');
+    fs.writeFileSync(out, JSON.stringify(p));
+    const res = intake(r.root, 'migrate', '--apply', out);
+    assert.equal(res.code, 0, res.stderr + res.stdout);
+    assert.match(read(r.root, 'docs/superpowers/specs/2026-06-21-hub-design.md'), /kind: design\nstatus: historical\n/);
+    assert.match(read(r.root, 'docs/superpowers/plans/2026-06-21-hub.md'), /kind: plan\nstatus: done\n/);
   } finally { r.cleanup(); }
 });
