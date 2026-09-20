@@ -215,3 +215,29 @@ test('RED CHECK: one page that cannot be generated is reported alone, with a den
     assert.equal(gate(r.root).code, 1);
   } finally { r.cleanup(); }
 });
+
+// #136 § "What the gate checks": a marker naming a note that does not exist refuses the commit,
+// naming the file. An extension of the link leg — the same failure mode, a citation that resolves
+// to nothing — so it adds no new kind of refusal.
+test('a marker naming a note that does not exist refuses the commit and names the file', () => {
+  const r = superseded();
+  try {
+    write(r.root, 'src/lib.rs', `// spec:${NEW}\nfn ok() {}\n`);
+    write(r.root, 'src/bad.rs', '// spec:0099-does-not-exist\nfn bad() {}\n');
+    g(r.root, 'add', '-A');
+    const res = gate(r.root);
+    refused(res, /src\/bad\.rs/);
+    assert.match(res.stdout, /0099-does-not-exist/, 'the unknown note id is named');
+  } finally { r.cleanup(); }
+});
+
+test('a marker naming a note that exists passes the leg, which prints its denominator', () => {
+  const r = superseded();
+  try {
+    write(r.root, 'src/lib.rs', `// spec:${NEW}\n`);
+    g(r.root, 'add', '-A');
+    const res = gate(r.root);
+    assert.equal(res.code, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /^slipbox_check: 0 of 1 marker\(s\) naming a note that does not exist/m);
+  } finally { r.cleanup(); }
+});

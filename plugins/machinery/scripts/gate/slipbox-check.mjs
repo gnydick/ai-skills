@@ -12,6 +12,7 @@ import { checkoutRoot } from '../lib/root.mjs';
 import { parseFrontmatter } from '../lib/frontmatter.mjs';
 import { unquote } from '../lib/blockquote.mjs';
 import { links, section } from '../lib/embed.mjs';
+import { findMarkers, resolveMarkers } from '../lib/markers.mjs';
 import { idToStamp } from '../lib/layout.mjs';
 import { loadSlipbox, inForce, expected, subsystemsOf, readStructure, regenerate, renderCurrent, staleGenerated, dictationQuote, isSupersededDecision, readText } from '../lib/slipbox.mjs';
 
@@ -173,6 +174,29 @@ export function slipboxCheck({ specInbox }) {
     }
   }
   leg(badFiles.size, texts.length, 'file(s) with broken links (must be 0)', broken);
+
+  // Leg 4b — the code's citations resolve (#136). Same failure mode as leg 4: a citation that
+  // resolves to nothing. The direction is the other way round — the code cites the note — so the
+  // scan is over the CHECKOUT's tracked files, not over the slip box.
+  //
+  // The slip box is excluded from the scan: the notes are the authority a marker points AT, and a
+  // note quoting a marker is quoting, not citing.
+  //
+  // `git grep` exits 1 for "no matches" and >1 for a real error. A real error is reported as the
+  // leg failing to run rather than as zero markers: a scan that could not look must never read as
+  // a scan that looked and found nothing.
+  const hits = git(['grep', '-I', '--no-color', '-z', '-e', 'spec:', '--', '.', ':!docs/dictated-specs'], repo);
+  if (hits.code > 1) {
+    leg(1, 1, 'marker scan(s) that could not run (must be 0)', [`the marker scan failed — ${hits.stderr || `git grep exited ${hits.code}`}; fix that, then commit again`]);
+  } else {
+    const files = hits.code === 0 ? hits.stdout.split(/\r?\n/).filter(Boolean).map((row) => {
+      const cut = row.indexOf('\0');
+      return { path: row.slice(0, cut), text: row.slice(cut + 1) };
+    }) : [];
+    const { marked, unknown } = resolveMarkers(findMarkers(files), box);
+    const stranded = unknown.flatMap(({ id, paths }) => paths.map((p) => `${p} marks spec:${id}, but no note has that id — fix the marker, or file the note it means`));
+    leg(unknown.length, marked.size + unknown.length, 'marker(s) naming a note that does not exist (must be 0)', stranded);
+  }
 
   // Leg 5 — generated pages are fresh. Compared in memory; the gate never writes.
   //
