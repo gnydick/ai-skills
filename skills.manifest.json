@@ -60,13 +60,6 @@
           ]
         }
       }
-    },
-    "claude-ai-zip": { "kind": "zip", "path": "dist", "implemented": false },
-    "codex":         { "kind": "harness-manifest", "path": ".codex-plugin", "implemented": false },
-    "cursor":        { "kind": "harness-manifest", "path": ".cursor-plugin", "implemented": false },
-    "gemini":        { "kind": "harness-manifest", "path": "gemini-extension.json", "implemented": false },
-    "kimi":          { "kind": "harness-manifest", "path": ".kimi-plugin", "implemented": false },
-    "opencode":      { "kind": "harness-manifest", "path": ".opencode/plugins", "implemented": false },
-    "pi":            { "kind": "harness-manifest", "path": ".pi/extensions", "implemented": false }
+    }
   }
 }
