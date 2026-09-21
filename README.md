@@ -1,9 +1,9 @@
 # ai-skills
 
-Agent skills in two compatibility classes: `pure-prose` skills — no tool
-names, no bundled scripts, no harness assumptions — that run on any agent
-able to read text, and `claude-code` skills that bundle scripts and lean on
-Claude Code's memory layout.
+Agent skills in one compatibility class: `claude-code` — skills that may
+bundle scripts, name Claude Code's tools, and lean on its memory layout.
+The two plugins still differ in content: `unbreakable` is prose only and
+runs anywhere, `machinery` needs Claude Code.
 
 ## Install (Claude Code)
 
@@ -27,21 +27,21 @@ Manage or remove them later through the interactive `/plugin` menu.
 
 ## Use anywhere else
 
-Nothing in `pure-prose/` depends on Claude Code. Copy a skill's `SKILL.md`
-into ChatGPT, Gemini, Cursor, Codex, or whatever your agent reads for
-instructions and it works unchanged — only *automatic* triggering from the
-`description` field is harness-specific. The `claude-code/` skills need
-Claude Code: they read its transcripts and memory directories and bundle
-Node scripts to do it.
+The `unbreakable` skills are prose only — no tool names, no bundled scripts,
+no harness assumptions. Copy a skill's `SKILL.md` into ChatGPT, Gemini,
+Cursor, Codex, or whatever your agent reads for instructions and it works
+unchanged — only *automatic* triggering from the `description` field is
+harness-specific. The `machinery` skills need Claude Code: they read its
+transcripts and memory directories and bundle Node scripts to do it.
 
 ## Skills
 
-### `unbreakable` — pure prose
+### `unbreakable` — prose only
 
 | Skill | For |
 |---|---|
-| [`be-reasonable`](pure-prose/unbreakable/be-reasonable/SKILL.md) | Every design choice that *isn't* an invariant — precision, defaults, timeouts, naming, config, logging, test level, deploy shape, and who runs the tooling under a context budget. Four moves: derive the choice from the situation, lean toward the mistake that's cheaper to undo, split any decision serving two masters, and ask the developer when two answers are genuinely defensible. Plus a domain appendix showing the method already applied. |
-| [`cant-break-by-design`](pure-prose/unbreakable/cant-break-by-design/SKILL.md) | Making invariants unrepresentable rather than merely checked. An 8-rung enforcement ladder, 15 language-independent techniques, the strongest tool available per language, and the tripwire: duplicating a processing step at a second call site means the design is already wrong. |
+| [`be-reasonable`](claude-code/unbreakable/be-reasonable/SKILL.md) | Every design choice that *isn't* an invariant — precision, defaults, timeouts, naming, config, logging, test level, deploy shape, and who runs the tooling under a context budget. Four moves: derive the choice from the situation, lean toward the mistake that's cheaper to undo, split any decision serving two masters, and ask the developer when two answers are genuinely defensible. Plus a domain appendix showing the method already applied. |
+| [`cant-break-by-design`](claude-code/unbreakable/cant-break-by-design/SKILL.md) | Making invariants unrepresentable rather than merely checked. An 8-rung enforcement ladder, 15 language-independent techniques, the strongest tool available per language, and the tripwire: duplicating a processing step at a second call site means the design is already wrong. |
 
 ### `machinery` — Claude Code only
 
@@ -76,8 +76,7 @@ for the hooks and where the rules live.
 ## Layout
 
 ```
-pure-prose/<plugin>/<skill>/SKILL.md    source of truth, any harness
-claude-code/<plugin>/<skill>/SKILL.md   source of truth, Claude Code only (may bundle scripts)
+claude-code/<plugin>/<skill>/SKILL.md   source of truth (may bundle scripts)
 plugins/unbreakable/                    published plugins (staged, do not edit)
 plugins/machinery/
 scripts/build-skills.mjs                build | check | install | hooks | deny
@@ -85,10 +84,9 @@ skills.manifest.json                    which buckets fan out to which targets,
                                         and which plugin each skill is routed to
 ```
 
-Top-level directories are **compatibility classes, not namespaces**. `pure-prose`
-means "runs on any harness"; `claude-code` means "needs Claude Code's tools,
-transcripts and memory layout". The bucket name never appears in an installed
-skill's path. `build-skills.mjs` is the only thing that flattens buckets into
+Top-level directories are **compatibility classes, not namespaces**. `claude-code`
+means "may need Claude Code's tools, transcripts and memory layout". The bucket
+name never appears in an installed skill's path. `build-skills.mjs` is the only thing that flattens buckets into
 distribution targets, so there is no second place a skill can be copied from.
 
 The `<plugin>` level inside a bucket is the plugin the skill ships in, so

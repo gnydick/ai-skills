@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Single pipeline from compatibility buckets to distribution targets.
 //
-// Buckets (pure-prose/, ...) are compatibility classes. Nothing installs from
+// Buckets (claude-code/, ...) are compatibility classes. Nothing installs from
 // them directly: every target is produced here, so there is no second place a
 // skill can be copied from and no way for the flat layout to disagree with the
 // source. Adding a bucket without declaring it in skills.manifest.json is a
