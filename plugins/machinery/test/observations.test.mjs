@@ -3,16 +3,22 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { bespokeKey, generalizedForm, toolKey, isToolKey, recordRun, loadObservations, saveObservations, withTraining, moveRecord } from '../scripts/lib/observations.mjs';
+import { bespokeKey, generalizedForm, keyMatches, recordKeyFor, toolKey, isToolKey, recordRun, loadObservations, saveObservations, withTraining, moveRecord } from '../scripts/lib/observations.mjs';
 
-test('bespokeKey is the generalized form: the command and its flag NAMES as written, every value a typed placeholder', () => {
-  assert.equal(bespokeKey('bash scripts/battery.sh --quick'), 'bash scripts/battery.sh --quick');
-  assert.equal(bespokeKey('python scripts/oracle_compare.py --base HEAD~1'), 'python scripts/oracle_compare.py --base %s');
-  assert.equal(bespokeKey('scripts/testq.sh --workspace'), 'scripts/testq.sh --workspace');
-  // A flag's own VALUE carries no dash of its own, and it is still a value: `--jobs 4` and
-  // `--jobs 8` are one record, not two — see the fragmentation red check below.
-  assert.equal(bespokeKey('bash scripts/battery.sh --jobs 4'), 'bash scripts/battery.sh --jobs %d');
-  assert.equal(bespokeKey(bespokeKey('bash scripts/battery.sh --jobs 4')), 'bash scripts/battery.sh --jobs %d', 'and the form is its own fixed point: re-deriving over a key changes nothing');
+// MOVED from "bespokeKey is the generalized form" (#87) to the new behaviour (#164): the flag names
+// these cases asserted were in the key are now variation inside the tool. What each case still
+// pins — that the runner's script is identity, that a flag's value never reaches the key, and that
+// the derivation is its own fixed point — is asserted here on the head.
+test('bespokeKey is the identity head: the command name plus its first positional token (#164)', () => {
+  assert.equal(bespokeKey('bash scripts/battery.sh --quick'), 'bash scripts/battery.sh');
+  assert.equal(bespokeKey('python scripts/oracle_compare.py --base HEAD~1'), 'python scripts/oracle_compare.py');
+  assert.equal(bespokeKey('scripts/testq.sh --workspace'), 'scripts/testq.sh');
+  // `--jobs 4` and `--jobs 8` were one record under #87 because the value was typed; they are one
+  // record now because the whole flag is outside identity.
+  assert.equal(bespokeKey('bash scripts/battery.sh --jobs 4'), 'bash scripts/battery.sh');
+  assert.equal(bespokeKey(bespokeKey('bash scripts/battery.sh --jobs 4')), 'bash scripts/battery.sh', 'and the head is its own fixed point: re-deriving over a key changes nothing');
+  // The SHAPE of the run still carries everything the key dropped (required behaviour 4).
+  assert.equal(generalizedForm('bash scripts/battery.sh --jobs 4'), 'bash scripts/battery.sh --jobs %d');
 });
 
 // Both halves off one matchTool() answer, so a key and its provenance cannot disagree. The values
@@ -27,7 +33,7 @@ test('toolKey carries the key and whether the catalog matched, both from the one
   // A caller with nothing to say says nothing: an absent answer is no match, never a match on a
   // key it made up itself.
   const absent = toolKey(undefined, 'a.sh --x');
-  assert.equal(absent.key, 'a.sh --x'); assert.equal(absent.matched, false);
+  assert.equal(absent.key, 'a.sh'); assert.equal(absent.matched, false);
   // The mark is not a field a caller can write. Only what toolKey() made carries it.
   assert.ok(isToolKey(matched) && isToolKey(bespoke));
   assert.ok(!isToolKey({ key: 'a.sh', matched: true }), 'a hand-built lookalike is not the pair');
@@ -52,20 +58,25 @@ test('recordRun with a candidate writes the ledger keyed on the flag, never the 
   assert.deepEqual(Object.keys(obs['git-commit'].ledger), ['--quiet']);
 });
 
-test('RED CHECK: two invocations differing only in a flag VALUE never fragment the record', () => {
+// MOVED to the new behaviour (#164). The first half stands as it was. The second half — "a
+// different flag NAME is a different record", the #15 reading that made `--fast` and `--slow` two
+// keys — is REVERSED by the owner's ruling ("Loose: flags are variation"), so what it asserted is
+// re-asserted where the distinction now lives: the run's SHAPE, which still tells the two apart.
+test('RED CHECK: two invocations differing only in a flag never fragment the record', () => {
   // The keys come from bespokeKey, as the real caller derives them — handing recordRun two
   // identical literal keys would prove only that an object has one key when written twice.
-  // Two different flag NAMES are two records on purpose (#15: `--fast` and `--slow` sharing one
-  // was the damaging collapse); what must never fragment is one flag carrying two values.
   const four = bespokeKey('bash scripts/battery.sh --jobs 4');
   const eight = bespokeKey('bash scripts/battery.sh --jobs 8');
   let obs = {};
   obs = recordRun(obs, four, { identity: 'bespoke', lineCount: 10 });
   obs = recordRun(obs, eight, { identity: 'bespoke', lineCount: 2000 });
-  assert.deepEqual(Object.keys(obs), ['bash scripts/battery.sh --jobs %d']); // one key, last write wins on the shared fields
-  assert.equal(obs['bash scripts/battery.sh --jobs %d'].noisy, true);
-  // And the collapse half, which stays refused: a different flag name is a different record.
-  assert.notEqual(bespokeKey('bash scripts/battery.sh --fast'), bespokeKey('bash scripts/battery.sh --slow'));
+  assert.deepEqual(Object.keys(obs), ['bash scripts/battery.sh']); // one key, last write wins on the shared fields
+  assert.equal(obs['bash scripts/battery.sh'].noisy, true);
+  // `--fast` and `--slow` are ONE tool run two ways now, which is the whole point of the ruling.
+  assert.equal(bespokeKey('bash scripts/battery.sh --fast'), bespokeKey('bash scripts/battery.sh --slow'));
+  // POSITIVE CONTROL for the half that was reversed: the distinction is not lost, it moved. The
+  // shape still separates them, so a run's history can say which way the tool was run.
+  assert.notEqual(generalizedForm('bash scripts/battery.sh --fast'), generalizedForm('bash scripts/battery.sh --slow'));
 });
 
 test('RED CHECK: a candidate that deletes the tool\'s own outcome line is never marked sufficient', () => {
@@ -290,8 +301,12 @@ test('#87 the pair carries the matchable prefix a graduated entry needs — the 
   // run is derived at the same site and travels with the key, so graduation still writes a `match`
   // that matches the commands it was learned from.
   assert.equal(toolKey(null, 'bash scripts/battery.sh --quick').prefix, 'bash scripts/battery.sh');
-  assert.equal(toolKey(null, 'gh issue edit 59').prefix, 'gh issue edit');
-  assert.equal(toolKey(null, 'cd /tmp/x && gh issue edit 59').prefix, 'cd');
+  // MOVED to the new behaviour (#164): the prefix closes after the FIRST positional, not after two
+  // subcommands, because it now IS the identity head — one string for one fact (behaviour 7).
+  assert.equal(toolKey(null, 'gh issue edit 59').prefix, 'gh issue');
+  // And a compound takes it from the first work-doing segment, never from the byte-mover: this used
+  // to be `cd`, a learned entry that would have claimed every `cd` command there is.
+  assert.equal(toolKey(null, 'cd /tmp/x && gh issue edit 59').prefix, 'gh issue');
 });
 
 // ---- The redirect target is an operand, not a head (#162) ----
@@ -368,13 +383,138 @@ const REDIRECT_FIXTURE = (out) => [
   `rustc --version > ${out}`,
 ];
 
-test('#162.6 the 28-into-16 collapse: the 12 records that existed only because of the filename are gone', () => {
+// MOVED to the new behaviour (#164): what #162 fixed is that the output FILENAME no longer makes a
+// shape of its own, and that is asserted here on generalizedForm, which is the shape. The record
+// count is now the number of identity heads, not the number of shapes.
+test('#162.6 the 28-into-16 collapse: the 12 shapes that existed only because of the filename are gone', () => {
   const shapes = REDIRECT_FIXTURE('.claude/scratch/baseline-integration-full.txt');
   const again = REDIRECT_FIXTURE('.claude/scratch/after-integration-full.txt').slice(0, 12);
   const commands = [...shapes, ...again];
   assert.equal(commands.length, 28);
   assert.equal(new Set(commands).size, 28, 'precondition: 28 genuinely different command lines');
-  // POSITIVE CONTROL: the 16 shapes are 16 keys. Over-collapsing shows up here, not as a pass.
-  assert.equal(new Set(shapes.map(bespokeKey)).size, 16, `the shapes collapsed: ${JSON.stringify(shapes.map(bespokeKey))}`);
-  assert.equal(new Set(commands.map(bespokeKey)).size, 16, `28 command lines, 16 records: ${JSON.stringify([...new Set(commands.map(bespokeKey))])}`);
+  // POSITIVE CONTROL: the 16 shapes are 16 shapes. Over-collapsing shows up here, not as a pass.
+  assert.equal(new Set(shapes.map(generalizedForm)).size, 16, `the shapes collapsed: ${JSON.stringify(shapes.map(generalizedForm))}`);
+  assert.equal(new Set(commands.map(generalizedForm)).size, 16, `28 command lines, 16 shapes: ${JSON.stringify([...new Set(commands.map(generalizedForm))])}`);
+  // And the records those 16 shapes write: 12, by construction — the four `cargo test` forms are
+  // one tool and the two `cargo build` forms are one, so 16 - 3 - 1 = 12.
+  assert.equal(new Set(commands.map(bespokeKey)).size, 12, JSON.stringify([...new Set(commands.map(bespokeKey))]));
+});
+
+// ---- The identity head: command plus first positional (#164) ----
+// Gabe, 2026-09-21: "i meant it to be the glob, but with type correctness"; which glob — "Loose:
+// flags are variation"; the head for a command with no subcommand — "Command + first positional".
+// One rule covers both: the identity head is the command name plus its first positional token.
+// Measured before the change, in ferrislicer's record: 27 `cargo test` runs became 27 keys, 60 of
+// 67 cargo keys ran exactly once, and GRADUATION_AGREEMENTS = 2 was therefore unreachable.
+
+test('#164.1 the three flag-distinct `cargo test` forms are ONE key, headed `cargo test`', () => {
+  const forms = ['cargo test -p a', 'cargo test --locked -p b', 'cargo test --no-fail-fast -p c > out.txt 2>&1'];
+  assert.equal(new Set(forms.map(bespokeKey)).size, 1, JSON.stringify(forms.map(bespokeKey)));
+  assert.equal(bespokeKey(forms[0]), 'cargo test');
+});
+
+test('#164.2 a generic runner heads at the script it runs, so two subcommands of one script share a key and two scripts do not', () => {
+  assert.equal(bespokeKey('node scripts/x.mjs check'), bespokeKey('node scripts/x.mjs build'));
+  assert.equal(bespokeKey('node scripts/x.mjs check'), 'node scripts/x.mjs');
+  assert.notEqual(bespokeKey('node scripts/x.mjs check'), bespokeKey('node scripts/y.mjs check'));
+});
+
+test('#164.3 a command with a subcommand heads at command plus subcommand, so its verbs share a key', () => {
+  assert.equal(bespokeKey('gh issue create --title t'), bespokeKey('gh issue close 59'));
+  assert.equal(bespokeKey('gh issue create --title t'), 'gh issue');
+  assert.notEqual(bespokeKey('gh issue create'), bespokeKey('gh pr create'));
+  // A flag CLOSES the head — the one departure from required behaviour 1's letter, forced by the
+  // prefix invariant (behaviour 7) and measured on `python -m pytest tests/ -q`: under the literal
+  // rule `-m` eats `pytest`, the first non-flag token is `tests/`, and the head `python tests/` is
+  // a string the command does not start with. Closing at the flag collapses instead, which is the
+  // visible direction. Reported on #164 for the owner.
+  assert.equal(bespokeKey('gh --repo o/r issue create'), 'gh');
+  assert.equal(bespokeKey('python -m pytest tests/ -q'), 'python');
+  assert.ok('python -m pytest tests/ -q'.startsWith(bespokeKey('python -m pytest tests/ -q')));
+});
+
+test('#164.4 a compound heads at its first work-doing segment: the byte-mover never contributes (ruling C1, #87)', () => {
+  assert.equal(bespokeKey('cd /x && cargo test -p a'), 'cargo test');
+  assert.equal(bespokeKey('cd /x && cargo test -p a'), bespokeKey('cargo test -p a'));
+  // A pipeline's producer heads it; the filter stage does not.
+  assert.equal(bespokeKey('cargo test 2>&1 | tail -20'), 'cargo test');
+  // Byte-movers all the way down write no record at all, so the head is moot — but it is still a
+  // string, never the empty key.
+  assert.equal(bespokeKey('cat x | grep y'), 'cat x');
+});
+
+test('#164.5 the head is the literal first positional: two spellings of a script path stay two heads', () => {
+  // The judgement the ticket leaves to the implementer, taken inside the existing %p rules: the
+  // first positional is never typed, because the head IS the prefix a learned entry matches on by
+  // startsWith, and a normalised path is a string no command starts with.
+  assert.notEqual(bespokeKey('bash run.sh'), bespokeKey('bash ../run.sh'));
+  assert.equal(bespokeKey('bash ../run.sh'), 'bash ../run.sh');
+  assert.equal(toolKey(null, 'bash ../run.sh').prefix, 'bash ../run.sh', 'and it is still a literal leading run of the command');
+});
+
+test('#164.6 the typed glob: a record key with a %d slot claims a number in that position and refuses a word', () => {
+  // A key written before #164 is a full generalized form and holds typed slots. It keeps claiming
+  // the commands that FIT them, which is how an old record is still read while it ages out.
+  assert.equal(keyMatches('gh issue edit %d', 'gh issue edit 59'), true, 'positive control: a number fits the %d slot');
+  assert.equal(keyMatches('gh issue edit %d', 'gh issue edit main'), false, 'a word does not fit a %d slot');
+  assert.equal(keyMatches('gh issue edit %p', 'gh issue edit 59'), false, 'nor does a number fit a %p slot');
+  // And the head claims anything with that head, which is the open tail slot.
+  assert.equal(keyMatches('cargo test', 'cargo test --locked -p b > out.txt 2>&1'), true);
+  assert.equal(keyMatches('cargo test', 'cargo build --release'), false);
+});
+
+test('#164.7 recordKeyFor prefers the head this version writes, and falls back to the old key that still claims the command', () => {
+  assert.equal(recordKeyFor({}, 'gh issue edit 59'), 'gh issue', 'nothing recorded: the head a new record goes under');
+  assert.equal(recordKeyFor({ 'gh issue edit %d': {} }, 'gh issue edit 59'), 'gh issue edit %d', 'the old record is still reached');
+  assert.equal(recordKeyFor({ 'gh issue edit %d': {}, 'gh issue': {} }, 'gh issue edit 59'), 'gh issue', 'once the head record exists the old one is never read again: it ages out');
+});
+
+// The fixture list the prefix invariant and the first-positional risk are both measured over: 30
+// realistic non-byte-mover commands spanning runners, build tools, gh/git and ad-hoc compounds.
+const FIXTURE = [
+  'cargo test -p a', 'cargo test --locked -p b', 'cargo test --no-fail-fast -p c > out.txt 2>&1',
+  'cargo build --release', 'cargo clippy --all-targets -- -D warnings', 'cargo fmt --check',
+  'cargo run --bin slicer -- --input a.stl', 'cargo bench --bench slice',
+  'npm test', 'npm run build', 'npm install --no-audit', 'npx tsc --noEmit',
+  'node scripts/test-tier.mjs merge', 'node scripts/build-skills.mjs check', 'node --test plugins/machinery/test/all.test.mjs',
+  'bash scripts/battery.sh --quick', 'sh .githooks/pre-commit', 'pwsh -File scripts/release.ps1',
+  'python -m pytest tests/ -q', 'pytest tests/unit --maxfail 1', 'ruff check .',
+  'gh issue create --title t', 'gh issue view 164', 'gh pr create --fill', 'gh run watch 12345',
+  'git commit -m x', 'git push origin main', 'git worktree add ../wt br',
+  'make -j 8 release', 'docker build -t img .',
+];
+
+test('#164.8 PREFIX INVARIANT: for every fixture command the prefix a learned entry matches on IS the identity head', () => {
+  for (const c of FIXTURE) assert.equal(toolKey(null, c).prefix, bespokeKey(c), c);
+  // And the head really is a leading run of the command line, not merely equal to itself.
+  for (const c of FIXTURE) assert.ok(c.startsWith(bespokeKey(c)), `${c} does not start with its head ${bespokeKey(c)}`);
+});
+
+// The ferrislicer measurement, reproduced as a fixture: 27 `cargo test` command lines, differing by
+// flag set, target and redirect — never only by a value, which #87 already collapsed. Before #164
+// they were 27 keys and `cargo test` could never graduate (GRADUATION_AGREEMENTS = 2 on one key).
+const CARGO_TEST_27 = [
+  'cargo test', 'cargo test --locked', 'cargo test --no-fail-fast', 'cargo test --release',
+  'cargo test --workspace', 'cargo test --all-features', 'cargo test --no-default-features',
+  'cargo test -p slicer', 'cargo test -p orca', 'cargo test -p slicer --lib', 'cargo test -p slicer --bins',
+  'cargo test --test integration', 'cargo test --test walls', 'cargo test --doc',
+  'cargo test --locked -p slicer --test integration', 'cargo test --no-fail-fast -p orca',
+  'cargo test -- --nocapture', 'cargo test -- --test-threads 1', 'cargo test slicer::walls',
+  'cargo test > out.txt', 'cargo test > out.txt 2>&1', 'cargo test 2>&1 > out.txt',
+  'cargo test --locked > baseline.txt 2>&1', 'cargo test --no-fail-fast >> run.log',
+  'cargo test 2>&1 | tail -20', 'cd /repo && cargo test --locked', 'cargo test --quiet -p slicer',
+];
+
+test('#164.9 the ferrislicer collapse: 27 `cargo test` command lines, one record', () => {
+  assert.equal(CARGO_TEST_27.length, 27);
+  assert.equal(new Set(CARGO_TEST_27).size, 27, 'precondition: 27 genuinely different command lines');
+  // POSITIVE CONTROL: the shape derivation still tells them apart. 25, not 27, and the two pairs
+  // that coincide are the ones #87 already collapsed — `-p slicer`/`-p orca` and `--test
+  // integration`/`--test walls` differ only by a flag's VALUE. Measured, then reasoned back to the
+  // construction; the number is the fixture's, not a run's.
+  assert.equal(new Set(CARGO_TEST_27.map(generalizedForm)).size, 25, 'the shapes stay apart: only identity collapsed');
+  assert.equal(new Set(CARGO_TEST_27.map(bespokeKey)).size, 1, JSON.stringify([...new Set(CARGO_TEST_27.map(bespokeKey))]));
+  assert.equal(bespokeKey(CARGO_TEST_27[0]), 'cargo test');
+  // And the collapse is not universal: a different subcommand is a different tool.
+  assert.notEqual(bespokeKey('cargo test'), bespokeKey('cargo build'));
 });

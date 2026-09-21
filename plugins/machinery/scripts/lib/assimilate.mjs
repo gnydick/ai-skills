@@ -11,7 +11,7 @@
 // Pure: no I/O of its own. Loading the catalog and the observation record is the caller's job, so
 // the whole state machine is exercisable from a literal and nothing here can read a stale file.
 import { matchTool, matchedCandidate } from './catalog.mjs';
-import { bespokeKey } from './observations.mjs';
+import { bespokeKey, recordKeyFor } from './observations.mjs';
 
 // Both collections default to empty rather than being assumed present, and neither default is a
 // stand-in value: an absent candidate list IS zero candidates, and an absent ledger IS zero
@@ -62,8 +62,15 @@ export function decide(command, { catalog, observations }) {
   }
   // Bespoke: no entry, so nothing to look up and nothing to suggest. Straight to wrap on the first
   // noisy observation - the ledger is skipped entirely rather than consulted and found empty.
+  //
+  // The key this run RECORDS under is the identity head (#164): the command plus its first
+  // positional, with flags, targets and redirects as variation inside the tool. The record it READS
+  // is whichever key claims the command — the head, or, until it ages out, a key written before
+  // #164 whose typed slots this command fits (recordKeyFor, observations.mjs). The lookup is that
+  // glob match and no longer string equality, which is what lets `cargo test -p a` and `cargo test
+  // --locked -p b` be one tool with two runs.
   const key = bespokeKey(command);
-  const rec = recordOf(observations, key);
+  const rec = recordOf(observations, recordKeyFor(observations, command));
   if (!rec) return { mode: 'observe', id: key, identity: 'bespoke' };
   if (!rec.noisy) return { mode: 'plain', id: key, identity: 'bespoke' };
   return { mode: 'noisy', id: key, identity: 'bespoke' };

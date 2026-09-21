@@ -58,7 +58,9 @@ test('the loop, end to end: two picks form the prefix, two agreements graduate i
   const r4 = train(root, 'identify', '--log', logs[3], '--line', '4');
   assert.equal(r4.code, 0, r4.stderr);
   assert.match(r4.stdout, /shadow: agreed — 2 of 2 consecutive agreements/);
-  assert.match(r4.stdout, /graduated: 'bash-scripts-battery\.sh---quick' now keeps lines starting with `test result: ok\. `/);
+  // The id no longer carries the flag: identity is the head (#164), so `--quick` is variation
+  // inside the tool and `bash scripts/battery.sh --quick` sanitizes to `bash-scripts-battery.sh`.
+  assert.match(r4.stdout, /graduated: 'bash-scripts-battery\.sh' now keeps lines starting with `test result: ok\. `/);
   assert.match(r4.stdout, /commit both/);
   const entry = read(machinery(root, 'tool-catalog.json'))[LEARNED_ID];
   assert.deepEqual(entry.outcome, { type: 'prefix', value: 'test result: ok. ' });
@@ -108,7 +110,7 @@ test('the loop closes backward: drift re-opens a graduated tool and re-identifyi
     'i=0\nwhile [ $i -lt 100 ]; do echo "   Compiling c$i"; i=$((i+1)); done\necho "PASS: 99 checks ok"\n');
   const drift = runner(root, KEY);
   assert.equal(drift.code, 0, drift.stderr);
-  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh---quick: learned answer line re-opened for training \(matched-nothing\)/);
+  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh: learned answer line re-opened for training \(matched-nothing\)/);
   assert.equal(read(machinery(root, 'observations.json'))[ID].training.open.reason, 'matched-nothing');
   assert.ok(!(KEY in read(machinery(root, 'observations.json'))), 'the runner keys on the id once the tool has graduated');
 
@@ -221,11 +223,15 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
 test('logs lists stored run logs newest first with the key the runner would use, filtered by --key, with a proof line', () => {
   const root = repo('train-tool-logs-');
   const a = writeLog('x', 'python scripts/oracle_compare.py --base HEAD~1');
-  const r = train(root, 'logs', '--key', 'python scripts/oracle_compare.py --base %s');
+  // The key is the identity head (#164), so the flag is no longer part of it: every `--base` this
+  // script was run with lists under the one key.
+  const r = train(root, 'logs', '--key', 'python scripts/oracle_compare.py');
   assert.equal(r.code, 0, r.stderr);
   const lines = r.stdout.trim().split('\n');
-  assert.equal(lines[0], `${a}\tpython scripts/oracle_compare.py --base %s`);
-  assert.match(lines.at(-1), /^train_tool_logs: 1 of \d+ run logs match 'python scripts\/oracle_compare\.py --base %s'/);
+  assert.equal(lines[0], `${a}\tpython scripts/oracle_compare.py`);
+  assert.match(lines.at(-1), /^train_tool_logs: 1 of \d+ run logs match 'python scripts\/oracle_compare\.py'/);
   const all = train(root, 'logs');
-  assert.ok(all.stdout.split('\n').filter((l) => l.endsWith(`\t${CMD}`)).length >= 4, 'the loop test’s logs are listed under their bespoke key in a project with no learned entry');
+  // Under the identity head the key is no longer the command line itself (#164), so the expectation
+  // is derived the way the runner derives it rather than spelled out again.
+  assert.ok(all.stdout.split('\n').filter((l) => l.endsWith(`\t${bespokeKey(CMD)}`)).length >= 4, 'the loop test’s logs are listed under their bespoke key in a project with no learned entry');
 });

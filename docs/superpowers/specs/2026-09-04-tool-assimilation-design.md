@@ -199,9 +199,11 @@ else entirely.
 Bespoke tools skip the ledger. There is nothing to look up, so they go straight to wrap on
 the first noisy observation.
 
-### The key a bespoke record takes: the generalized command form
+### The generalized command form — identity until #164, a run's shape since
 
-Added 2026-09-07 (#87). A record is keyed by command LINE, not by tool, and that is the
+Added 2026-09-07 (#87). **Superseded as identity on 2026-09-21 by the identity head (#164, the
+next subsection); everything below still describes the form itself, which is now what a RUN's
+shape is and what a record written before #164 is keyed on.** A record is keyed by command LINE, not by tool, and that is the
 design — owner, 2026-09-07: *"command lines are unique, not tools. so there can be as many
 entries for a command as there are variants."* A variant that recurs accumulates a history
 and can graduate; one that never recurs was never worth learning, because a learned answer
@@ -287,6 +289,74 @@ a script invoked through an absolute path that carries a session directory or a 
 version — `node "…/machinery/0.1.93/scripts/intake.mjs" list` — still takes a fresh key when
 that path changes. Collapsing it would mean reducing the identity to a basename, which the
 requirement above does not authorize.
+
+### The key a bespoke record takes: the identity head
+
+Added 2026-09-21 (#164), replacing the generalized form above as identity. **The identity head is
+the command name plus its first positional token.** Everything after it — flags, targets,
+redirects — is variation inside the tool, not a record of its own.
+
+```
+cargo test -p a                                 ->  cargo test
+cargo test --locked -p b                        ->  cargo test   (one record, three runs)
+cargo test --no-fail-fast -p c > out.txt 2>&1   ->  cargo test
+node scripts/x.mjs check                        ->  node scripts/x.mjs
+gh issue create --title t                       ->  gh issue
+cd /repo && cargo test -p a                     ->  cargo test   (never `cd`)
+```
+
+Why the generalized form could not stay. It kept every flag NAME literal and the lookup was string
+equality over it, so two runs of one tool shared a record only when their flags were identical.
+Measured in ferrislicer's record, 2026-09-21: `cargo test` ran 27 times and became 27 keys; `cargo
+fmt` 22 runs, 11 keys; 60 of 67 cargo keys were seen exactly once. Graduation needs
+`GRADUATION_AGREEMENTS` = 2 consecutive agreements on ONE key, so no cargo subcommand could ever
+have graduated.
+
+Owner's ruling, 2026-09-21, verbatim: *"i meant it to be the glob, but with type correctness."*
+Asked which glob: *"Loose: flags are variation."* Asked what the head is for a command with no
+subcommand: *"Command + first positional."*
+
+The rules:
+
+- **The head is a typed glob with one open tail slot.** Matching a command against a record means
+  its head is the record's head; the rest of the command fits the slots. A key written BEFORE #164
+  is a full generalized form and carries typed slots of its own: it claims only the commands that
+  fit them — `gh issue edit %d` claims `gh issue edit 59` and not `gh issue edit main`. Generalizing
+  the command is what tests each token against a slot's type, so type correctness is the derivation
+  itself rather than a second spelling of it (`keyMatches`, `recordKeyFor`, observations.mjs).
+- **No migration.** Nothing writes a full-form key again, so an old record stops being reached the
+  moment the head record exists, and ages out.
+- **The first positional is kept as written, never typed.** That is what makes the head a literal
+  leading run of the command line, which is the property graduation needs — the head IS the `prefix`
+  a learned entry matches on by `startsWith`. So `bash run.sh` and `bash ../run.sh` are two heads:
+  normalising the script token would produce a string no command starts with, and nothing inside the
+  `%p` rules could say which of two spellings is canonical.
+- **A flag closes the head.** The one departure from the ruling's letter ("the first token after the
+  command that is not a flag"), forced by the invariant below and measured on `python -m pytest
+  tests/ -q`: `-m` takes `pytest` as its operand, so the first non-flag token is `tests/` and the
+  literal rule yields `python tests/` — a string the command does not start with, fragmenting the
+  record by test directory. Closing at the flag gives `python`, a collapse, which is the visible
+  direction. Every example the ruling names is unaffected.
+- **A compound heads at its first work-doing segment.** Byte-mover segments never contribute (ruling
+  C1, #87, unchanged). The byte-mover list is `classify.mjs`'s `isRead()`, asked rather than
+  re-spelled, so the two readers cannot grow different lists.
+- **A catalog entry still wins.** `matchTool()` is consulted first and its id claims the command.
+- **`toolKey()` remains the single derivation site**, so the runner (quiet-run.mjs) and the trainer
+  (train-tool.mjs) agree on the key by construction.
+
+**The prefix invariant.** `prefix` — what a graduated catalog entry matches on — and the identity
+head are ONE string, derived once and returned as both fields, so they cannot disagree. A test pins
+`generalize(c).prefix === bespokeKey(c)` over a fixture of 30 realistic commands, plus that each
+command really starts with its own head.
+
+**Named risk, measured and left open for the owner.** A first positional that is a VALUE rather
+than a subcommand becomes the head and fragments by it. Measured over a fixture of 37 realistic
+non-byte-mover commands: 22 head at a subcommand, 8 at a runner's script (identity by design, #15),
+6 at a bare command name because a flag closed the head, and **1** fragments by a value — `pytest
+tests/unit --maxfail 1` heads at `pytest tests/unit`, one key per test directory. `python -` heads
+at `python -` for the same reason. `echo hello` and `sed -n 5,10p file`, which the ticket names, are
+byte-movers: they write no record at all, so their heads are moot. Whether the catalog should carry
+a per-tool head override is the owner's to decide (#164).
 
 ### Per-stream policy
 
@@ -743,7 +813,7 @@ Declared standard: **structural**. This changes behaviour deliberately.
   every state word is unchanged: `read`. `exec cargo build` and `eval "$(…)"` classify `read`
   alone and, in a compound, now fall back under (B).
 
-## Decisions taken by the owner, 2026-09-21 (#160)
+## Decisions taken by the owner, 2026-09-21 (#160, #162, #164)
 
 - **Every command is observed: the `piped` and `redirected` exemptions are removed.** Owner,
   verbatim: "it is redirected into a file, but i don't care to assume if something outputs or
@@ -778,6 +848,22 @@ Declared standard: **structural**. This changes behaviour deliberately.
   file` without `2>&1` — because those were never wrapped, so never logged. The `piped` set was
   uncounted: absent from both the record and the logs by construction, so its size was unknown
   until the exemption was gone. The change adds observation and removes nothing measured.
+
+- **A bespoke record is keyed on the identity head, not on the generalized command form.** #164,
+  owner 2026-09-21, verbatim: *"i meant it to be the glob, but with type correctness"*; which glob —
+  *"Loose: flags are variation"*; the head of a command with no subcommand — *"Command + first
+  positional."* One rule covers both: the identity head is the command name plus its first
+  positional token. Flags, targets and redirects are typed slots inside the tool, so `cargo test -p
+  a`, `cargo test --locked -p b` and `cargo test --no-fail-fast -p c > out.txt 2>&1` are one tool
+  with three runs. The cause measured: the old key kept every flag NAME literal and the lookup was
+  string equality over it, so in ferrislicer's record `cargo test` ran 27 times and became 27 keys,
+  `cargo fmt` 22 runs over 11 keys, and 60 of 67 cargo keys were seen exactly once — with
+  `GRADUATION_AGREEMENTS` = 2 on one key, no cargo subcommand could ever have graduated. The lookup
+  in `decide()` is now a glob match: the head, or — until it ages out — a key written before #164
+  whose typed slots the command fits. No migration. The full section is "The key a bespoke record
+  takes: the identity head" above; it also records the one departure from the ruling's letter (a
+  flag closes the head, forced by the prefix invariant and measured on `python -m pytest tests/ -q`)
+  and the first-positional risk the owner has not decided, with its measurement.
 
 ## Open questions
 
