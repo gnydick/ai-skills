@@ -650,8 +650,10 @@ Declared standard: **structural**. This changes behaviour deliberately.
   said `suggest`: the five states above were unreachable for every tool the shipped catalog
   knew. The consequence the ruling names: `classify(command, { catalog })` is catalog-aware,
   the catalog being loaded once by the hook and passed in, so classify stays exercisable from a
-  literal and is unchanged when called with the string alone. Precedence is now never → piped
-  → redirected → read → catalog → infra → noisy → plain. Rejected: a second override beside
+  literal and is unchanged when called with the string alone. Precedence as of this ruling was
+  never → piped → redirected → read → catalog → infra → noisy → plain; the `piped` and
+  `redirected` steps were removed on 2026-09-21 (#160, below), leaving never → read → catalog →
+  infra → noisy → plain. Rejected: a second override beside
   `classify()` in the hook (two places that classify), and deleting the `git commit` /
   `npm install` / `pytest` alternatives from the regexes (loses the safe fallback for
   invocation shapes the catalog's `match` does not cover). A named consequence: `git commit`
@@ -730,6 +732,42 @@ Declared standard: **structural**. This changes behaviour deliberately.
   runner holding all of it, pinned against main's hook. `classify()`'s single-command answer for
   every state word is unchanged: `read`. `exec cargo build` and `eval "$(…)"` classify `read`
   alone and, in a compound, now fall back under (B).
+
+## Decisions taken by the owner, 2026-09-21 (#160)
+
+- **Every command is observed: the `piped` and `redirected` exemptions are removed.** Owner,
+  verbatim: "it is redirected into a file, but i don't care to assume if something outputs or
+  not. we run commands, observe them, then learn how to wrap them." Asked whether that extends
+  to the pipe exemption, same day, verbatim: "cover pipes too." Two steps sat between `never`
+  and `read`: `piped`, a pipe into one of `tail head grep rg wc sed awk sort uniq jq tee less
+  cut python py quiet-run`, and `redirected`, a `> file` with no `2>&1` token. Both were
+  assumptions about a command's output made **before it ran**, and the hook leaves a command of
+  either kind alone — so it never ran under the runner, wrote no record in `observations.json`,
+  and the training loop never saw it. The redirect exemption also turned on a token rather than
+  a measurement: `> file 2>&1` was observed and `> file` was not. Both branches, and the `PIPED`
+  and `FILE_REDIRECT` regexes behind them, are deleted; `MODES` is `read, infra, noisy, plain`;
+  precedence is never → read → catalog → infra → noisy → plain.
+- **A pipeline is a byte-mover only if every stage is one.** A consequence of the above that
+  had to be delivered with it, not a separate choice. `READ` is recognised at a leading
+  position and `|` is one of those positions, so with the `piped` step gone a pipeline reached
+  the read test as one segment and the trailing filter claimed it: measured on the branch
+  deletion alone, `cargo test 2>&1 | tail -20` came back `read` from its `tail`, and `cat x |
+  cargo build` from its `cat` — both as unobserved as before, which is the defect the ruling
+  exists to remove. `isRead()` therefore splits a segment into pipeline stages (a single `|`,
+  never `||`) and requires every stage to be a byte-mover. This is ruling C1 read literally:
+  "Only need wrapping for output producers, not filter pipes" — a filter pipe is exempt, the
+  producer feeding one is not. Nothing else splits on `|`: `classifySegments()` still hands the
+  hook a pipeline as ONE unit with one kind, so one runner wraps the whole of it and the stages
+  share one record.
+- **What the record says about an empty pipe is true, not a gap.** Owner, same day: a run whose
+  redirect or filter left nothing for the runner to see is recorded as it measures — a 0-line
+  entry and `noisy: false`. Nothing reached the session's context, and that is the honest
+  observation.
+- **Cost, measured before the change.** In `ferrislicer`, exactly 1 cargo key sat in the
+  never-wrapped `redirected` state, and 0 of 125 wrapped cargo runs in the run logs were `>
+  file` without `2>&1` — because those were never wrapped, so never logged. The `piped` set was
+  uncounted: absent from both the record and the logs by construction, so its size was unknown
+  until the exemption was gone. The change adds observation and removes nothing measured.
 
 ## Open questions
 
