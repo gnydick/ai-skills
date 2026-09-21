@@ -331,9 +331,10 @@ The rules:
   a learned entry matches on by `startsWith`. So `bash run.sh` and `bash ../run.sh` are two heads:
   normalising the script token would produce a string no command starts with, and nothing inside the
   `%p` rules could say which of two spellings is canonical.
-- **A flag closes the head.** The one departure from the ruling's letter ("the first token after the
-  command that is not a flag"), forced by the invariant below and measured on `python -m pytest
-  tests/ -q`: `-m` takes `pytest` as its operand, so the first non-flag token is `tests/` and the
+- **A flag closes the head.** Proposed as a departure from the ruling's letter ("the first token
+  after the command that is not a flag"), then ratified by the owner on 2026-09-21 after he briefly
+  ruled the other way and reversed it — *"i changed my mind, don't skip anything."* Forced by the
+  invariant below and measured on `python -m pytest tests/ -q`: `-m` takes `pytest` as its operand, so the first non-flag token is `tests/` and the
   literal rule yields `python tests/` — a string the command does not start with, fragmenting the
   record by test directory. Closing at the flag gives `python`, a collapse, which is the visible
   direction. Every example the ruling names is unaffected.
@@ -864,6 +865,29 @@ Declared standard: **structural**. This changes behaviour deliberately.
   takes: the identity head" above; it also records the one departure from the ruling's letter (a
   flag closes the head, forced by the prefix invariant and measured on `python -m pytest tests/ -q`)
   and the first-positional risk the owner has not decided, with its measurement.
+
+- **A zero-line run is observed, but it does not decide `noisy`.** #164, owner 2026-09-21. Under
+  the identity head, `cargo test > out.txt 2>&1` and a bare `cargo test` are ONE record. The
+  redirected run puts 0 lines on the runner's pipes; `recordRun()` rewrote `noisy` from every bare
+  run's line count, so that run marked the tool quiet, `decide()` routes a quiet record to `plain`
+  — unwrapped — and the next bare `cargo test` with 300 lines reached the session in full. The
+  ruling: a run with 0 lines on the runner's pipes is still recorded in the shape history (#160
+  stands, every command is observed) but does NOT rewrite `noisy`. Only a run with output on the
+  pipe decides. A record whose every run is 0 lines keeps whatever `noisy` it had, or stays without
+  one — the "no bare measurement" state `decide()` already routes to observe. **This supersedes,
+  for `noisy` only, the bullet above from #160** ("what the record says about an empty pipe is true,
+  not a gap"): that reading was honest while every redirect shape had a key of its own; under the
+  head it lets one run's plumbing silence another's measurement. The 0-line entry in the history is
+  still the honest observation and is unchanged.
+- **Proposed and withdrawn the same day: skipping a leading flag and its operand when taking the
+  head.** The implementation of the head rule closes the head at the first flag, so
+  `python -m pytest tests/ -q` heads at `python` and `gh --repo o/r issue create` at `gh`. The owner
+  first ruled instead "skip flag and operand, take the first positional" — which would have given
+  `python tests/`, `gh issue` and `make release`, and would have cost the head its literal-prefix
+  property, forcing the graduation matcher to become a flag-skipping match. He then reversed it the
+  same day, verbatim: *"i changed my mind, don't skip anything."* The head therefore closes at the
+  first flag, `prefix` stays a literal leading run of the command line, and the graduation matcher
+  stays `startsWith`. Recorded so the question is not reopened as if it were undecided.
 
 ## Open questions
 

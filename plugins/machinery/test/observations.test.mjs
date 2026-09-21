@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { bespokeKey, generalizedForm, keyMatches, recordKeyFor, toolKey, isToolKey, recordRun, loadObservations, saveObservations, withTraining, moveRecord } from '../scripts/lib/observations.mjs';
+import { emptyTraining, noteRun } from '../scripts/lib/training.mjs';
 
 // MOVED from "bespokeKey is the generalized form" (#87) to the new behaviour (#164): the flag names
 // these cases asserted were in the key are now variation inside the tool. What each case still
@@ -517,4 +518,33 @@ test('#164.9 the ferrislicer collapse: 27 `cargo test` command lines, one record
   assert.equal(bespokeKey(CARGO_TEST_27[0]), 'cargo test');
   // And the collapse is not universal: a different subcommand is a different tool.
   assert.notEqual(bespokeKey('cargo test'), bespokeKey('cargo build'));
+});
+
+// ---- A zero-line run is not evidence of quiet (#164, owner 2026-09-21) ----
+// Identity collapsed to the head, so `cargo test > out.txt 2>&1` and a bare `cargo test` are ONE
+// record. The redirected run puts 0 lines on the runner's pipes; before this ruling that rewrote
+// `noisy` to false, and assimilate.mjs routes a quiet record to `plain` — unwrapped — so the next
+// bare `cargo test` with 300 lines ran with no filter at all. The ruling: a 0-line run is still
+// OBSERVED (#160 stands, it joins the shape history) but only a run with output on the pipe decides
+// `noisy`.
+test('#164 ruling 2: a 0-line run is observed but never rewrites `noisy` — only output on the pipe decides', () => {
+  let obs = recordRun({}, 'cargo test', { identity: 'bespoke', lineCount: 300, stdoutLines: 10, stderrLines: 290 });
+  assert.equal(obs['cargo test'].noisy, true);
+  obs = recordRun(obs, 'cargo test', { identity: 'bespoke', lineCount: 0, stdoutLines: 0, stderrLines: 0 });
+  assert.equal(obs['cargo test'].noisy, true, 'a run that put nothing on the pipe is no evidence the tool is quiet');
+  assert.equal(obs['cargo test'].lines, 300, 'the measurement that stands is the one that saw output');
+  assert.equal(obs['cargo test'].stdoutLines, 10);
+  assert.equal(obs['cargo test'].stderrLines, 290);
+  // With no bare measurement yet, a 0-line run invents none either: absence stays the signal
+  // decide() reads as unseen, exactly as a trial before any bare run does (final review I3).
+  const fresh = recordRun({}, 'cargo test', { identity: 'bespoke', lineCount: 0, stdoutLines: 0, stderrLines: 0 });
+  assert.ok(!('noisy' in fresh['cargo test']), `noisy must be absent, got ${JSON.stringify(fresh['cargo test'].noisy)}`);
+  // The run IS observed: the shape history the drift trigger reads takes it like any other run.
+  const t = noteRun(emptyTraining(), { log: 'l', lines: 0, stdoutLines: 0, stderrLines: 0, code: 0 });
+  assert.deepEqual(t.history, [{ lines: 0, stdoutLines: 0, stderrLines: 0, code: 0 }]);
+  // POSITIVE CONTROL: a run WITH output on the pipe still decides, in both directions. Without
+  // this, "0 never rewrites" would be indistinguishable from "nothing ever rewrites".
+  const quiet = recordRun(obs, 'cargo test', { identity: 'bespoke', lineCount: 3, stdoutLines: 3, stderrLines: 0 });
+  assert.equal(quiet['cargo test'].noisy, false);
+  assert.equal(quiet['cargo test'].lines, 3);
 });

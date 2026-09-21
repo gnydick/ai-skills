@@ -297,8 +297,21 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
     // that the bare tool was never measured, and decide() reads it as unseen. `?? false` here was
     // a stand-in value that parked the tool in plain forever (final review I3).
     ? { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines }
-    // A bare run IS the tool's natural noise level.
-    : { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines };
+    // A bare run that put OUTPUT on the runner's pipes IS the tool's natural noise level.
+    : lineCount > 0 ? { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines }
+    // A ZERO-LINE run is not. Owner's ruling, 2026-09-21 (#164): a run whose redirect or filter left
+    // nothing for the runner to see is still OBSERVED — it joins the shape history, #160 stands —
+    // but it does not decide `noisy`. Identity collapsed to the head that day, so `cargo test >
+    // out.txt 2>&1` and a bare `cargo test` are ONE record; letting the redirected run write
+    // `noisy: false` marked the tool quiet, assimilate.mjs routes a quiet record to `plain`, and the
+    // next bare `cargo test` with 300 lines then ran unwrapped. The earlier reading — "what the
+    // record says about an empty pipe is true, not a gap" (#160) — was honest while every redirect
+    // shape had a key of its own; under the head it lets one run's plumbing silence another's.
+    //
+    // So the previous bare measurement carries forward exactly as it was, INCLUDING when there is
+    // none: defined() drops an absent `noisy`, and absence is the unseen state decide() observes.
+    // A record whose every run is 0 lines therefore never leaves that state.
+    : { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines };
   // The training loop's sub-record (lib/training.mjs) rides on the same entry and is nobody's
   // business here: carried forward exactly as it was when present, absent when it was absent. A
   // record rebuilt without it would silently reset a tool's training on every run.

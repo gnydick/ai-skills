@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { runScript } from './helpers/run.mjs';
 import { parseRunLog } from '../scripts/lib/runlog.mjs';
 import { generalizedForm } from '../scripts/lib/observations.mjs';
+import { decide } from '../scripts/lib/assimilate.mjs';
 
 // The runner's training-loop seam, in a file of its own: node --test runs suite FILES concurrently,
 // so a new file adds to the wall clock only what it costs on its own, where appending bash-spawning
@@ -152,4 +153,32 @@ test('#164 two differently-flagged runs of one script write two history entries 
   // POSITIVE CONTROL that the observer could have seen two records: the two command lines really do
   // differ where identity used to be taken from, and the run's SHAPE still tells them apart.
   assert.notEqual(generalizedForm('bash noisy.sh --fast'), generalizedForm('bash noisy.sh --slow'));
+});
+
+// ---- A zero-line run is not evidence of quiet, end to end (#164, owner 2026-09-21) ----
+// With identity at the head, the redirected run and the bare run are ONE record. This is the real
+// runner writing that record, then decide() reading it, so nothing here is a literal.
+test('#164 ruling 2 e2e: a redirected 0-line run leaves the head unmeasured, so the next noisy bare run is wrapped', { skip: !bash }, () => {
+  const root = repo('quiet-zero-line-');
+  fs.writeFileSync(path.join(root, 'noisy.sh'), 'for i in $(seq 1 100); do echo "   Compiling c$i"; done\necho done\n');
+  // Run 1: the child shell sends everything to a file, so nothing reaches the runner's pipes.
+  run(root, 'filter', 'bash noisy.sh > out.txt 2>&1');
+  const after1 = obsOf(root);
+  assert.deepEqual(Object.keys(after1), ['bash noisy.sh'], 'the redirect target is an operand, so both runs share this head');
+  assert.equal(after1['bash noisy.sh'].training.history.length, 1, 'the run IS observed: #160 stands');
+  assert.deepEqual(after1['bash noisy.sh'].training.history[0], { lines: 0, stdoutLines: 0, stderrLines: 0, code: 0 });
+  assert.ok(!('noisy' in after1['bash noisy.sh']), '0 lines on the pipe is no measurement of the tool');
+  assert.equal(decide('bash noisy.sh', { catalog: {}, observations: after1 }).mode, 'observe', 'still unseen, so the next run is observed');
+  // POSITIVE CONTROL for what the ruling prevents: the SAME record with the `noisy: false` the old
+  // rule would have written routes to `plain` — unwrapped — so the 101-line run below would have
+  // reached the session in full. The observer is demonstrably alive.
+  const asOldRuleWrote = { 'bash noisy.sh': { ...after1['bash noisy.sh'], noisy: false, lines: 0, stdoutLines: 0, stderrLines: 0 } };
+  assert.equal(decide('bash noisy.sh', { catalog: {}, observations: asOldRuleWrote }).mode, 'plain');
+  // Run 2: bare, and it really does put output on the pipe. THAT decides.
+  run(root, 'filter', 'bash noisy.sh');
+  const after2 = obsOf(root);
+  assert.equal(after2['bash noisy.sh'].noisy, true);
+  assert.equal(after2['bash noisy.sh'].lines, 101, '100 compile lines plus `done`');
+  assert.equal(after2['bash noisy.sh'].training.history.length, 2, 'both runs are on the one record');
+  assert.equal(decide('bash noisy.sh', { catalog: {}, observations: after2 }).mode, 'noisy', 'wrap');
 });
