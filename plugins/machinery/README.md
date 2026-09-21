@@ -66,13 +66,7 @@ the one place a future removal adds its entry.
 - **pre-commit** — the gate: pending inbox entries (the project's inbox and the
   user's `~/.claude/machinery/inbox.md`, so an unfiled `URULE:` blocks a commit
   in any project) and undispositioned spec entries refuse the commit, a filed
-  spec outside `docs/dictated-specs/` refuses it, the slip box check refuses an
-  edited note, an edited ADR beyond its status line, a changed approved design
-  or finished plan, a new superpowers file without front matter, a slip box file
-  whose front matter cannot be read, a dictation note that no longer quotes its
-  inbox entry, a structure note that embeds a superseded note or misses an
-  in-force one, a broken link, a stale generated page, and a note with two
-  successors, and the sweep guard warns
+  spec outside `docs/dictated-specs/` refuses it, and the sweep guard warns
   (never blocks) when a documentation-shaped commit adds a brand-new
   non-documentation file; then the recorded `checks.commit`, then `tiers.fast`
   for the recorded components the staged paths touch.
@@ -103,24 +97,15 @@ is the one agent definition.
 - Inboxes: `~/.claude/machinery/inbox.md` for the user's universal captures;
   `.claude/machinery/inbox.md` and `.claude/machinery/spec-inbox.md` for a
   project's rule and specification captures.
-  Every inbox is append-only. An entry is never removed, reworded or rewrapped;
-  only its disposition line changes, and a duplicate is dismissed rather than
-  deleted. `spec-inbox.md` keeps every `FILED` entry for the life of the
-  project: the gate's verbatim leg reads each dictation note back against its
-  `FILED` entry there, so an entry dropped from that file refuses every commit
-  with "restore it from the inbox" and nothing left to restore it from.
-- `docs/dictated-specs/` — the slip box: `notes/` (one file per dictation, and
-  version notes), `decisions/` (ADRs), `structure/` (one current-state page per
-  subsystem) and a generated `INDEX.md`. `docs/spec-current/` holds the
-  generated flat pages. Superpowers specs and plans stay in `docs/superpowers/`
-  with front matter. `docs/` is outside `.claude/`, so nothing loads these into
-  a session; read the flat page.
+- `docs/dictated-specs/` — filed specifications, one fixed location every
+  project shares. `docs/` is outside `.claude/`, so nothing loads a filed
+  specification into a session; that is separate work.
 
 `/machinery:rule-process` files a captured entry into its home and dispositions
 the entry — a `URULE:` as one dated bullet in `~/.claude/rules/universal.md`
 (nothing to bump, build or commit: the home is not a repository); a `PRULE:`
-into `.claude/rules/`, each landed in one commit; a `SPEC:` becomes one note
-filed by `intake.mjs spec`, which also commits.
+into `.claude/rules/` and a `SPEC:` into the specification under
+`docs/dictated-specs/` that owns the subsystem, each landed in one commit.
 `/machinery:reload` puts the current `universal.md` into the running session.
 
 ## Teaching it a tool

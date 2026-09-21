@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './lib/git.mjs';
-import { projectRoot, checkoutRoot } from './lib/root.mjs';
+import { projectRoot } from './lib/root.mjs';
 import { pluginRoot, projectIssueTracking, universalRules } from './lib/config.mjs';
 import { SPEC_INBOX, DOCS_DIR, SPECS_DIR, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './lib/ignore.mjs';
@@ -11,7 +11,6 @@ import { MACHINERY_OWN } from './lib/own-files.mjs';
 import { migrate } from './lib/migrations.mjs';
 import { readSetting, recorded } from './lib/settings.mjs';
 import { HOSTED_BLOCKS, hostedCheckLine } from './lib/hosted.mjs';
-import { unmigrated, describeUnmigrated } from './lib/unmigrated.mjs';
 // The generated manifest is the sole source of which check modules exist and which are wired
 // (#73, I43). Resolved from this file's own location, so the installer ships what its own plugin
 // copy holds rather than whatever happens to be lying in the gate directory.
@@ -163,8 +162,7 @@ function installProject() {
   // imports and fails on any that does not resolve, so a lib added to git.mjs (lines.mjs, #19
   // fix round 1) and forgotten here is caught mechanically rather than at a project's next commit.
   fs.mkdirSync(path.join(gateDir, 'lib'), { recursive: true });
-  // #132: the slip box check reads notes through the same read model intake writes them with.
-  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'report.mjs', 'layout.mjs', 'frontmatter.mjs', 'blockquote.mjs', 'embed.mjs', 'markers.mjs', 'slipbox.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
+  for (const f of ['git.mjs', 'lines.mjs', 'root.mjs', 'inbox.mjs', 'report.mjs', 'layout.mjs']) fs.copyFileSync(path.join(pluginRoot(), 'scripts', 'lib', f), path.join(gateDir, 'lib', f));
   // The tier runner the pre-commit calls after the gate (plan Task B2), with the settings and
   // components readers it imports. It lives in scripts/ and imports './lib/...' already, so it is
   // copied as is; the same import walk in test/install.test.mjs covers it.
@@ -198,18 +196,6 @@ function installProject() {
   // that list. Only entries on disk are named: an absent pathspec (config.json, which setup.mjs
   // writes and install never does) makes git add stage nothing at all.
   git(['add', '--', ...MACHINERY_OWN.filter((p) => (p !== '.gitignore' || ignoreWritten) && fs.existsSync(path.join(root, p)))], root);
-  // #132 D13: install detects; it never migrates, because migration needs the AI's judgements.
-  // LAST, and guarded, like the banner's copy. This walks docs/ directories the installer never
-  // otherwise touches, so an EACCES — or a path under docs/ that exists but is not a directory —
-  // would otherwise escape installProject with the gate written, the hooks path unset and nothing
-  // staged: a half install that looks like a crash. A failure costs this one line and nothing else.
-  try {
-    // checkoutRoot, not root: banner.mjs reads the checkout being worked in (STATUS 52), and two
-    // answers to the same question in one session is a session that contradicts itself. An
-    // explicit --root is the caller naming the tree, so that one is honoured as given.
-    const u = unmigrated(opt('--root') ? root : checkoutRoot(process.cwd()));
-    if (u.any) say(`slip box: NOT MIGRATED — ${describeUnmigrated(u)}; run node "${path.join(pluginRoot(), 'scripts', 'intake.mjs')}" migrate --plan <file>`);
-  } catch (e) { say(`slip box: could not check — ${e.message}`); }
   return 0;
 }
 
