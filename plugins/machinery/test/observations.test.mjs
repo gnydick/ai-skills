@@ -293,3 +293,88 @@ test('#87 the pair carries the matchable prefix a graduated entry needs — the 
   assert.equal(toolKey(null, 'gh issue edit 59').prefix, 'gh issue edit');
   assert.equal(toolKey(null, 'cd /tmp/x && gh issue edit 59').prefix, 'cd');
 });
+
+// ---- The redirect target is an operand, not a head (#162) ----
+// `>` and `>>` are operators, so until #162 the token after one HEADED a new segment, and a head is
+// kept as written. The output filename was therefore the one operand the derivation never
+// generalized: the same tool took a fresh key for every file it wrote to. Measured in ferrislicer's
+// record on 2026-09-21: 28 `cargo test … > target` keys, 16 distinct once the target collapses.
+// The operator itself stays — a redirected run and a bare run are genuinely two shapes — and so
+// does the ORDER of the redirects, which is what puts different streams on the runner's pipes
+// (#160). A pipe is untouched: after `|` the next token really is a command name.
+
+test('#162.1 the token after a redirect is generalized like any other operand, so two output files are one record', () => {
+  assert.equal(generalizedForm('cargo test -p x > out.txt'), generalizedForm('cargo test -p y > other.txt'));
+  assert.equal(generalizedForm('cargo test -p x > out.txt'), 'cargo test -p %s > %p');
+  assert.ok(!generalizedForm('cargo test -p x > out.txt').includes('out.txt'), 'the filename is gone from the key');
+  // A word-shaped target earns the placeholder its own shape earns, by the same rules.
+  assert.equal(generalizedForm('cargo test > outfile'), 'cargo test > %s');
+  // The prefix closes at the operator exactly as it did: it is still a literal head of the command.
+  assert.equal(toolKey(null, 'cargo test -p x > out.txt').prefix, 'cargo test');
+});
+
+test('#162.2 the redirect operator stays in the key, so a redirected run and a bare run are two records', () => {
+  assert.notEqual(generalizedForm('cargo test -p x > out.txt'), generalizedForm('cargo test -p x'));
+  assert.equal(generalizedForm('cargo test -p x'), 'cargo test -p %s');
+});
+
+test('#162.3 the ORDER of the redirects survives, because it decides which stream reaches the pipe (#160)', () => {
+  assert.notEqual(generalizedForm('cargo test > a.txt 2>&1'), generalizedForm('cargo test 2>&1 > a.txt'));
+  // Pinned: `2>&1` is not the redirect's operand — the operand is taken at the operator — so it
+  // stands on its own, before or after, and that is where the two shapes differ.
+  assert.equal(generalizedForm('cargo test > a.txt 2>&1'), 'cargo test > %p 2>&1');
+  assert.equal(generalizedForm('cargo test 2>&1 > a.txt'), 'cargo test %s > %p');
+});
+
+test('#162.4 a pipeline stage is untouched: after `|` the next token is a command name and stays verbatim', () => {
+  assert.equal(generalizedForm('cat x | grep y'), 'cat x | grep y');
+  // `-20` reads as a flag NAME, not a value, so the whole stage is structure and survives as typed.
+  assert.equal(generalizedForm('cargo test | tail -20'), 'cargo test | tail -20');
+  // And a redirect inside a pipeline generalizes its own target without disturbing the stage after.
+  assert.equal(generalizedForm('cargo test > a.txt | grep fail'), 'cargo test > %p | grep fail');
+});
+
+test('#162.5 every redirect operator the derivation already knows takes its operand the same way', () => {
+  assert.equal(generalizedForm('cargo test >> run.log'), 'cargo test >> %p');
+  assert.equal(generalizedForm('cargo test >> run.log'), generalizedForm('cargo test >> other.log'));
+  assert.equal(generalizedForm('sort < in.txt'), 'sort < %p');
+  assert.equal(generalizedForm('sort < in.txt'), generalizedForm('sort < other.txt'));
+  assert.equal(generalizedForm('cat << EOF'), 'cat << %s');
+  // An operator with nothing after it is data, not a crash.
+  assert.equal(typeof generalizedForm('cargo test >'), 'string');
+  assert.equal(generalizedForm('cargo test >'), 'cargo test >');
+});
+
+// The fixture is built the way the measurement was shaped: 16 structurally different commands — they
+// differ by flag NAME, subcommand or script, never only by a value — and 12 of those run a second
+// time writing to a different file. 16 + 12 = 28 command lines carrying 16 shapes. Both counts come
+// from that construction; neither is copied out of a run.
+const REDIRECT_FIXTURE = (out) => [
+  `cargo test > ${out} 2>&1`,
+  `cargo test --no-fail-fast > ${out} 2>&1`,
+  `cargo test --no-fail-fast -p slicer > ${out} 2>&1`,
+  `cargo test --locked --test integration -p slicer > ${out}`,
+  `cargo build > ${out} 2>&1`,
+  `cargo build --release > ${out}`,
+  `cargo clippy --all-targets > ${out} 2>&1`,
+  `cargo fmt --check > ${out}`,
+  `npm test > ${out} 2>&1`,
+  `npm run build > ${out}`,
+  `node scripts/bump.mjs > ${out}`,
+  `node scripts/reindex.mjs > ${out}`,
+  `git status > ${out}`,
+  `git log --oneline > ${out}`,
+  `pytest tests/ > ${out} 2>&1`,
+  `rustc --version > ${out}`,
+];
+
+test('#162.6 the 28-into-16 collapse: the 12 records that existed only because of the filename are gone', () => {
+  const shapes = REDIRECT_FIXTURE('.claude/scratch/baseline-integration-full.txt');
+  const again = REDIRECT_FIXTURE('.claude/scratch/after-integration-full.txt').slice(0, 12);
+  const commands = [...shapes, ...again];
+  assert.equal(commands.length, 28);
+  assert.equal(new Set(commands).size, 28, 'precondition: 28 genuinely different command lines');
+  // POSITIVE CONTROL: the 16 shapes are 16 keys. Over-collapsing shows up here, not as a pass.
+  assert.equal(new Set(shapes.map(bespokeKey)).size, 16, `the shapes collapsed: ${JSON.stringify(shapes.map(bespokeKey))}`);
+  assert.equal(new Set(commands.map(bespokeKey)).size, 16, `28 command lines, 16 records: ${JSON.stringify([...new Set(commands.map(bespokeKey))])}`);
+});

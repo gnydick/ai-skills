@@ -245,6 +245,16 @@ The rules, all of them heuristics on purpose:
   POSITIONAL is identity and survives verbatim (#15 requirement 2). `node %p` would merge
   every script in a project into one record. A flag's operand is not that positional:
   `node -e "..."` carries a one-off script, not an identity.
+- A redirect's target is a value, not a command name. `>`, `>>`, `<` and `<<` end a segment
+  like any other operator, but the token after one is a FILE, so it takes the placeholder
+  its own shape earns rather than heading a new segment and surviving verbatim (#162, added
+  2026-09-21). The operator stays in the key — `cargo test -p %s > %p` and `cargo test -p
+  %s` are genuinely two shapes — and it stays where it was written, because the order the
+  redirects are in decides which stream reaches the runner's pipe (#160). A pipe is not a
+  redirect: after `|` the next token really is a command name and is kept as written.
+  Measured before the change, in ferrislicer's record on 2026-09-21: 28 `cargo test … >
+  target` keys, 16 shapes — 12 records existed only because of the filename. Existing
+  records are not migrated; they age out.
 
 **Which way to be wrong.** The two failure modes are not symmetric. *Collapse* — two tools
 at one key — surfaces as picks that never agree, so the tool never graduates and training

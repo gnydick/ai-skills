@@ -72,6 +72,14 @@ export const GENERIC_RUNNERS = new Set([
 // A compound is a sequence of commands, so an operator ends one and the token after it heads the
 // next: its own runner check, its own subcommand budget, its own alphabetized flags.
 const OPERATOR = /^(?:&&|\|\||[|;&]|>>?|<<?)$/;
+// A redirect is the exception to "the token after an operator heads a command" (#162). It ends the
+// command as every operator does, but what follows it is a FILE, not a command name, and a head is
+// kept as written — so until #162 one tool took a fresh key for every file it wrote to. Measured in
+// ferrislicer's record, 2026-09-21: 28 `cargo test … > target` keys, 16 shapes. The operator itself
+// stays in the key, because a redirected run and a bare run really are two shapes, and it stays
+// WHERE IT WAS WRITTEN, because the order of the redirects decides which stream reaches the
+// runner's pipe (#160). Old keys are not migrated; they age out (ticket requirement 5).
+const REDIRECT = /^(?:>>?|<<?)$/;
 const INT = /^[+-]?\d+$/;
 const FLOAT = /^[+-]?(?:\d+\.\d*|\.\d+|\d+(?:\.\d+)?[eE][+-]?\d+)$/;
 // Path-shaped: a separator either way round, a home or relative lead, a bare drive, or a filename
@@ -134,6 +142,10 @@ export function generalize(command) {
     if (OPERATOR.test(tok)) {
       if (seg) out.push(render(seg));
       out.push(tok); seg = null; prefixOpen = false;
+      // A redirect takes the token after it as its own operand, typed like any other value, so the
+      // target never heads a segment and never survives verbatim (#162).
+      const target = toks[i + 1];
+      if (REDIRECT.test(tok) && target !== undefined && !OPERATOR.test(target)) { out.push(placeholder(target)); i++; }
       continue;
     }
     if (!seg) {
