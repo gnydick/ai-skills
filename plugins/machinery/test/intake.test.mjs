@@ -139,7 +139,7 @@ test('RED CHECK: intake universal with an unknown stamp or no text files nothing
   const noText = runScript('scripts/intake.mjs', { args: ['universal', '--stamp', stamp], env });
   assert.equal(noText.code, 1); assert.match(noText.stderr, /usage: intake universal --stamp <stamp> --text "<rule>"/);
   const old = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'universal', '--stamp', stamp, '--home', 'x'], env });
-  assert.equal(old.code, 1); assert.match(old.stderr, /usage: intake commit --kind project /);
+  assert.equal(old.code, 1); assert.match(old.stderr, /usage: intake commit --kind project\|spec/);
   assert.ok(!fs.existsSync(userRules(h)), 'universal.md was written despite the refusals');
   assert.equal(pending(userInbox(h)).length, 1, 'the entry was dispositioned despite the refusals');
 });

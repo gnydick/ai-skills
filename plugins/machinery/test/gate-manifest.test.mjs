@@ -43,7 +43,7 @@ const manifestCheck = (dir, root = REPO) => runScript('scripts/gate-manifest.mjs
 test('every module under scripts/gate declares itself; the two structural files are the only exemptions (I43)', async () => {
   const { declarations, problems } = await loadDeclarations(GATE);
   assert.deepEqual(problems, []);
-  assert.deepEqual(declarations.map((d) => d.id).sort(), ['register_check', 'slipbox_check', 'spec_check', 'sweep_guard']);
+  assert.deepEqual(declarations.map((d) => d.id).sort(), ['register_check', 'spec_check', 'sweep_guard']);
   assert.deepEqual([...NOT_A_CHECK], ['gate.mjs', MANIFEST_FILE]);
   const files = fs.readdirSync(GATE).filter((f) => f.endsWith('.mjs'));
   assert.equal(files.length, declarations.length + NOT_A_CHECK.length, `scripts/gate holds ${files.length} module(s): ${files.join(', ')}`);
@@ -56,10 +56,10 @@ test('the committed manifest is exactly the generated one (I43)', async () => {
 
 test('the generated manifest carries every wired check and no unwired one (I43)', async () => {
   const { CHECKS, CHECK_FILES } = await import('../scripts/gate/manifest.mjs');
-  assert.deepEqual(CHECKS.map((c) => c.id), ['register_check', 'slipbox_check', 'spec_check', 'sweep_guard']);
-  assert.deepEqual([...CHECK_FILES], ['register-check.mjs', 'slipbox-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']);
+  assert.deepEqual(CHECKS.map((c) => c.id), ['register_check', 'spec_check', 'sweep_guard']);
+  assert.deepEqual([...CHECK_FILES], ['register-check.mjs', 'spec-check.mjs', 'sweep-guard.mjs']);
   assert.ok(Object.isFrozen(CHECKS));
-  assert.deepEqual(CHECKS.map((c) => c.blocking), [true, true, true, false], 'sweep_guard is declared non-blocking');
+  assert.deepEqual(CHECKS.map((c) => c.blocking), [true, true, false], 'sweep_guard is declared non-blocking');
   for (const c of CHECKS) assert.equal(typeof c.run, 'function', c.id);
 });
 
@@ -112,7 +112,7 @@ test('a malformed declaration is a diagnostic, never a stack trace (external inp
 test('the manifest check prints gate_manifest and no gate_claims line (recalibration 49)', () => {
   const res = manifestCheck(GATE);
   assert.equal(res.code, 0, res.stdout + res.stderr);
-  assert.match(res.stdout, /^gate_manifest: 0 of 4 /m, 'the manifest leg still states its denominator');
+  assert.match(res.stdout, /^gate_manifest: 0 of 3 /m, 'the manifest leg still states its denominator');
   // Decision 3 removed the prose the claims cited; a walker over zero claims checks nothing, and a
   // `0 of 0` line passes for a bad reason. The line must not exist at all.
   assert.doesNotMatch(res.stdout, /^gate_claims:/m, `a gate_claims line survived in:\n${res.stdout}`);

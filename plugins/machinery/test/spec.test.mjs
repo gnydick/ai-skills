@@ -202,24 +202,31 @@ test('a malformed spec inbox is a diagnostic, not a stack trace (external input)
 
 // ------------------------------------------------------------------------------------- the intake
 
-test('spec intake files into the slip box in one commit in the root, and the old commit --kind spec is refused (#81, #132)', () => {
+test('spec intake refuses a home outside the spec area, then files and commits in one commit in the root (#81)', () => {
   const r = installedProject();
   try {
     const inbox = projectSpecInbox(r.root);
     appendEntry(inbox, { marker: 'SPEC', text: SPEC_TEXT, session: 's' });
-    g(r.root, 'add', '-A'); g(r.root, 'commit', '-q', '-m', 'capture');
+    // A throwaway home: intake also reads the universal inbox, and the live machinery.json is not this test's.
     const env = { MACHINERY_HOME: home() };
-    const stamp = pending(inbox)[0].stamp;
-    const old = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/dictated-specs/tooling.md § X'], cwd: r.root, env });
-    assert.equal(old.code, 1);
-    assert.match(old.stderr, /a specification is filed with intake spec/);
+    const list = runScript('scripts/intake.mjs', { args: ['list', '--root', r.root], cwd: r.root, env });
+    assert.match(list.stdout, /\tSPEC\t.*spec-inbox\.md\tSPEC: the tool resolver/, list.stdout);
+    const stamp = list.stdout.trim().split('\n').find((l) => l.includes('\tSPEC\t')).split('\t')[0];
+    write(r.root, 'docs/dictated-specs/tooling.md', '# Tooling\n\n## Resolving a tool\n\n- resolve by explicit path, never by search path\n');
+    // Refused first: a home outside the spec area, so the intake cannot write the very disposition
+    // the gate would then reject. The entry survives that refusal untouched and is filed below.
+    const bad = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/notes.md § Tooling'], cwd: r.root, env });
+    assert.notEqual(bad.code, 0);
+    assert.match(bad.stderr, /docs[\\/]dictated-specs/, bad.stderr);
     assert.equal(pending(inbox).length, 1, 'the entry stays pending — nothing was filed');
-    const res = runScript('scripts/intake.mjs', { args: ['spec', '--root', r.root, '--stamp', stamp, '--subsystems', 'tooling', '--topic', 'Resolving a tool', '--title', 'The tool resolver rejects a bare command name'], cwd: r.root, env });
+
+    const res = runScript('scripts/intake.mjs', { args: ['commit', '--kind', 'spec', '--root', r.root, '--stamp', stamp, '--home', 'docs/dictated-specs/tooling.md § Resolving a tool'], cwd: r.root, env });
     assert.equal(res.code, 0, res.stderr + res.stdout);
     assert.equal(pending(inbox).length, 0);
     const [e] = parseInbox(fs.readFileSync(inbox, 'utf8'));
-    assert.match(e.disposition, /^filed → docs\/dictated-specs\/notes\/.+Z\.md$/);
-    assert.match(g(r.root, 'log', '-1', '--format=%s'), /^spec: The tool resolver rejects a bare command name/);
+    assert.equal(e.state, 'FILED');
+    assert.match(e.disposition, /filed → docs\/dictated-specs\/tooling\.md § Resolving a tool/);
+    assert.match(g(r.root, 'log', '-1', '--format=%s'), /^spec: SPEC: the tool resolver/);
     assert.equal(g(r.root, 'status', '--porcelain').trim(), '');
     assert.equal(gate(r.root).code, 0);
   } finally { r.cleanup(); }

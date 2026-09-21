@@ -5,13 +5,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './lib/git.mjs';
-import { projectRoot, checkoutRoot, isRootSession } from './lib/root.mjs';
-import { projectInbox, projectRules, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
+import { projectRoot, isRootSession } from './lib/root.mjs';
+import { projectInbox, projectRules, projectSpecs, projectSpecInbox, projectIssueTracking, universalInbox, universalRules } from './lib/config.mjs';
 import { pending, setDisposition, newStamp } from './lib/inbox.mjs';
-import { UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
-import { fileSpec, regen, fileDecision, fileRef, fileDesign, approveDesign, embedDesign, filePlan, closePlan, fileMap } from './lib/slipbox-file.mjs';
-import { buildPlan, applyPlan } from './lib/migrate.mjs';
-import { writePlan, readPlan } from './lib/migrate-plan.mjs';
+import { insideSpecArea, UNANSWERED, UNIVERSAL_HEADING } from './lib/layout.mjs';
 import { CAPTURE_NOTE, normalizeAnswer, readIfPresent } from './lib/issue-tracking.mjs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +16,6 @@ import { fileURLToPath } from 'node:url';
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 const opt = (k) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : null; };
-const csv = (k) => (opt(k) ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const die = (m) => { process.stderr.write(m + '\n'); process.exit(1); };
 
@@ -40,13 +36,24 @@ function list() {
 function commit() {
   const kind = opt('--kind'), stamp = opt('--stamp');
   let home = opt('--home');
-  if (kind !== 'project' || !stamp || !home) die('usage: intake commit --kind project [--root <dir>] --stamp <stamp> --home "<file § Section>" (a specification is filed with intake spec)');
+  if (!['project', 'spec'].includes(kind) || !stamp || !home) die('usage: intake commit --kind project|spec [--root <dir>] --stamp <stamp> --home "<file § Section>"');
+  let repo, inbox, rules;
   const cwd = opt('--root') || process.cwd();
-  if (!isRootSession(cwd)) die(`a project rule is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
-  const repo = projectRoot(cwd), inbox = projectInbox(repo), rules = projectRules(repo);
+  // #81: a specification is filed exactly like a project rule — root session, one commit, one repo —
+  // but into the spec area. The home is checked against that area HERE as well as at the gate, so
+  // the intake cannot write the very disposition the gate rejects.
+  if (kind === 'spec') {
+    if (!isRootSession(cwd)) die(`a specification is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
+    repo = projectRoot(cwd); inbox = projectSpecInbox(repo); rules = projectSpecs(repo);
+    const filed = home.split(' § ')[0].trim();
+    if (!insideSpecArea(repo, rules, filed)) die(`refusing to file a specification outside the spec area: '${filed}' is not under ${rules}. The spec area is declared by /machinery:install and never guessed.`);
+  } else {
+    if (!isRootSession(cwd)) die(`a project rule is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
+    repo = projectRoot(cwd); inbox = projectInbox(repo); rules = projectRules(repo);
+  }
   const entry = pending(inbox).find((e) => e.stamp === stamp);
   if (!entry) die(`no PENDING entry with stamp ${stamp} in ${inbox}`);
-  let subject = `rule: ${entry.text.split('\n')[0].slice(0, 72)}`;
+  let subject = `${kind === 'spec' ? 'spec' : 'rule'}: ${entry.text.split('\n')[0].slice(0, 72)}`;
   // An issue-tracking answer (recalibration 33, 36; #99): recorded by issue-tracking.mjs
   // record-project with CAPTURE_NOTE, it is filed as the WHOLE project file — one current answer,
   // never a history — and only there; a re-run replaces it, and the commit names old and new so git
@@ -93,129 +100,5 @@ function universal() {
   process.stdout.write(`filed → ${file}: ${dated}\nInbox entry ${stamp} (${entry.marker}) dispositioned in ${inbox}. Nothing to commit: the file is the user's, not a repository's.\n`);
 }
 
-// #132 § 7. The AI has chosen subsystems, topic and any supersede before this runs; the words
-// come from the inbox entry only, never from the command line.
-function spec() {
-  const cwd = opt('--root') || process.cwd();
-  if (!isRootSession(cwd)) die(`a specification is filed only from the root session: run /machinery:rule-process from ${projectRoot(cwd)}`);
-  const stamp = opt('--stamp'), topic = opt('--topic'), title = opt('--title');
-  const subsystems = csv('--subsystems'), supersedes = csv('--supersedes'), versions = csv('--version');
-  if (!stamp || !topic || !title || !subsystems.length) die('usage: intake spec --stamp <s> --subsystems <a,b> --topic "<t>" --title "<title>" [--supersedes <id,…>] [--version <file,…>]');
-  let r;
-  try { r = fileSpec({ repo: projectRoot(cwd), stamp, subsystems, topic, title, supersedes, versions }); } catch (e) { die(e.message); }
-  const lines = [
-    `committed: ${r.subject}`,
-    `note: ${r.id}`,
-    `subsystems: ${subsystems.map((s) => (r.newSubs.includes(s) ? `${s} (new)` : s)).join(', ')}`,
-    `topic: ${topic}`,
-    `change: ${supersedes.length ? `${r.partial ? 'partial' : 'full'} — supersedes ${supersedes.join(', ')}` : 'new'}`,
-    ...r.vIds.flatMap((v, i) => [`version note ${v} (composed by the assistant; review it):`, r.versionTexts[i].replace(/\n+$/, '')]),
-  ];
-  process.stdout.write(lines.join('\n') + '\n');
-}
-
-// Owner, 2026-09-19: the writer and the checker must agree on one tree. The gate judges the
-// CHECKOUT being committed (#132 § 9), so an ADR is linked in the checkout it is committed with —
-// checkoutRoot, not projectRoot, which would resolve a linked worktree to the main checkout and
-// land the link where the gate never looks. Only the spec inbox stays shared, and spec() keeps it.
-function decision() {
-  const f = opt('--file');
-  if (!f) die('usage: intake decision --file docs/dictated-specs/decisions/<00NN-slug>.md');
-  let r;
-  try { r = fileDecision({ repo: checkoutRoot(opt('--root') || process.cwd()), file: f }); } catch (e) { die(e.message); }
-  process.stdout.write(`linked ${r.id} under "Why it is this way" in: ${r.subsystems.join(', ')}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}commit the ADR and these files with the work\n`);
-}
-
-// checkoutRoot for the same reason as decision(): the reference is written where the gate's link
-// leg (#132 § 9) reads it, which is the checkout being committed.
-function ref() {
-  const subsystem = opt('--subsystem'), target = opt('--path');
-  if (!subsystem || !target) die('usage: intake ref --subsystem <s> --path <repo-relative file>');
-  let r;
-  try { r = fileRef({ repo: checkoutRoot(opt('--root') || process.cwd()), subsystem, target }); } catch (e) { die(e.message); }
-  process.stdout.write(`referenced ${r.href} from ${subsystem}\n${r.generated.map((c) => `regenerated ${c}`).join('\n')}${r.generated.length ? '\n' : ''}`);
-}
-
-// checkoutRoot for the same reason as decision(): a design is written, approved and embedded in
-// the checkout it is committed with, which is the tree the gate's legs (#132 § 9) read.
-function design() {
-  const repo = checkoutRoot(opt('--root') || process.cwd());
-  try {
-    if (opt('--approve')) {
-      const r = approveDesign({ repo, file: opt('--approve') });
-      process.stdout.write(`approved ${r.id}${r.subsystems.length ? ` — embed its decision heading in ${r.subsystems.join(', ')} with intake design --embed` : ''}\n`);
-    } else if (opt('--embed')) {
-      const heading = opt('--heading'), subsystem = opt('--subsystem'), topic = opt('--topic');
-      // Measured 2026-09-19: without these the placement interpolated `null`, writing
-      // structure/null.md and a null row in INDEX.md — a junk subsystem that then refuses every
-      // commit, and D2 forbids deleting a structure note by hand. Guarded before anything is written.
-      if (!subsystem || !topic) die('usage: intake design --embed <path> --subsystem <s> --topic "<t>" --heading "<h>"');
-      embedDesign({ repo, file: opt('--embed'), subsystem, topic, heading });
-      process.stdout.write(`embedded heading '${heading}' — it must record a decision, an owner constraint or a principle, never implementation\n`);
-    } else if (opt('--file')) {
-      fileDesign({ repo, file: opt('--file'), subsystems: csv('--subsystems'), supersedes: csv('--supersedes'), ticket: opt('--ticket') });
-      process.stdout.write(`filed ${opt('--file')} as a draft design\n`);
-    } else die('usage: intake design --file <path> [--subsystems a,b] [--ticket n] [--supersedes id] | --approve <path> | --embed <path> --subsystem <s> --topic "<t>" --heading "<h>"');
-  } catch (e) { die(e.message); }
-}
-
-// checkoutRoot for the same reason as decision(): the plan is filed in the checkout being committed.
-function plan() {
-  const repo = checkoutRoot(opt('--root') || process.cwd());
-  const f = opt('--file');
-  if (!f) die('usage: intake plan --file <path> --ticket <n> | --file <path> --status done|abandoned');
-  try {
-    if (opt('--status')) closePlan({ repo, file: f, status: opt('--status') });
-    else filePlan({ repo, file: f, ticket: opt('--ticket') });
-  } catch (e) { die(e.message); }
-  process.stdout.write(`plan ${f}: ${opt('--status') ?? 'in-progress'}\n`);
-}
-
-// checkoutRoot for the same reason as decision(): the map is marked in the checkout being committed.
-function map() {
-  const f = opt('--file');
-  if (!f) die('usage: intake map --file <path>');
-  try { fileMap({ repo: checkoutRoot(opt('--root') || process.cwd()), file: f }); } catch (e) { die(e.message); }
-  process.stdout.write(`${f} is a living map: kept by hand, never embedded, linked with intake ref\n`);
-}
-
-// #132 § 11: the AI writes the plan, fills it and applies it, with no pause (D14, owner
-// 2026-09-19: "Automatic anywhere"). The plan file stays as the record of what was decided.
-// Root-session and projectRoot, deliberately UNLIKE decision/ref/design/plan/map/regen, which the
-// owner's Task 7 ruling moved to checkoutRoot: --apply rewrites the FILED dispositions in the spec
-// inbox, and that inbox is shared by every worktree and lives in the main checkout.
-function migrate() {
-  const repo = projectRoot(opt('--root') || process.cwd());
-  if (!isRootSession(opt('--root') || process.cwd())) die(`a migration runs only from the root session: run it from ${repo}`);
-  try {
-    if (opt('--plan')) {
-      const plan = buildPlan(repo);
-      writePlan(opt('--plan'), plan);
-      process.stdout.write(`wrote ${opt('--plan')}: ${plan.notes.length} note(s), ${plan.unsettled.length} unsettled heading(s), ${plan.adr.files.length} ADR file(s), ${plan.superpowers.length} superpowers file(s), ${plan.references.length} reference file(s). Fill every null, then run intake migrate --apply ${opt('--plan')}\n`);
-    } else if (opt('--apply')) {
-      const r = applyPlan(repo, readPlan(opt('--apply')));
-      // The replacement count per file: a rewrite that hit more or fewer lines than the plan's
-      // recorded matches is visible here and in the diff, with nothing to confirm first.
-      process.stdout.write([
-        `migrated in two commits: ${r.commit1.length} path(s), then ${r.commit2.length} old spec file(s) removed`,
-        ...r.references.map((x) => `reference ${x.path}: ${x.count} replacement(s)`),
-      ].join('\n') + '\n');
-    } else die('usage: intake migrate --plan <out.json> | --apply <plan.json>');
-  } catch (e) { die(e.message); }
-}
-
-// checkoutRoot for the same reason as decision(): regen rewrites the generated pages the gate's
-// freshness leg (#132 § 9) compares, and that leg reads the checkout being committed.
-function regenerateCmd() {
-  const repo = checkoutRoot(opt('--root') || process.cwd());
-  let changed;
-  try { changed = regen(repo); } catch (e) { die(e.message); }
-  process.stdout.write(changed.length ? changed.map((c) => `regenerated ${c}`).join('\n') + '\n' : 'regen: nothing to regenerate\n');
-}
-
 if (cmd === 'list') list(); else if (cmd === 'commit') commit(); else if (cmd === 'universal') universal();
-else if (cmd === 'spec') spec(); else if (cmd === 'regen') regenerateCmd();
-else if (cmd === 'decision') decision(); else if (cmd === 'ref') ref();
-else if (cmd === 'design') design(); else if (cmd === 'plan') plan(); else if (cmd === 'map') map();
-else if (cmd === 'migrate') migrate();
-else die('usage: intake list [--root <dir>] | intake commit … | intake universal … | intake spec … | intake decision … | intake ref … | intake design … | intake plan … | intake map … | intake migrate … | intake regen');
+else die('usage: intake list [--root <dir>] | intake commit … | intake universal …');
