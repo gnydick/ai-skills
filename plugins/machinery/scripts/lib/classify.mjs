@@ -1,5 +1,11 @@
 // Story: hooks/quiet-output.md steps 4–14. Precedence is the ORDER below and nowhere else
-// (spec I10, I18): never → piped → redirected → read → catalog → infra → noisy → plain.
+// (spec I10, I18): never → read → catalog → infra → noisy → plain.
+// The two steps that used to sit between 'never' and 'read' — 'piped' for a pipe into a POSIX
+// filter, 'redirected' for a `> file` with no `2>&1` — are gone (#160, owner 2026-09-21: "it is
+// redirected into a file, but i don't care to assume if something outputs or not. we run commands,
+// observe them, then learn how to wrap them", and "cover pipes too"). Both were assumptions about
+// output made before the command ran, and a command they answered was never run under the runner,
+// so it left no record and training never saw it. Every command is observed now.
 // 'read' has two sources at the same step: the gh reads, and — ruling C1, owner 2026-09-05,
 // "Only need wrapping for output producers, not filter pipes" — the byte-movers in READ below.
 // 'catalog' is ruling I1, owner 2026-09-05: a command with a verified catalog entry is 'plain'
@@ -59,8 +65,14 @@ const isState = (segment) => STATE_CROSSING.test(folded(segment)) || isLocalStat
 // (isSimpleCompound below), and asks classifySegments() for each segment of a bash compound it can
 // (#13). Recognised at LEAD like the other regexes — but tested per segment, because LEAD matching
 // ANYWHERE would make `cargo build && echo done` a read and unwrap the build; the exemption is by
-// kind, and a compound with an output producer in it is not of that kind. Pipes are not split here:
-// a `|` was already 'piped' at the step above. A trailing separator or newline (`cat a;`, `ls\n`)
+// kind, and a compound with an output producer in it is not of that kind. A PIPELINE is split for
+// exactly the same reason (#160). Pipes used to stop at the 'piped' step above this one; with that
+// step gone they reach here as one segment, and `|` is one of LEAD's own characters — measured on
+// the branch-deletion alone, `cargo test 2>&1 | tail -20` came back 'read' from its trailing `tail`
+// and `cat x | cargo build` from its leading `cat`, so removing the exemption would have left both
+// as unobserved as before. A pipeline is a byte-mover only if EVERY stage is one, which is ruling
+// C1 read literally: filter pipes are exempt, the producer feeding one is not.
+// A trailing separator or newline (`cat a;`, `ls\n`)
 // leaves a whitespace-only segment that names no command; it is not counted, or `READ.test('')`
 // fails the `every` and the byte-mover is observed (re-review R1). A command with no segment left
 // at all is not a read: `every` over nothing is true. A single `&` is a boundary too, as LEAD
@@ -72,9 +84,15 @@ const isState = (segment) => STATE_CROSSING.test(folded(segment)) || isLocalStat
 // splitOutside() reads the one definition in quotes.mjs, the same one catalog.mjs's tokens() reads,
 // so an unterminated quote runs to the end for both of them.
 const SEGMENT = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
+// A single `|`, never the `||` that SEGMENT already owns (#160). Stages, not segments: the pipe is
+// not a command boundary for anything else here — classifySegments() still hands the hook a
+// pipeline as ONE unit to wrap, because the stages share a process group and one record.
+const PIPE = /\s*(?<!\|)\|(?!\|)\s*/;
 const isRead = (command) => {
-  const segments = splitOutside(command, SEGMENT).filter((s) => s.trim() !== '');
-  return segments.length > 0 && segments.every((s) => READ.test(s) || isState(s));
+  const stages = splitOutside(command, SEGMENT)
+    .flatMap((s) => splitOutside(s, PIPE))
+    .filter((s) => s.trim() !== '');
+  return stages.length > 0 && stages.every((s) => READ.test(s) || isState(s));
 };
 
 const NOISY = new RegExp(LEAD + String.raw`(?:` +
@@ -101,11 +119,9 @@ const INFRA = new RegExp(LEAD +
 const GH_READ = new RegExp(LEAD +
   String.raw`gh\s+(?:issue\s+(?:view|list|status)|pr\s+(?:view|list|diff|status)|api\b|search\b|release\s+(?:view|list)|run\s+list|repo\s+(?:view|list)|label\s+list|project\b|gist\s+(?:view|list)|workflow\s+(?:view|list))\b`);
 
-const PIPED = /\|\s*(?:tail|head|grep|rg|wc|sed|awk|sort|uniq|jq|tee|less|cut|python|py|quiet[-_]run)\b/;
 const NEVER = /quiet[-_]run\.(?:py|mjs)|--version\b|-V\b|--help\b/;
-const FILE_REDIRECT = /\d?>\s*\S/;
 
-export const MODES = Object.freeze(['read', 'piped', 'redirected', 'infra', 'noisy', 'plain']);
+export const MODES = Object.freeze(['read', 'infra', 'noisy', 'plain']);
 
 // NEVER collapses into 'plain' below, because both mean "do not wrap" to classify()'s own
 // caller. They stop meaning the same thing the moment 'plain' also means "ask the assimilator":
@@ -123,9 +139,6 @@ export const isNever = (command) => !command || NEVER.test(command);
 // no catalog the function is exactly what it was: a pure function of the string.
 export function classify(command, { catalog } = {}) {
   if (isNever(command)) return 'plain';
-  if (PIPED.test(command)) return 'piped';
-  // quiet_hook.py:105 — a stderr-merge token cancels the redirect exemption entirely.
-  if (command.includes('>') && FILE_REDIRECT.test(command) && !command.includes('2>&1')) return 'redirected';
   if (GH_READ.test(command) || isRead(command)) return 'read';
   const table = typeof catalog === 'function' ? catalog() : catalog;
   if (table && matchTool(command, table)) return 'plain';
@@ -142,7 +155,8 @@ export function classify(command, { catalog } = {}) {
 // exemption above had to demand that EVERY segment be a byte-mover, because one verdict was all the
 // compound could receive. This applies the same chain to each segment on its own. Segments are the
 // SEGMENT boundaries above — `;`, `&&`, `||`, a single `&`, a newline, outside quotes — and a pipe is
-// never one: `a | b` stays one unit and classifies 'piped' exactly as the whole command would.
+// never one: `a | b` stays one unit and takes exactly the kind the whole command would (#160: the
+// stages of a pipeline share a process group and one record, so one runner wraps all of them).
 // Each entry carries the separator that FOLLOWS its text, as matched, so the hook can rebuild the
 // command around the segments it wraps with `text + sep` and get every byte back; the shell then
 // runs its own `&&`/`||`/`;` over the runners. A whitespace-only segment names no command

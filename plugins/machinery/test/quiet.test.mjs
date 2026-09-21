@@ -33,8 +33,12 @@ test('infra powershell command gets the powershell wrapper and exit passthrough'
 // untouched — an unseen tool's volume is unknown, so it is observed once
 // (specs/2026-09-04-tool-assimilation-design.md, "The five states"). The untouched half of that
 // behaviour is now covered below, in the state where it is actually true: a recorded-quiet tool.
-test('read / piped / redirected commands are untouched', () => {
-  for (const c of ['gh issue view 1', 'cargo test | tail -5', 'cargo build > log']) {
+// `cargo test | tail -5` and `cargo build > log` were the other two entries here until #160. The
+// exemptions that made them untouched are gone (owner, 2026-09-21: "we run commands, observe them,
+// then learn how to wrap them"), so the assertion they carried moves to the shapes that are still
+// untouched for the reason that survived — ruling C1's byte-movers, piped or redirected or neither.
+test('read commands are untouched, including piped and redirected ones', () => {
+  for (const c of ['gh issue view 1', 'cat a | grep b', 'git diff > out.txt']) {
     const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', c) });
     assert.equal(r.stdout, '', c); assert.equal(r.code, 0);
   }
@@ -175,9 +179,11 @@ test('a malformed project catalog entry disables only itself, and is named on st
 // command that reaches the catalog and not for one that does not; and "exactly one line" for the
 // plain command is the proof the memoised load happens once, not once for classify() and again
 // for the assimilator.
-test('the catalog is loaded lazily: a read / piped / redirected / never command never loads it, a plain one loads it once (re-review R4)', () => {
+test('the catalog is loaded lazily: a read / never command never loads it, a plain one loads it once (re-review R4)', () => {
   const root = project(null, { testq: { outcome: '^MERGE GATE', candidates: ['--quiet'] } });
-  for (const c of ['cat big.txt', 'cargo build | tail -5', 'cargo build > log', 'pytest --help']) {
+  // `cargo build | tail -5` and `cargo build > log` were in this list until #160: they reach the
+  // catalog step now, so the piped and redirected entries here are byte-movers, which still do not.
+  for (const c of ['cat big.txt', 'cat big.txt | tail -5', 'git diff > out.txt', 'pytest --help']) {
     const r = runScript('scripts/quiet.mjs', { cwd: root, stdin: fixture('PreToolUse-Bash', c) });
     assert.equal(r.stdout, '', c);
     assert.equal(r.stderr, '', `${c}: the malformed-entry line means the catalog was loaded for a command that never reaches it`);
@@ -238,10 +244,22 @@ test('#13: a byte-mover segment stays verbatim beside a wrapped one, and the sep
   }
 });
 
-test('#13: a pipe is one unit and stays untouched; the segment after it is still wrapped', () => {
+// Until #160 the pipeline segment was untouched, and this asserted that the `&&` after it still
+// split. Both halves are wrapped now — the pipeline by its producer (#160), the build as before —
+// and what the case still proves is that the pipe did NOT split: one runner holds the whole
+// pipeline, text and all, rather than `cargo test` in one runner and `tail -5` in another.
+test('#13: a pipe is one unit — one runner holds the whole pipeline, and the segment after it gets its own', () => {
   const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cargo test | tail -5 && cargo build') });
   const u = out(r.stdout).updatedInput;
-  assert.equal(skeleton(u.command), 'cargo test | tail -5 && <filter>');
+  assert.equal(skeleton(u.command), '<filter> && <filter>');
+  assert.deepEqual(runners(u.command).map((x) => x.text), ['cargo test | tail -5', 'cargo build']);
+});
+// The control for the case above: a pipeline with no producer in it is still one untouched unit, so
+// "the pipe did not split" is not being read off a command that was simply wrapped whole.
+test('#160: a filter pipe stays untouched and still does not split its neighbour', () => {
+  const r = runScript('scripts/quiet.mjs', { stdin: fixture('PreToolUse-Bash', 'cat a | grep b && cargo build') });
+  const u = out(r.stdout).updatedInput;
+  assert.equal(skeleton(u.command), 'cat a | grep b && <filter>');
   assert.deepEqual(runners(u.command).map((x) => x.text), ['cargo build']);
 });
 

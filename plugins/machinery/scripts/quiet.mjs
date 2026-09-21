@@ -15,7 +15,9 @@ import { decide } from './lib/assimilate.mjs';
 // The project root and its catalog, resolved at most ONCE per hook run and only when something asks
 // — classify()'s catalog step, or the assimilator — because resolving the root is a git spawn and
 // the catalog is two file reads, and a command the chain answers before the catalog step (never,
-// piped, redirected, read) never needs either (re-review R4). Outside a repository there is no
+// read) never needs either (re-review R4). That list was `never, piped, redirected, read` until
+// #160 deleted the two syntax exemptions: a `> file` or `| filter` command reaches the catalog step
+// now, like any other. Outside a repository there is no
 // project half to overlay and no record to keep, so the catalog is empty and the assimilator is not
 // consulted — the regex chain alone answers, as it always did there. That is the one throw swallowed
 // here on purpose; anything else reaches the catch at the bottom.

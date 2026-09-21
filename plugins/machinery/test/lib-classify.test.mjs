@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classify, classifySegments, isSimpleCommand, isSimpleCompound } from '../scripts/lib/classify.mjs';
+import { classify, classifySegments, isSimpleCommand, isSimpleCompound, MODES } from '../scripts/lib/classify.mjs';
 
 const cases = [
   // ported from quiet_hook_test.py: test_noisy_commands_wrap / test_quiet_commands_pass
@@ -24,10 +24,14 @@ const cases = [
   ['git status', 'read'], ['git log --oneline -5', 'read'], ['git diff', 'read'],
   // test_gh_reads_are_never_wrapped
   ['gh issue view 12', 'read'], ['gh pr diff 3', 'read'], ['gh api repos/x/y', 'read'],
-  // test_piped_gate_still_opts_out / test_gh_piped_or_trivial_passes
-  ['cargo test 2>&1 | tail -20', 'piped'], ['gh run view 1 | grep fail', 'piped'], ['gh --version', 'plain'],
-  // redirect: a file redirect opts out, a bare stderr-merge does not (quiet_hook.py:105)
-  ['cargo build > build.log', 'redirected'], ['cargo build 2> err.log', 'redirected'], ['cargo build 2>&1 > build.log', 'noisy'],
+  // Was test_piped_gate_still_opts_out / test_gh_piped_or_trivial_passes: the pipe opted the whole
+  // command out. #160 removed that step, so the producer at the head of the pipeline is what the
+  // command is judged on, and the assertion these carried is now that judgement.
+  ['cargo test 2>&1 | tail -20', 'noisy'], ['gh run view 1 | grep fail', 'noisy'], ['gh --version', 'plain'],
+  // Was the redirect exemption (a `> file` with no `2>&1` opted out, quiet_hook.py:105). #160
+  // removed it too: all three are the same output producer, so all three are 'noisy' now, and the
+  // stderr-merge token that used to cancel the exemption decides nothing.
+  ['cargo build > build.log', 'noisy'], ['cargo build 2> err.log', 'noisy'], ['cargo build 2>&1 > build.log', 'noisy'],
   // precedence: infra before noisy for commands in both sets
   ['git clone https://x/y', 'infra'],
   // never
@@ -55,7 +59,12 @@ const readCases = [
   // than 'noisy' because NOISY's LEAD never saw through the `env` word — measured before C1, and
   // out of this wave's scope; what C1 owes is only that it is NOT 'read'.
   ['env FOO=1 cargo build', 'plain'], ['catalog-tool --run', 'plain'], ['git worktree add x', 'infra'],
-  ['git diff > out.txt', 'redirected'], ['cat x | grep y', 'piped'],
+  // Both were answered by the exemptions #160 removed. They stay exempt — but by KIND now, which is
+  // what ruling C1 always said: `git diff` is a byte-mover whether or not its bytes go to a file,
+  // and a pipeline of byte-movers is a filter pipe with no producer in it.
+  ['git diff > out.txt', 'read'], ['cat x | grep y', 'read'],
+  // The producer decides, wherever in the pipeline it sits (#160).
+  ['cat x | cargo build', 'noisy'], ['cargo build | tail -5', 'noisy'],
   // Was pinned 'plain' here until issue #11: the splitter was not quote-aware, so this split inside
   // the quotes into `echo "a` and `b"`, neither a byte-mover. The quoted `&&` is data; see below.
   ['echo "a && b"', 'read'],
@@ -137,29 +146,43 @@ test('I1: without a catalog, or for a command the catalog does not know, the reg
 test('I1: the read exemption (C1) runs before the catalog — a byte-mover is exempt even if someone catalogs it', () => {
   assert.equal(classify('cat big.txt', { catalog: CATALOG }), 'read');
 });
-test('I1: never / piped / redirected still come before the catalog', () => {
+test('I1: never still comes before the catalog, and since #160 a pipe or a redirect no longer outranks it', () => {
   assert.equal(classify('pytest --help', { catalog: CATALOG }), 'plain'); // NEVER's plain, not the catalog's
-  assert.equal(classify('pytest | tail -5', { catalog: CATALOG }), 'piped');
-  assert.equal(classify('pytest > log', { catalog: CATALOG }), 'redirected');
+  // These two were 'piped' and 'redirected' — answered above the catalog by syntax alone. The
+  // exemptions are gone, so the catalog entry is the authority on them as on any other pytest
+  // invocation, and 'plain' is the bucket that hands them to the assimilator to be observed.
+  assert.equal(classify('pytest | tail -5', { catalog: CATALOG }), 'plain');
+  assert.equal(classify('pytest > log', { catalog: CATALOG }), 'plain');
 });
 test('RED CHECK: the catalog check is load-bearing — the same command flips between infra and plain on the catalog alone', () => {
   assert.notEqual(classify('git commit -m x', { catalog: CATALOG }), classify('git commit -m x', { catalog: {} }));
 });
 
 // Re-review R4: with the catalog passed as a VALUE, quiet.mjs had to resolve the project root (a git
-// spawn) and read two files for every command — the never / piped / redirected / read ones that the
-// chain answers without ever looking at the catalog included. The catalog may be handed in as a
-// thunk, called only when the chain actually reaches the catalog step.
+// spawn) and read two files for every command — the never / read ones that the chain answers
+// without ever looking at the catalog included. The catalog may be handed in as a thunk, called
+// only when the chain actually reaches the catalog step.
 const explode = () => { throw new Error('the catalog was loaded for a command that never reaches it'); };
 test('R4: a catalog thunk is not called for a command the chain answers before the catalog step', () => {
-  for (const c of ['cat x', 'cargo build | tail', 'cargo build > log', 'gh issue view 1', '--help']) {
+  // `cargo build | tail` and `cargo build > log` were in this list until #160, answered by the two
+  // exemptions above the catalog step. They are below it now — asserted as such in the next test,
+  // so the laziness claim does not quietly shrink to the commands that still sit above it.
+  for (const c of ['cat x', 'cat x | grep y', 'git diff > out.txt', 'gh issue view 1', '--help']) {
     assert.doesNotThrow(() => classify(c, { catalog: explode }), c);
   }
   assert.equal(classify('cat x', { catalog: explode }), 'read');
-  assert.equal(classify('cargo build | tail', { catalog: explode }), 'piped');
-  assert.equal(classify('cargo build > log', { catalog: explode }), 'redirected');
+  assert.equal(classify('cat x | grep y', { catalog: explode }), 'read');
+  assert.equal(classify('git diff > out.txt', { catalog: explode }), 'read');
   assert.equal(classify('gh issue view 1', { catalog: explode }), 'read');
   assert.equal(classify('--help', { catalog: explode }), 'plain');
+});
+test('#160: a piped or redirected output producer now REACHES the catalog step it used to be answered above', () => {
+  for (const c of ['cargo build | tail', 'cargo build > log']) {
+    let calls = 0;
+    const thunk = () => { calls += 1; return CATALOG; };
+    assert.equal(classify(c, { catalog: thunk }), 'noisy', c); // CATALOG has no cargo entry, so the chain goes on
+    assert.equal(calls, 1, `${c}: the catalog step was skipped — the thunk was called ${calls} times`);
+  }
 });
 test('R4: a catalog thunk is called exactly once for a command that reaches the catalog step, and its value is what the step uses', () => {
   for (const [c, want] of [['git commit -m x', 'plain'], ['bash scripts/x.sh', 'plain']]) {
@@ -201,9 +224,13 @@ test('#13: classifySegments classifies each segment on its own, with the separat
   assert.deepEqual(classifySegments('cargo build & cat x'), [seg('cargo build', ' & ', 'noisy'), seg('cat x', '', 'read')]);
 });
 
-test('#13: a pipe is one unit — the segment is piped or redirected exactly as the whole command would be', () => {
-  assert.deepEqual(classifySegments('cargo test | tail -5 && cargo build'), [seg('cargo test | tail -5', ' && ', 'piped'), seg('cargo build', '', 'noisy')]);
-  assert.deepEqual(classifySegments('cargo build > log; cargo test'), [seg('cargo build > log', '; ', 'redirected'), seg('cargo test', '', 'noisy')]);
+test('#13: a pipe is one unit — the segment takes exactly the kind the whole command would', () => {
+  // The kinds moved with #160 (both were 'piped' / 'redirected'); what this case asserts has not:
+  // the pipeline is ONE segment with ONE kind, not two segments, and the redirect does not split.
+  assert.deepEqual(classifySegments('cargo test | tail -5 && cargo build'), [seg('cargo test | tail -5', ' && ', 'noisy'), seg('cargo build', '', 'noisy')]);
+  assert.deepEqual(classifySegments('cargo build > log; cargo test'), [seg('cargo build > log', '; ', 'noisy'), seg('cargo test', '', 'noisy')]);
+  // A filter pipe with no producer is still one segment, and still exempt — by kind now (C1).
+  assert.deepEqual(classifySegments('cat a | grep b && cargo build'), [seg('cat a | grep b', ' && ', 'read'), seg('cargo build', '', 'noisy')]);
 });
 
 test('#13: the NEVER exemption is per segment: an exempt segment no longer exempts its neighbours', () => {
@@ -240,7 +267,9 @@ test('#13: the catalog thunk is resolved at most once for the whole compound, an
   const thunk = () => { calls += 1; return CATALOG; };
   assert.deepEqual(classifySegments('git commit -m x && pytest -q && bash x.sh', { catalog: thunk }).map((s) => s.kind), ['plain', 'plain', 'plain']);
   assert.equal(calls, 1, `three segments reached the catalog step and the thunk was called ${calls} times`);
-  assert.doesNotThrow(() => classifySegments('cat a && ls | wc -l && cargo build > log', { catalog: explode }));
+  // `cargo build > log` was the third segment here until #160, when the redirect answered above the
+  // catalog step. It reaches the catalog now, so the segment that must not load it is a byte-mover.
+  assert.doesNotThrow(() => classifySegments('cat a && ls | wc -l && git diff > out.txt', { catalog: explode }));
 });
 
 test('RED CHECK: classifySegments is not classify() over the whole command — the compound the issue measured comes apart', () => {
@@ -315,8 +344,9 @@ const stateCases = [
   ['export X=1', 'read'], ['export X="a b" Y=2', 'read'], ['source .venv/bin/activate', 'read'], ['source ./vars.sh', 'read'],
   ['. ./env.sh', 'read'], ['set -e', 'read'], ['set -o pipefail', 'read'], ['unset X', 'read'], ['alias ll="ls -la"', 'read'],
   ['unalias ll', 'read'], ['eval "$(ssh-agent)"', 'read'], ['exec true', 'read'], ['trap cleanup EXIT', 'read'], ['shopt -s globstar', 'read'],
-  // Precedence, not the list: a redirect answers at the step BEFORE read, and both are untouched.
-  ['exec 3>&1', 'redirected'],
+  // The list, not precedence: until #160 a redirect answered at the step BEFORE read and this came
+  // back 'redirected'. With that step gone, `exec` earns the same 'read' as every other entry here.
+  ['exec 3>&1', 'read'],
   ['ulimit -n 4096', 'read'], ['umask 022', 'read'], ['pushd src', 'read'], ['popd', 'read'], ['readonly X=1', 'read'],
   ['declare -a arr', 'read'], ['typeset -i n', 'read'], ['local x=1', 'read'],
   ['X=1', 'read'], ['X=1 Y=2', 'read'], ['X="a && b"', 'read'], ["X='a; b' Y=c", 'read'], ['CARGO_TARGET_DIR=/tmp/t', 'read'],
@@ -406,3 +436,25 @@ test('RED CHECK (fix 3): the lead is a field, not a prefix — the judged text o
   assert.equal(s.lead, '# c\n');
   assert.notEqual(isSimpleCommand(s.lead + s.text), isSimpleCommand('cargo build'), 'positive control: the prefixed form is what used to be judged');
 });
+
+// ---- #160: every command is observed — the 'piped' and 'redirected' exemptions are gone ----
+//
+// Owner, 2026-09-21, verbatim: "it is redirected into a file, but i don't care to assume if
+// something outputs or not. we run commands, observe them, then learn how to wrap them"; asked
+// about the pipe exemption the same day, verbatim: "cover pipes too". Both steps are removed, so a
+// `> file` command and a `| filter` command take the same chain as any other and land on the kind
+// their own text earns. The assertions are on that kind, not on "not piped / not redirected": a
+// command that fell through to a kind the hook leaves alone would still be unobserved, which is
+// the whole defect. `cargo test` is an output producer either way round, so 'noisy' is what the
+// remaining chain owes it.
+test('#160: a `> file` command is classified by the work it does, not by the redirect', () => {
+  assert.equal(classify('cargo test > out.txt'), 'noisy');
+});
+test('#160: a pipeline is classified by the producer in it, not by the trailing filter', () => {
+  assert.equal(classify('cargo test 2>&1 | tail -20'), 'noisy');
+});
+test('#160: MODES names neither removed mode', () => {
+  assert.ok(!MODES.includes('piped'), `MODES still names 'piped': ${JSON.stringify(MODES)}`);
+  assert.ok(!MODES.includes('redirected'), `MODES still names 'redirected': ${JSON.stringify(MODES)}`);
+});
+
