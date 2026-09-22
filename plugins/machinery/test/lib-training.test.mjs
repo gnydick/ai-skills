@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  GRADUATION_AGREEMENTS, PICK_WINDOW, SHAPE_WINDOW, SHAPE_FACTOR,
+  GRADUATION_AGREEMENTS, AGREEMENT_MATCH_CAP, PICK_WINDOW, SHAPE_WINDOW, SHAPE_FACTOR,
   emptyTraining, trainingOf, commonPrefix, deriveMatcher, shadowPick, identify, noteRun, shapeMoved,
   driftReason, reopen, graduated, learnedId, learnedEntry, frozenFixture,
 } from '../scripts/lib/training.mjs';
@@ -72,12 +72,49 @@ test('identify: a disagreement resets the streak and the matcher shortens — th
   assert.equal(r.agreed, true); assert.equal(r.training.streak, 1); assert.equal(r.graduates, false);
 });
 
-test('RED CHECK: a matcher that also matches a second line in the run disagrees — an over-wide prefix cannot graduate', () => {
+// #166: agreement is the pick being AMONG the matcher's matches, with at most AGREEMENT_MATCH_CAP of
+// them in the run. Two picks of `widgets: N` derive the prefix `widgets: `; each case below then
+// hands identify() a run built to a stated number of matching lines.
+const widgetsTrained = () => {
   let t = emptyTraining();
   for (const [s, l] of [['widgets: 3', 'l1'], ['widgets: 4', 'l2']]) t = identify(t, { lines: RUN(s), index: 2, log: l, at: AT }).training;
   assert.deepEqual(deriveMatcher(t.picks), { type: 'prefix', value: 'widgets: ' });
-  // The prefix now also matches line 0 of this run: the shadow pick is [0, 2], not [2].
-  const r = identify(t, { lines: ['widgets: 1', 'x', 'widgets: 3'], index: 2, log: 'l3', at: AT });
+  return t;
+};
+const widgetLines = (n) => Array.from({ length: n }, (_, i) => `widgets: ${i}`);
+
+test('the match cap is one named constant, and it is 5', () => { assert.equal(AGREEMENT_MATCH_CAP, 5); });
+
+test('identify: three matching lines and the pick is the first of them — agreed', () => {
+  const t = widgetsTrained(), lines = widgetLines(3);
+  // RED CHECK: the old rule — exactly one match, at the pick — answers false on this very input, so
+  // a test that expects agreement here is proven to see the change.
+  const shadow = shadowPick(deriveMatcher(t.picks), lines);
+  assert.deepEqual(shadow, [0, 1, 2], 'the prefix matches all three lines');
+  assert.equal(shadow.length === 1 && shadow[0] === 0, false, 'RED CHECK: the exactly-one rule disagreed here');
+  const r = identify(t, { lines, index: 0, log: 'l3', at: AT });
+  assert.equal(r.agreed, true); assert.equal(r.training.streak, 1);
+});
+
+test('identify: three matching lines and the pick is the third of them — agreed', () => {
+  const r = identify(widgetsTrained(), { lines: widgetLines(3), index: 2, log: 'l3', at: AT });
+  assert.equal(r.agreed, true); assert.equal(r.training.streak, 1);
+});
+
+test('identify: more than AGREEMENT_MATCH_CAP matching lines disagrees — an over-wide prefix cannot graduate', () => {
+  const atCap = identify(widgetsTrained(), { lines: widgetLines(AGREEMENT_MATCH_CAP), index: 0, log: 'l3', at: AT });
+  assert.equal(atCap.agreed, true, 'the cap itself is still an agreement');
+  const over = identify(widgetsTrained(), { lines: widgetLines(AGREEMENT_MATCH_CAP + 1), index: 0, log: 'l3', at: AT });
+  assert.equal(over.agreed, false); assert.equal(over.training.streak, 0); assert.equal(over.graduates, false);
+});
+
+test('identify: one matching line, at the pick — agreed', () => {
+  const r = identify(widgetsTrained(), { lines: ['x', 'y', 'widgets: 9'], index: 2, log: 'l3', at: AT });
+  assert.equal(r.agreed, true); assert.equal(r.training.streak, 1);
+});
+
+test('identify: one matching line, elsewhere than the pick — disagreed', () => {
+  const r = identify(widgetsTrained(), { lines: ['widgets: 9', 'x', 'nothing here'], index: 2, log: 'l3', at: AT });
   assert.equal(r.agreed, false); assert.equal(r.training.streak, 0); assert.equal(r.graduates, false);
 });
 

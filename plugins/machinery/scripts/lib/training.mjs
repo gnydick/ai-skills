@@ -15,6 +15,15 @@ import { outcomeMatcher } from './catalog.mjs';
 // coincidence of the two picks the prefix was built from. A third would cost every project one more
 // identified run per tool for evidence the frozen fixture already carries.
 export const GRADUATION_AGREEMENTS = 2;
+// The most matching lines a run may hold for the session's pick still to count as agreement. Five,
+// because the two failures the number is caught between are not symmetric. A too-wide prefix — `test`
+// over a cargo run — hits dozens of lines, and graduating it would promote all of them: the cap has
+// to sit far below that. But a tool whose answer line repeats once per target prints a handful —
+// `cargo test -p fs-core` prints three `test result:` lines, lib, integration and doctest — and under
+// an exactly-one rule such a tool can never graduate at all (#166, measured on ferrislicer
+// 2026-09-22). Five clears the per-target case with room for a larger workspace and still rejects
+// anything that matches a whole section of output.
+export const AGREEMENT_MATCH_CAP = 5;
 // The most recent picks the prefix is taken over. Bounded, so a tool that never graduates cannot grow
 // the record without limit; wide enough for a formation (2) and a graduation (K) with room for a few
 // disagreements between.
@@ -73,16 +82,18 @@ export function shadowPick(matcher, lines) {
 
 // One identification by the session. `index` is the line the session says is the answer, in `lines`
 // — this run's normalised output. The shadow comparison runs FIRST, against the matcher the picks
-// BEFORE this one derive: agreement is that matcher picking exactly this line and no other. Then the
-// pick joins the window and the matcher is re-derived. `graduates` is true when this agreement is the
-// K-th in a row; the matcher returned is then the one to freeze — on an agreement it equals the one
-// that agreed, because a line the prefix matched cannot shorten it.
+// BEFORE this one derive: agreement is that matcher picking this line among at most
+// AGREEMENT_MATCH_CAP lines in the run. A prefix wide enough to hit more than the cap is a
+// disagreement however the pick fell, and one that hits only lines the session did not pick is a
+// disagreement too. Then the pick joins the window and the matcher is re-derived. `graduates` is
+// true when this agreement is the K-th in a row; the matcher returned is then the one to freeze — on
+// an agreement it equals the one that agreed, because a line the prefix matched cannot shorten it.
 export function identify(training, { lines, index, log, at }) {
   const before = deriveMatcher(training.picks);
   let agreed = null, streak = training.streak;
   if (before) {
     const shadow = shadowPick(before, lines);
-    agreed = shadow.length === 1 && shadow[0] === index;
+    agreed = shadow.length <= AGREEMENT_MATCH_CAP && shadow.includes(index);
     streak = agreed ? streak + 1 : 0;
   }
   const picks = [...training.picks, { text: lines[index], log, at }].slice(-PICK_WINDOW);

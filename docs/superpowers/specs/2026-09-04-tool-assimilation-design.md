@@ -489,8 +489,16 @@ generator makes, it is a property of how the generator works.
 ### Graduation is shadow agreement
 
 While a tool is in training, both the local matcher and the session pick the outcome line,
-and the picks are compared. After **K consecutive agreements** the matcher graduates and
-the nudge stops firing for that tool.
+and the picks are compared. The pick **agrees** when the matcher's matches in that run
+**include** the picked line and number **at most 5** — among the matches, at most 5. More
+than 5 matches is a disagreement however the pick fell, and so is a run whose matches miss
+the picked line. After **K consecutive agreements** the matcher graduates and the nudge
+stops firing for that tool.
+
+The cap is what stops a too-wide prefix graduating: `test` over a cargo run hits dozens of
+lines, far above it. Requiring exactly one match instead would have made any tool whose
+answer line repeats once per target — `cargo test -p fs-core` prints three `test result:`
+lines — unlearnable by prefix. See the 2026-09-22 decision below (#166).
 
 That comparison is the only real training signal available, and it is why the model stays
 in the loop until it does not. Nothing else can tell you the matcher is right, because
@@ -888,6 +896,25 @@ Declared standard: **structural**. This changes behaviour deliberately.
   same day, verbatim: *"i changed my mind, don't skip anything."* The head therefore closes at the
   first flag, `prefix` stays a literal leading run of the command line, and the graduation matcher
   stays `startsWith`. Recorded so the question is not reopened as if it were undecided.
+
+## Decisions taken by the owner, 2026-09-22 (#166)
+
+- **A pick agrees when it is among the matcher's matches, at most 5 per run.** #166, owner
+  2026-09-22, verbatim: *"go."* The rule was `shadow.length === 1 && shadow[0] === index` —
+  the matcher picking exactly this line and no other. It is now
+  `shadow.length <= AGREEMENT_MATCH_CAP && shadow.includes(index)`, with
+  `AGREEMENT_MATCH_CAP` = 5 named beside `GRADUATION_AGREEMENTS` in `training.mjs`.
+  Measured, live trial of the #164 branch in a `--local` clone of ferrislicer, 2026-09-22,
+  six `cargo test` runs: all six landed on the one head `cargo test`; run 2 formed the
+  matcher `prefix "test result: ok. "`; run 3 (`--lib`, one `test result:` line) agreed.
+  Runs 5 and 6 (`-p fs-slice`, `-p fs-core --no-fail-fast`) each print three `test result:`
+  lines — lib, integration, doctest — so `shadow.length === 3`, the old rule disagreed, the
+  streak reset, and the catalog after four identified picks was `{}`. The filter was
+  already right about that run: `select()` (`filter.mjs`) keeps every match and promoted all
+  three lines; only the agreement gate refused it. The cap was the assistant's proposal,
+  accepted with the plan: 5 sits far below a prefix like `test` (dozens of hits) and above a
+  handful of per-target summary lines. Graduation, the frozen matcher and the fixture
+  `graduate()` writes are unchanged.
 
 ## Open questions
 
