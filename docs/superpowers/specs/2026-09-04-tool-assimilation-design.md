@@ -199,9 +199,11 @@ else entirely.
 Bespoke tools skip the ledger. There is nothing to look up, so they go straight to wrap on
 the first noisy observation.
 
-### The key a bespoke record takes: the generalized command form
+### The generalized command form — identity until #164, a run's shape since
 
-Added 2026-09-07 (#87). A record is keyed by command LINE, not by tool, and that is the
+Added 2026-09-07 (#87). **Superseded as identity on 2026-09-21 by the identity head (#164, the
+next subsection); everything below still describes the form itself, which is now what a RUN's
+shape is and what a record written before #164 is keyed on.** A record is keyed by command LINE, not by tool, and that is the
 design — owner, 2026-09-07: *"command lines are unique, not tools. so there can be as many
 entries for a command as there are variants."* A variant that recurs accumulates a history
 and can graduate; one that never recurs was never worth learning, because a learned answer
@@ -288,6 +290,75 @@ version — `node "…/machinery/0.1.93/scripts/intake.mjs" list` — still take
 that path changes. Collapsing it would mean reducing the identity to a basename, which the
 requirement above does not authorize.
 
+### The key a bespoke record takes: the identity head
+
+Added 2026-09-21 (#164), replacing the generalized form above as identity. **The identity head is
+the command name plus its first positional token.** Everything after it — flags, targets,
+redirects — is variation inside the tool, not a record of its own.
+
+```
+cargo test -p a                                 ->  cargo test
+cargo test --locked -p b                        ->  cargo test   (one record, three runs)
+cargo test --no-fail-fast -p c > out.txt 2>&1   ->  cargo test
+node scripts/x.mjs check                        ->  node scripts/x.mjs
+gh issue create --title t                       ->  gh issue
+cd /repo && cargo test -p a                     ->  cargo test   (never `cd`)
+```
+
+Why the generalized form could not stay. It kept every flag NAME literal and the lookup was string
+equality over it, so two runs of one tool shared a record only when their flags were identical.
+Measured in ferrislicer's record, 2026-09-21: `cargo test` ran 27 times and became 27 keys; `cargo
+fmt` 22 runs, 11 keys; 60 of 67 cargo keys were seen exactly once. Graduation needs
+`GRADUATION_AGREEMENTS` = 2 consecutive agreements on ONE key, so no cargo subcommand could ever
+have graduated.
+
+Owner's ruling, 2026-09-21, verbatim: *"i meant it to be the glob, but with type correctness."*
+Asked which glob: *"Loose: flags are variation."* Asked what the head is for a command with no
+subcommand: *"Command + first positional."*
+
+The rules:
+
+- **The head is a typed glob with one open tail slot.** Matching a command against a record means
+  its head is the record's head; the rest of the command fits the slots. A key written BEFORE #164
+  is a full generalized form and carries typed slots of its own: it claims only the commands that
+  fit them — `gh issue edit %d` claims `gh issue edit 59` and not `gh issue edit main`. Generalizing
+  the command is what tests each token against a slot's type, so type correctness is the derivation
+  itself rather than a second spelling of it (`keyMatches`, `recordKeyFor`, observations.mjs).
+- **No migration.** Nothing writes a full-form key again, so an old record stops being reached the
+  moment the head record exists, and ages out.
+- **The first positional is kept as written, never typed.** That is what makes the head a literal
+  leading run of the command line, which is the property graduation needs — the head IS the `prefix`
+  a learned entry matches on by `startsWith`. So `bash run.sh` and `bash ../run.sh` are two heads:
+  normalising the script token would produce a string no command starts with, and nothing inside the
+  `%p` rules could say which of two spellings is canonical.
+- **A flag closes the head.** Proposed as a departure from the ruling's letter ("the first token
+  after the command that is not a flag"), then ratified by the owner on 2026-09-21 after he briefly
+  ruled the other way and reversed it — *"i changed my mind, don't skip anything."* Forced by the
+  invariant below and measured on `python -m pytest tests/ -q`: `-m` takes `pytest` as its operand, so the first non-flag token is `tests/` and the
+  literal rule yields `python tests/` — a string the command does not start with, fragmenting the
+  record by test directory. Closing at the flag gives `python`, a collapse, which is the visible
+  direction. Every example the ruling names is unaffected.
+- **A compound heads at its first work-doing segment.** Byte-mover segments never contribute (ruling
+  C1, #87, unchanged). The byte-mover list is `classify.mjs`'s `isRead()`, asked rather than
+  re-spelled, so the two readers cannot grow different lists.
+- **A catalog entry still wins.** `matchTool()` is consulted first and its id claims the command.
+- **`toolKey()` remains the single derivation site**, so the runner (quiet-run.mjs) and the trainer
+  (train-tool.mjs) agree on the key by construction.
+
+**The prefix invariant.** `prefix` — what a graduated catalog entry matches on — and the identity
+head are ONE string, derived once and returned as both fields, so they cannot disagree. A test pins
+`generalize(c).prefix === bespokeKey(c)` over a fixture of 30 realistic commands, plus that each
+command really starts with its own head.
+
+**Named risk, measured and left open for the owner.** A first positional that is a VALUE rather
+than a subcommand becomes the head and fragments by it. Measured over a fixture of 37 realistic
+non-byte-mover commands: 22 head at a subcommand, 8 at a runner's script (identity by design, #15),
+6 at a bare command name because a flag closed the head, and **1** fragments by a value — `pytest
+tests/unit --maxfail 1` heads at `pytest tests/unit`, one key per test directory. `python -` heads
+at `python -` for the same reason. `echo hello` and `sed -n 5,10p file`, which the ticket names, are
+byte-movers: they write no record at all, so their heads are moot. Whether the catalog should carry
+a per-tool head override is the owner's to decide (#164).
+
 ### Per-stream policy
 
 Neither stream gets a blanket rule.
@@ -346,7 +417,7 @@ about. It is not acceptable for one it claims to know.
 ### Declared outcome patterns, per off-the-shelf tool
 
 Every entry in the universal table declares, alongside its candidate flags, **the pattern
-that matches the line that is the tool's answer**:
+that matches the line or lines the session identified as the tool's answer**:
 
 ```
 cargo test         outcome: ^test result:
@@ -398,18 +469,22 @@ identification can happen over stored logs in batch, not only on the run that tr
 
 ### Identification is the model's job; generalisation is not
 
-The session reads a captured log and says *this line is the answer*. It does **not** invent
-the pattern.
+The session reads a captured log and says *this line, and this one, and this one, are the
+answer*. It does **not** invent the pattern. A run may hold several answer lines —
+`cargo test` prints one `test result:` summary per target, lib, integration and doctest —
+and the session identifies **every** one of them (owner, 2026-09-22, #168). Nothing
+anywhere derives an answer by applying the pattern; that would make the check test itself.
 
 Turning `test result: ok. 128 passed; 0 failed` into a matcher means finding what is stable
-across runs, and that is arithmetic: the longest common prefix of the identified line
-across repeated observations. After three runs there are three instances and `test result:`
-falls out without anyone guessing.
+across runs, and that is arithmetic: the longest common prefix of the lines the session
+identified, across repeated observations. After three runs there are three instances and
+`test result:` falls out without anyone guessing.
 
 The split matters because it bounds the failure. Judgement stays with the model;
 generalisation stays deterministic. A matcher cannot over-reach because the model was
-confident, and a single observation can never graduate — there is nothing to take a common
-prefix *of*.
+confident, and a single identified *line* can never graduate — there is nothing to take a
+common prefix *of*. Three identified lines in one run do have a common prefix to take, so a
+run the session read fully can form the matcher on its own.
 
 It is also what keeps machine-derived patterns to prefixes and literals, as required
 above: a longest-common-prefix is a prefix by construction. The rule is not a promise the
@@ -417,9 +492,20 @@ generator makes, it is a property of how the generator works.
 
 ### Graduation is shadow agreement
 
-While a tool is in training, both the local matcher and the session pick the outcome line,
-and the picks are compared. After **K consecutive agreements** the matcher graduates and
-the nudge stops firing for that tool.
+While a tool is in training, both the local matcher and the session select the outcome
+lines, and the two selections are compared. The session's identification **agrees** when the
+matcher's match set in that run **equals the identified set** — every identified line and no
+other, none missing, none extra. After **K consecutive agreements** the matcher graduates
+and the nudge stops firing for that tool.
+
+Set equality is what stops a too-wide prefix graduating: `test` over a cargo run also heads
+every per-test line, which nobody identified, so it disagrees and can never graduate. It is
+the original exactly-one-line rule generalised to a set, and it keeps that rule's guard
+while letting a tool whose answer repeats once per target — `cargo test -p fs-core` prints
+three `test result:` lines — be learned at all. `AGREEMENT_MATCH_CAP` = 5 bounds the
+**identified set**, not the match count: it is how many answer lines the session may name in
+one run. See the 2026-09-22 decisions below (#168; #166's "among the matches" rule is
+superseded).
 
 That comparison is the only real training signal available, and it is why the model stays
 in the loop until it does not. Nothing else can tell you the matcher is right, because
@@ -429,7 +515,10 @@ there is no other oracle.
 
 This is what makes the result checkable rather than merely trusted. At the moment a matcher
 graduates, the observation that trained it is frozen as a fixture with its expected kept
-lines. The matcher now has a regression test.
+lines: every line the session identified in that run, and every line it identified in each
+earlier run of the window, appended. The matcher now has a regression test. The run's lines
+that were **not** identified stay in the fixture as non-answers, and that is what the
+survival check has left to fail on.
 
 Without it, training produces a heuristic and discards the evidence, and "the model was
 wrong about this tool" becomes something you live with rather than something you can
@@ -588,9 +677,9 @@ Declared standard: **structural**. This changes behaviour deliberately.
 6. **The wrap decision** — the 6-of-10 fall-through above becomes 0-of-10 after observation,
    using ferrislicer's real command list as the fixture.
 7. **Declared outcome survives** — for every entry in the universal table, its fixture is
-   filtered and the outcome line must appear in the kept set. Positive control: remove the
-   outcome declaration and the assertion must fail, so a table entry cannot pass by the
-   generic heuristic happening to catch it.
+   filtered and every line or lines the session identified must appear in the kept set.
+   Positive control: remove the outcome declaration and the assertion must fail, so a table
+   entry cannot pass by the generic heuristic happening to catch it.
 8. **The final line is never dropped** — a fixture whose last line matches CHATTER is
    filtered, and the last line is still present. This is the strongest existing guarantee
    and the per-stream change must not weaken it.
@@ -601,8 +690,8 @@ Declared standard: **structural**. This changes behaviour deliberately.
     prefix, and a single observation never graduates a matcher. Asserted directly; it is
     what keeps a machine-derived pattern a prefix by construction rather than by promise.
 11. **Graduation requires a fixture** — a matcher cannot reach graduated state without a
-    frozen observation and its expected kept lines. Positive control: remove the fixture
-    and graduation must be refused.
+    frozen observation and the line or lines the session identified in it as its expected
+    kept lines. Positive control: remove the fixture and graduation must be refused.
 12. **Drift re-opens training** — a graduated matcher that matches nothing in a run returns
     to training, as does a non-zero exit with no error block found. Asserted for each
     trigger separately, since a single combined test would pass on one of three.
@@ -743,7 +832,7 @@ Declared standard: **structural**. This changes behaviour deliberately.
   every state word is unchanged: `read`. `exec cargo build` and `eval "$(…)"` classify `read`
   alone and, in a compound, now fall back under (B).
 
-## Decisions taken by the owner, 2026-09-21 (#160)
+## Decisions taken by the owner, 2026-09-21 (#160, #162, #164)
 
 - **Every command is observed: the `piped` and `redirected` exemptions are removed.** Owner,
   verbatim: "it is redirected into a file, but i don't care to assume if something outputs or
@@ -778,6 +867,99 @@ Declared standard: **structural**. This changes behaviour deliberately.
   file` without `2>&1` — because those were never wrapped, so never logged. The `piped` set was
   uncounted: absent from both the record and the logs by construction, so its size was unknown
   until the exemption was gone. The change adds observation and removes nothing measured.
+
+- **A bespoke record is keyed on the identity head, not on the generalized command form.** #164,
+  owner 2026-09-21, verbatim: *"i meant it to be the glob, but with type correctness"*; which glob —
+  *"Loose: flags are variation"*; the head of a command with no subcommand — *"Command + first
+  positional."* One rule covers both: the identity head is the command name plus its first
+  positional token. Flags, targets and redirects are typed slots inside the tool, so `cargo test -p
+  a`, `cargo test --locked -p b` and `cargo test --no-fail-fast -p c > out.txt 2>&1` are one tool
+  with three runs. The cause measured: the old key kept every flag NAME literal and the lookup was
+  string equality over it, so in ferrislicer's record `cargo test` ran 27 times and became 27 keys,
+  `cargo fmt` 22 runs over 11 keys, and 60 of 67 cargo keys were seen exactly once — with
+  `GRADUATION_AGREEMENTS` = 2 on one key, no cargo subcommand could ever have graduated. The lookup
+  in `decide()` is now a glob match: the head, or — until it ages out — a key written before #164
+  whose typed slots the command fits. No migration. The full section is "The key a bespoke record
+  takes: the identity head" above; it also records the one departure from the ruling's letter (a
+  flag closes the head, forced by the prefix invariant and measured on `python -m pytest tests/ -q`)
+  and the first-positional risk the owner has not decided, with its measurement.
+
+- **A zero-line run is observed, but it does not decide `noisy`.** #164, owner 2026-09-21. Under
+  the identity head, `cargo test > out.txt 2>&1` and a bare `cargo test` are ONE record. The
+  redirected run puts 0 lines on the runner's pipes; `recordRun()` rewrote `noisy` from every bare
+  run's line count, so that run marked the tool quiet, `decide()` routes a quiet record to `plain`
+  — unwrapped — and the next bare `cargo test` with 300 lines reached the session in full. The
+  ruling: a run with 0 lines on the runner's pipes is still recorded in the shape history (#160
+  stands, every command is observed) but does NOT rewrite `noisy`. Only a run with output on the
+  pipe decides. A record whose every run is 0 lines keeps whatever `noisy` it had, or stays without
+  one — the "no bare measurement" state `decide()` already routes to observe. **This supersedes,
+  for `noisy` only, the bullet above from #160** ("what the record says about an empty pipe is true,
+  not a gap"): that reading was honest while every redirect shape had a key of its own; under the
+  head it lets one run's plumbing silence another's measurement. The 0-line entry in the history is
+  still the honest observation and is unchanged.
+- **Proposed and withdrawn the same day: skipping a leading flag and its operand when taking the
+  head.** The implementation of the head rule closes the head at the first flag, so
+  `python -m pytest tests/ -q` heads at `python` and `gh --repo o/r issue create` at `gh`. The owner
+  first ruled instead "skip flag and operand, take the first positional" — which would have given
+  `python tests/`, `gh issue` and `make release`, and would have cost the head its literal-prefix
+  property, forcing the graduation matcher to become a flag-skipping match. He then reversed it the
+  same day, verbatim: *"i changed my mind, don't skip anything."* The head therefore closes at the
+  first flag, `prefix` stays a literal leading run of the command line, and the graduation matcher
+  stays `startsWith`. Recorded so the question is not reopened as if it were undecided.
+
+## Decisions taken by the owner, 2026-09-22 (#168)
+
+- **The session identifies every answer line in a run.** #168, owner 2026-09-22, verbatim:
+  *"the session identifies every answer line"*, chosen among three ways a person could
+  identify several answers in one run. So answers stay human-identified, as `survival.mjs`
+  requires — indices a person read off the recorded runs, never found by applying the outcome
+  pattern, which would make the check test itself. A run may have several; the session names
+  all of them; nothing derives one.
+- **Agreement is set equality**, derived from that ruling and the survival principle, not a
+  separate decision: the shadow matcher agrees when its match set in the run **equals** the
+  identified set — same indices, none missing, none extra. It is the original exactly-one-line
+  rule generalised to a set, and it is what keeps the over-wide-prefix guard alive.
+  **#166's "among the matches, at most 5" rule is superseded by this.** `AGREEMENT_MATCH_CAP`
+  = 5 stays, with a new meaning: it bounds the **identified set** — `train-tool.mjs identify`
+  refuses more than five `--line` numbers, naming the cap — not the match count.
+- Consequences, in the same ruling: a pick records the texts of **all** lines identified in
+  that run; `deriveMatcher` is the longest common prefix over every identified text in the
+  window, so three identified lines in one run already form a matcher; `frozenFixture`
+  declares all of this run's identified indices plus every earlier pick's identified texts,
+  appended.
+- Measured, at 8611947, on a synthetic fixture built to the trial's shape: under #166's rule
+  the loop reached agreement and then `graduate()` was refused by `survival.mjs` — *"the
+  outcome pattern also matches a non-answer line"* — which is the live trial's failure
+  (ferrislicer `--local` clone, 2026-09-22, catalog `{}` after four picks). Declaring every
+  matched line an answer instead would have made the guard vacuous by construction: the
+  over-wide prefix `test` hit 5 lines and passed exactly like the right one.
+- **Not decided**: whether 5 is enough for a workspace-wide `cargo test --workspace`. Nothing
+  above three targets has been measured. If a trial hits the cap that is the owner's call,
+  not a silent raise.
+- Old-shape picks (a single `text`) in an existing `observations.json` read as a one-element
+  identified set. No migration; they age out of `PICK_WINDOW`.
+
+## Decisions taken by the owner, 2026-09-22 (#166, superseded by #168)
+
+- **A pick agrees when it is among the matcher's matches, at most 5 per run.** SUPERSEDED by
+  #168's set-equality rule; kept as the record of what was tried and why it fails the
+  survival principle — it lets a matcher graduate over lines nobody identified, which is the
+  thing `survival.mjs` refuses. #166, owner
+  2026-09-22, verbatim: *"go."* The rule was `shadow.length === 1 && shadow[0] === index` —
+  the matcher picking exactly this line and no other. It is now
+  `shadow.length <= AGREEMENT_MATCH_CAP && shadow.includes(index)`, with
+  `AGREEMENT_MATCH_CAP` = 5 named beside `GRADUATION_AGREEMENTS` in `training.mjs`.
+  Measured, live trial of the #164 branch in a `--local` clone of ferrislicer, 2026-09-22,
+  six `cargo test` runs: all six landed on the one head `cargo test`; run 2 formed the
+  matcher `prefix "test result: ok. "`; run 3 (`--lib`, one `test result:` line) agreed.
+  Runs 5 and 6 (`-p fs-slice`, `-p fs-core --no-fail-fast`) each print three `test result:`
+  lines — lib, integration, doctest — so `shadow.length === 3`, the old rule disagreed, the
+  streak reset, and the catalog after four identified picks was `{}`. The filter was
+  already right about that run: `select()` (`filter.mjs`) keeps every match and promoted all
+  three lines; only the agreement gate refused it. The cap was the assistant's proposal,
+  accepted with the plan: 5 sits far below a prefix like `test` (dozens of hits) and above a
+  handful of per-target summary lines. Graduation, the frozen matcher and the fixture
+  `graduate()` writes are unchanged.
 
 ## Open questions
 

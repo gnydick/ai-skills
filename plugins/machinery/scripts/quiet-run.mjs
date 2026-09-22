@@ -35,14 +35,15 @@ function quietEnv() {
 // The training nudge (design, "The nudge register"): advisory, on this runner's own stdout after
 // the output — the same channel as the suggest line — never a hook that waits on anything, and
 // never applied to anything. It points at the log this run wrote and at the one command that hands
-// the session's pick to the loop; the <N> is for the session to supply. Forward slashes in both
-// paths: node reads them on every platform and the bash shell needs them.
+// the session's picks to the loop; the <N[,N...]> list is for the session to supply, one number per
+// answer line it identified in that run (#168). Forward slashes in both paths: node reads them on
+// every platform and the bash shell needs them.
 const TRAINER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'train-tool.mjs').replace(/\\/g, '/');
 function trainingNudge(key, training, learned, logPath) {
   const state = learned
-    ? `learned answer line re-opened for training (${training.open.reason})`
-    : `answer line not yet learned (${training.picks.length} identified, ${training.streak} of ${GRADUATION_AGREEMENTS} agreements)`;
-  return `[quiet:train] ${key}: ${state} — read the log, then: node "${TRAINER}" identify --log "${logPath.replace(/\\/g, '/')}" --line <N>\n`;
+    ? `learned answer line(s) re-opened for training (${training.open.reason})`
+    : `answer line(s) not yet learned (${training.picks.length} identified, ${training.streak} of ${GRADUATION_AGREEMENTS} agreements)`;
+  return `[quiet:train] ${key}: ${state} — read the log, then: node "${TRAINER}" identify --log "${logPath.replace(/\\/g, '/')}" --line <N[,N...]>\n`;
 }
 
 function parseArgs(argv) {

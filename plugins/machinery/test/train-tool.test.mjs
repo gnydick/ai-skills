@@ -9,7 +9,7 @@ import { runScript, PLUGIN } from './helpers/run.mjs';
 import { formatRunLog } from '../scripts/lib/runlog.mjs';
 import { loadCatalogReport, matchTool } from '../scripts/lib/catalog.mjs';
 import { survivalProblems } from '../scripts/lib/survival.mjs';
-import { learnedId } from '../scripts/lib/training.mjs';
+import { learnedId, AGREEMENT_MATCH_CAP } from '../scripts/lib/training.mjs';
 import { bespokeKey } from '../scripts/lib/observations.mjs';
 
 process.env.CLAUDE_PLUGIN_ROOT = PLUGIN;
@@ -32,6 +32,21 @@ function writeLog(summary, command = CMD) {
   ];
   const file = path.join(JOB, 'tmp', `quiet-20260905-12000${n++}-1.log`);
   fs.writeFileSync(file, formatRunLog(command, records));
+  return file;
+}
+// A `cargo test -p fs-core` run: one `test result:` summary per target, with the per-test lines that
+// sit between them. Eleven records after the one-line `$ command` header, so the three summary lines
+// are FILE lines 6, 9 and 12 — the numbers a Read of the log shows, which is what `--line` takes.
+const OK = (n) => `test result: ok. ${n} passed; 0 failed`;
+const CARGO_LINES = [6, 9, 12];
+function writeCargoLog(lib, integration, doctest, command = CMD) {
+  const texts = [
+    '   Compiling fs-core v0.1.0', 'running 2 tests', 'test slice::keeps_order ... ok',
+    'test slice::rejects_empty ... ok', lib, 'running 1 test', 'test api::roundtrip ... ok',
+    integration, 'running 1 test', 'test src/lib.rs - slice (line 12) ... ok', doctest,
+  ];
+  const file = path.join(JOB, 'tmp', `quiet-20260905-12000${n++}-1.log`);
+  fs.writeFileSync(file, formatRunLog(command, texts.map((text, i) => ({ t: 0.1 * i, stream: 'stdout', text }))));
   return file;
 }
 const train = (root, ...args) => runScript('scripts/train-tool.mjs', { cwd: root, args, env: { CLAUDE_JOB_DIR: JOB } });
@@ -58,7 +73,9 @@ test('the loop, end to end: two picks form the prefix, two agreements graduate i
   const r4 = train(root, 'identify', '--log', logs[3], '--line', '4');
   assert.equal(r4.code, 0, r4.stderr);
   assert.match(r4.stdout, /shadow: agreed — 2 of 2 consecutive agreements/);
-  assert.match(r4.stdout, /graduated: 'bash-scripts-battery\.sh---quick' now keeps lines starting with `test result: ok\. `/);
+  // The id no longer carries the flag: identity is the head (#164), so `--quick` is variation
+  // inside the tool and `bash scripts/battery.sh --quick` sanitizes to `bash-scripts-battery.sh`.
+  assert.match(r4.stdout, /graduated: 'bash-scripts-battery\.sh' now keeps lines starting with `test result: ok\. `/);
   assert.match(r4.stdout, /commit both/);
   const entry = read(machinery(root, 'tool-catalog.json'))[LEARNED_ID];
   assert.deepEqual(entry.outcome, { type: 'prefix', value: 'test result: ok. ' });
@@ -108,7 +125,7 @@ test('the loop closes backward: drift re-opens a graduated tool and re-identifyi
     'i=0\nwhile [ $i -lt 100 ]; do echo "   Compiling c$i"; i=$((i+1)); done\necho "PASS: 99 checks ok"\n');
   const drift = runner(root, KEY);
   assert.equal(drift.code, 0, drift.stderr);
-  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh---quick: learned answer line re-opened for training \(matched-nothing\)/);
+  assert.match(drift.stdout, /\[quiet:train\] bash-scripts-battery\.sh: learned answer line\(s\) re-opened for training \(matched-nothing\)/);
   assert.equal(read(machinery(root, 'observations.json'))[ID].training.open.reason, 'matched-nothing');
   assert.ok(!(KEY in read(machinery(root, 'observations.json'))), 'the runner keys on the id once the tool has graduated');
 
@@ -128,6 +145,44 @@ test('the loop closes backward: drift re-opens a graduated tool and re-identifyi
   const obs = read(machinery(root, 'observations.json'));
   assert.ok(!(KEY in obs), 'the record is not orphaned back under the bespoke key');
   assert.ok(!('open' in obs[ID].training), 'the re-open is answered, so the next run is not nudged again');
+});
+
+// #168: a run may hold several answer lines and the session identifies every one of them.
+test('identify takes several answer lines, comma-separated, and records all of them as one pick', () => {
+  const root = repo('train-tool-multi-');
+  const log = writeCargoLog(OK(3), OK(4), OK(9));
+  const r = train(root, 'identify', '--log', log, '--line', CARGO_LINES.join(','));
+  assert.equal(r.code, 0, r.stderr);
+  for (const s of [OK(3), OK(4), OK(9)]) assert.match(r.stdout, new RegExp(`identified: ${s.replace(/[.]/g, '\\.')}`), r.stdout);
+  // Three identified texts in ONE run already have a common prefix to take, so the matcher forms on
+  // the first pick — the point of the whole change.
+  assert.match(r.stdout, /matcher: prefix `test result: ok\. `/, r.stdout);
+  const training = read(machinery(root, 'observations.json'))[bespokeKey(CMD)].training;
+  assert.equal(training.picks.length, 1);
+  assert.deepEqual(training.picks[0].texts, [OK(3), OK(4), OK(9)]);
+});
+
+test('identify takes the same several lines as repeated --line flags', () => {
+  const root = repo('train-tool-multiflag-');
+  const log = writeCargoLog(OK(3), OK(4), OK(9));
+  const r = train(root, 'identify', '--log', log, '--line', '6', '--line', '9', '--line', '12');
+  assert.equal(r.code, 0, r.stderr);
+  const training = read(machinery(root, 'observations.json'))[bespokeKey(CMD)].training;
+  assert.deepEqual(training.picks[0].texts, [OK(3), OK(4), OK(9)]);
+});
+
+test('identify refuses more than AGREEMENT_MATCH_CAP answer lines, naming the cap, and refuses a non-record among several', () => {
+  const root = repo('train-tool-cap-');
+  const log = writeCargoLog(OK(3), OK(4), OK(9));
+  const over = train(root, 'identify', '--log', log, '--line', '2,3,4,5,6,7');
+  assert.notEqual(over.code, 0);
+  assert.match(over.stderr, new RegExp(`at most ${AGREEMENT_MATCH_CAP} answer line`), over.stderr);
+  assert.doesNotMatch(over.stderr, /\n\s+at /, 'a diagnostic, not a stack trace');
+  // The record check still applies to each line of a list, exactly as it does to a lone --line.
+  const past = train(root, 'identify', '--log', log, '--line', '6,9,99');
+  assert.notEqual(past.code, 0);
+  assert.match(past.stderr, /--line 99 is not a record of/, past.stderr);
+  assert.ok(!fs.existsSync(machinery(root, 'observations.json')), 'RED CHECK: neither refusal records anything');
 });
 
 test('refusals are diagnostics, not stack traces: a missing log, a line that is not a record, a hand-written entry, no arguments', () => {
@@ -207,7 +262,7 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
   assert.ok(!(ID in obs), 'the record was never moved: graduation refused before that step');
   const training = obs[KEY].training;
   assert.equal(training.streak, 2);
-  assert.deepEqual(training.picks.map((p) => p.text), [
+  assert.deepEqual(training.picks.flatMap((p) => p.texts), [
     'test result: ok. 3 passed; 0 failed', 'test result: ok. 4 passed; 0 failed',
     'test result: ok. 5 passed; 0 failed', 'test result: ok. 60 passed; 0 failed',
   ]);
@@ -221,11 +276,15 @@ test('graduation refused by a collision at the sanitized id: the pick still coun
 test('logs lists stored run logs newest first with the key the runner would use, filtered by --key, with a proof line', () => {
   const root = repo('train-tool-logs-');
   const a = writeLog('x', 'python scripts/oracle_compare.py --base HEAD~1');
-  const r = train(root, 'logs', '--key', 'python scripts/oracle_compare.py --base %s');
+  // The key is the identity head (#164), so the flag is no longer part of it: every `--base` this
+  // script was run with lists under the one key.
+  const r = train(root, 'logs', '--key', 'python scripts/oracle_compare.py');
   assert.equal(r.code, 0, r.stderr);
   const lines = r.stdout.trim().split('\n');
-  assert.equal(lines[0], `${a}\tpython scripts/oracle_compare.py --base %s`);
-  assert.match(lines.at(-1), /^train_tool_logs: 1 of \d+ run logs match 'python scripts\/oracle_compare\.py --base %s'/);
+  assert.equal(lines[0], `${a}\tpython scripts/oracle_compare.py`);
+  assert.match(lines.at(-1), /^train_tool_logs: 1 of \d+ run logs match 'python scripts\/oracle_compare\.py'/);
   const all = train(root, 'logs');
-  assert.ok(all.stdout.split('\n').filter((l) => l.endsWith(`\t${CMD}`)).length >= 4, 'the loop test’s logs are listed under their bespoke key in a project with no learned entry');
+  // Under the identity head the key is no longer the command line itself (#164), so the expectation
+  // is derived the way the runner derives it rather than spelled out again.
+  assert.ok(all.stdout.split('\n').filter((l) => l.endsWith(`\t${bespokeKey(CMD)}`)).length >= 4, 'the loop test’s logs are listed under their bespoke key in a project with no learned entry');
 });

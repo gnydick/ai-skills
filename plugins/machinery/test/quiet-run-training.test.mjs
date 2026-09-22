@@ -7,6 +7,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runScript } from './helpers/run.mjs';
 import { parseRunLog } from '../scripts/lib/runlog.mjs';
+import { generalizedForm } from '../scripts/lib/observations.mjs';
+import { decide } from '../scripts/lib/assimilate.mjs';
 
 // The runner's training-loop seam, in a file of its own: node --test runs suite FILES concurrently,
 // so a new file adds to the wall clock only what it costs on its own, where appending bash-spawning
@@ -41,10 +43,13 @@ test("a learned prefix entry's answer line survives filtering, applied through t
 
 // ---- Task 7: the runner notes runs, judges drift, and nudges (design, "The nudge register") ----
 const gen = (n) => `node -e "for(let i=0;i<${n};i++)console.log('   Compiling c'+i);console.log('done')"`;
-// The bespoke key is the generalized form of the command (#87): the runner, its flag name, and
-// the one-off script as a value.
-const BESPOKE = 'node -e %s';
-const NUDGE = /\[quiet:train\] node -e %s: answer line not yet learned \(0 identified, 0 of 2 agreements\) — read the log, then: node "([^"]+\/train-tool\.mjs)" identify --log "([^"]+)" --line <N>\n$/;
+// The bespoke key is the identity head of the command (#164): the command name plus its first
+// positional. `-e` is a flag, so it closes the head — the one-off script it carries is variation
+// inside the tool, not identity — and the key is the runner's own name.
+const BESPOKE = 'node';
+// #168: a run may hold several answer lines and the session identifies every one of them, so the
+// nudge says "answer line(s)" and shows the list form it now accepts.
+const NUDGE = /\[quiet:train\] node: answer line\(s\) not yet learned \(0 identified, 0 of 2 agreements\) — read the log, then: node "([^"]+\/train-tool\.mjs)" identify --log "([^"]+)" --line <N\[,N\.\.\.\]>\n$/;
 
 test('a noisy bespoke run ends with the training nudge, naming a log that exists and holds this run, and the run is noted', { skip: !bash }, () => {
   const root = repo('quiet-train-nudge-');
@@ -81,7 +86,7 @@ test('V12 through the runner: a learned matcher that matches nothing re-opens tr
   assert.equal(t.open.reason, 'matched-nothing');
   assert.deepEqual(t.picks, []);
   assert.equal(t.history.length, 1, 'noted after the judgement, so the judgement saw the history it was meant to');
-  assert.match(r.stdout, /\[quiet:train\] node: learned answer line re-opened for training \(matched-nothing\) — read the log, then: node "[^"]+" identify --log "[^"]+" --line <N>\n$/);
+  assert.match(r.stdout, /\[quiet:train\] node: learned answer line\(s\) re-opened for training \(matched-nothing\) — read the log, then: node "[^"]+" identify --log "[^"]+" --line <N\[,N\.\.\.\]>\n$/);
 });
 
 // Beyond the brief's literal test list: a regression pin on Task 4's sanitizer (lib/training.mjs
@@ -131,4 +136,51 @@ test('a write that genuinely throws inside the recording block still leaves the 
   assert.equal(r.code, 7, "the wrapped command's own exit code survives a write that genuinely throws inside the guard");
   assert.equal(r.stdout, 'real output\n', "the wrapped command's own output is unaffected (already written before the guarded block opened)");
   assert.ok(fs.statSync(obsPath).isDirectory(), 'the write really did fail: observations.json is still the directory it was, never replaced');
+});
+
+// ---- Identity is the head, end to end through the real runner (#164) ----
+// Required behaviour 3: flags are variation inside the tool. Before this ticket the runner keyed on
+// the generalized form, so the two runs below wrote TWO records with one run each, and
+// GRADUATION_AGREEMENTS = 2 on one key was unreachable — the ferrislicer wall, where `cargo test`
+// ran 27 times and became 27 keys.
+test('#164 two differently-flagged runs of one script write two history entries on ONE record', { skip: !bash }, () => {
+  const root = repo('quiet-train-head-');
+  fs.writeFileSync(path.join(root, 'noisy.sh'), 'for i in $(seq 1 100); do echo "   Compiling c$i"; done\necho done\n');
+  run(root, 'filter', 'bash noisy.sh --fast');
+  run(root, 'filter', 'bash noisy.sh --slow');
+  const obs = obsOf(root);
+  assert.deepEqual(Object.keys(obs), ['bash noisy.sh'], `two runs, one record: ${JSON.stringify(Object.keys(obs))}`);
+  assert.equal(obs['bash noisy.sh'].training.history.length, 2, 'both runs are on that record, as two entries');
+  assert.equal(obs['bash noisy.sh'].noisy, true);
+  // POSITIVE CONTROL that the observer could have seen two records: the two command lines really do
+  // differ where identity used to be taken from, and the run's SHAPE still tells them apart.
+  assert.notEqual(generalizedForm('bash noisy.sh --fast'), generalizedForm('bash noisy.sh --slow'));
+});
+
+// ---- A zero-line run is not evidence of quiet, end to end (#164, owner 2026-09-21) ----
+// With identity at the head, the redirected run and the bare run are ONE record. This is the real
+// runner writing that record, then decide() reading it, so nothing here is a literal.
+test('#164 ruling 2 e2e: a redirected 0-line run leaves the head unmeasured, so the next noisy bare run is wrapped', { skip: !bash }, () => {
+  const root = repo('quiet-zero-line-');
+  fs.writeFileSync(path.join(root, 'noisy.sh'), 'for i in $(seq 1 100); do echo "   Compiling c$i"; done\necho done\n');
+  // Run 1: the child shell sends everything to a file, so nothing reaches the runner's pipes.
+  run(root, 'filter', 'bash noisy.sh > out.txt 2>&1');
+  const after1 = obsOf(root);
+  assert.deepEqual(Object.keys(after1), ['bash noisy.sh'], 'the redirect target is an operand, so both runs share this head');
+  assert.equal(after1['bash noisy.sh'].training.history.length, 1, 'the run IS observed: #160 stands');
+  assert.deepEqual(after1['bash noisy.sh'].training.history[0], { lines: 0, stdoutLines: 0, stderrLines: 0, code: 0 });
+  assert.ok(!('noisy' in after1['bash noisy.sh']), '0 lines on the pipe is no measurement of the tool');
+  assert.equal(decide('bash noisy.sh', { catalog: {}, observations: after1 }).mode, 'observe', 'still unseen, so the next run is observed');
+  // POSITIVE CONTROL for what the ruling prevents: the SAME record with the `noisy: false` the old
+  // rule would have written routes to `plain` — unwrapped — so the 101-line run below would have
+  // reached the session in full. The observer is demonstrably alive.
+  const asOldRuleWrote = { 'bash noisy.sh': { ...after1['bash noisy.sh'], noisy: false, lines: 0, stdoutLines: 0, stderrLines: 0 } };
+  assert.equal(decide('bash noisy.sh', { catalog: {}, observations: asOldRuleWrote }).mode, 'plain');
+  // Run 2: bare, and it really does put output on the pipe. THAT decides.
+  run(root, 'filter', 'bash noisy.sh');
+  const after2 = obsOf(root);
+  assert.equal(after2['bash noisy.sh'].noisy, true);
+  assert.equal(after2['bash noisy.sh'].lines, 101, '100 compile lines plus `done`');
+  assert.equal(after2['bash noisy.sh'].training.history.length, 2, 'both runs are on the one record');
+  assert.equal(decide('bash noisy.sh', { catalog: {}, observations: after2 }).mode, 'noisy', 'wrap');
 });

@@ -88,7 +88,10 @@ const SEGMENT = /\s*(?:;|&&|\|\||(?<![>&])&(?!&)|\r?\n)\s*/;
 // not a command boundary for anything else here — classifySegments() still hands the hook a
 // pipeline as ONE unit to wrap, because the stages share a process group and one record.
 const PIPE = /\s*(?<!\|)\|(?!\|)\s*/;
-const isRead = (command) => {
+// Exported since #164: observations.mjs asks the same question when it picks the segment a compound
+// takes its identity head from ("byte-mover segments never contribute to the head", ruling C1, #87).
+// Exported rather than re-spelled there, so the two readers cannot grow different lists.
+export const isRead = (command) => {
   const stages = splitOutside(command, SEGMENT)
     .flatMap((s) => splitOutside(s, PIPE))
     .filter((s) => s.trim() !== '');

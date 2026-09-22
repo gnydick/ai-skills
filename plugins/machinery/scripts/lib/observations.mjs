@@ -8,6 +8,7 @@
 // produced the lines it counted.
 import fs from 'node:fs';
 import path from 'node:path';
+import { isRead } from './classify.mjs';
 import { PASS_THROUGH_LINES } from './filter.mjs';
 import { ensureIgnored, OBSERVATIONS_IGNORE } from './ignore.mjs';
 import { tokens } from './quotes.mjs';
@@ -123,25 +124,68 @@ const collapseRuns = (parts) => parts.filter((p, i) => !(p.startsWith('%') && p 
 // written once: both are order and count, neither is identity.
 const render = (seg) => [...collapseRuns(seg.parts), ...[...new Set(seg.flags)].sort()].join(' ');
 
-// The derivation, and the one place it happens. Returns BOTH the key and the literal leading run of
-// the command it came from, because they are one walk and a second walk would eventually disagree
-// with the first. The `prefix` is what a graduated catalog
-// entry matches on: the key now holds placeholders, so it is no longer a prefix of any command, and
-// an entry built from it would match nothing forever. It closes at the first token this derivation
-// did NOT keep verbatim — the first placeholder, the first flag, or the first operator — so it is
-// always a literal head of the real command line.
+// ---- The identity head (#164) ----
+//
+// The owner's ruling, 2026-09-21, verbatim: "i meant it to be the glob, but with type correctness";
+// which glob — "Loose: flags are variation"; and the head of a command with no subcommand —
+// "Command + first positional". One rule covers both: THE IDENTITY HEAD IS THE COMMAND NAME PLUS
+// ITS FIRST POSITIONAL TOKEN. `cargo test -p x` heads at `cargo test`, `node scripts/x.mjs check`
+// at `node scripts/x.mjs`, `gh issue create` at `gh issue`, `bash run.sh` at `bash run.sh`.
+//
+// Why the generalized form could not stay the key. It kept every flag NAME literal and the lookup
+// was string equality over it, so two runs of one tool shared a record only when their flags were
+// identical. Measured in ferrislicer's record, 2026-09-21: `cargo test` ran 27 times and became 27
+// keys; 60 of 67 cargo keys were seen exactly once. GRADUATION_AGREEMENTS is 2 consecutive
+// agreements on ONE key (lib/training.mjs), so no cargo subcommand could ever have graduated. Under
+// the head those 27 are one record with 27 runs.
+//
+// The first positional is kept AS WRITTEN, never typed. That is what makes the head a literal
+// leading run of the command, which is the property graduation needs: the head is also the `prefix`
+// a learned entry matches on, by startsWith (lib/graduate.mjs). `bash run.sh` and `bash ../run.sh`
+// are therefore two heads — normalising the script token would produce a string no command starts
+// with, and there is no rule inside `placeholder()` that could say which of two spellings is the
+// canonical one.
+//
+// A FLAG CLOSES THE HEAD. This is the one place the implementation departs from required behaviour
+// 1's letter ("the first token after the command that is not a flag and not an operator"), and it
+// is behaviour 7 that forces it: measured on `python -m pytest tests/ -q`, where `-m` takes
+// `pytest` as its operand, so the first token that is neither flag nor operator is `tests/` and the
+// literal rule yields the head `python tests/` — a string the command does not start with, which
+// breaks the prefix invariant AND fragments the record by test directory. Closing at the flag gives
+// `python`, which is a collapse, and collapse is the visible, self-limiting direction (#87: picks
+// that never agree keep training open, where fragmentation is silent). Every example the ticket
+// names is unaffected — `cargo test -p x`, `node scripts/x.mjs check`, `gh issue create`,
+// `git commit -m x`, `bash run.sh`, `sh .githooks/pre-commit` all head exactly as it says.
+const headOf = (seg) => seg.head.join(' ');
+// Which segment of a compound the head comes from: the first one that is not a byte-mover (ruling
+// C1, #87, unchanged — `cd /x && cargo test -p a` heads at `cargo test`, never at `cd`). isRead()
+// is classify.mjs's, the authority that owns the byte-mover list, asked rather than re-spelled. A
+// command that is byte-movers all the way down writes no record at all, so its head is moot; it
+// falls back to its first segment rather than to the empty string, which would be a key.
+const workDoing = (segs) => segs.find((s) => !isRead(s.text.join(' '))) ?? segs[0];
+
+// The derivation, and the one place it happens. Returns the identity head — which is both the key
+// and the literal leading run a graduated entry matches on, one string for one fact — together with
+// `full`, the generalized form the key used to be. They come out of ONE walk, because a second walk
+// would eventually disagree with the first.
+//
+// `full` survives the key change because it is still two things: the SHAPE of a run (flags,
+// targets and redirect order, which #160 and #162 made matter for measurement but which required
+// behaviour 4 keeps out of identity), and the typed glob that a record written before this ticket
+// is keyed on — see keyMatches() below, which is how those records keep being read while they age
+// out (required behaviour 9: no migration).
 //
 // A malformed, empty, or half-quoted command is data, never a crash: tokens() runs an unterminated
 // span to the end of the string, and every branch below is total over whatever comes out.
 export function generalize(command) {
   const toks = tokens(command);
-  const out = [], prefix = [];
-  let seg = null, prefixOpen = true;
+  const out = [], segs = [];
+  let seg = null;
   for (let i = 0; i < toks.length; i++) {
     const tok = toks[i];
     if (OPERATOR.test(tok)) {
       if (seg) out.push(render(seg));
-      out.push(tok); seg = null; prefixOpen = false;
+      out.push(tok); seg = null;
       // A redirect takes the token after it as its own operand, typed like any other value, so the
       // target never heads a segment and never survives verbatim (#162).
       const target = toks[i + 1];
@@ -150,33 +194,66 @@ export function generalize(command) {
     }
     if (!seg) {
       // The head is the command's own name and is always kept as written.
-      seg = { runner: GENERIC_RUNNERS.has(tok.replace(/^.*[\\/]/, '').replace(/\.exe$/i, '').toLowerCase()), identity: false, depth: 0, parts: [tok], flags: [] };
-      if (prefixOpen) prefix.push(tok);
+      seg = { runner: GENERIC_RUNNERS.has(tok.replace(/^.*[\\/]/, '').replace(/\.exe$/i, '').toLowerCase()), identity: false, depth: 0, parts: [tok], flags: [], head: [tok], headOpen: true, text: [tok] };
+      segs.push(seg);
       continue;
     }
+    seg.text.push(tok);
     if (isFlag(tok)) {
-      prefixOpen = false;
+      seg.headOpen = false;
       const eq = tok.indexOf('=');
       if (eq > 0) { seg.flags.push(`${tok.slice(0, eq)}=${valueOf(seg, tok.slice(eq + 1), false)}`); continue; }
       // `--` is the end-of-flags marker, not a parameter, so it takes no operand of its own.
       const next = toks[i + 1];
-      if (tok !== '--' && next !== undefined && !OPERATOR.test(next) && !isFlag(next)) { seg.flags.push(`${tok} ${valueOf(seg, next, false)}`); i++; }
+      if (tok !== '--' && next !== undefined && !OPERATOR.test(next) && !isFlag(next)) { seg.flags.push(`${tok} ${valueOf(seg, next, false)}`); seg.text.push(next); i++; }
       else seg.flags.push(tok);
       continue;
     }
-    const part = valueOf(seg, tok, true);
-    if (part === tok && prefixOpen) prefix.push(tok); else prefixOpen = false;
-    seg.parts.push(part);
+    // The first positional closes the head, and nothing after it is identity.
+    if (seg.headOpen) { seg.head.push(tok); seg.headOpen = false; }
+    seg.parts.push(valueOf(seg, tok, true));
   }
   if (seg) out.push(render(seg));
-  return { key: out.join(' '), prefix: prefix.join(' ') };
+  const head = segs.length ? headOf(workDoing(segs)) : '';
+  return { key: head, prefix: head, full: out.join(' ') };
 }
 
-export const generalizedForm = (command) => generalize(command).key;
-// The key a bespoke tool is recorded under IS its generalized form. `cargo test --workspace` and
-// `cargo test -p x` collapse under a single catalog id via matchTool() instead; this handles what
-// has no entry.
+// The SHAPE of a run: the command, its flag NAMES as written, every value a typed placeholder, the
+// flags alphabetized, the redirects where they were typed. Identity since #87 and until #164; a
+// run's shape, and the typed glob old records are keyed on, since.
+export const generalizedForm = (command) => generalize(command).full;
+// The key a bespoke tool is recorded under IS its identity head (#164). `cargo test --workspace`
+// and `cargo test -p x` are one record with two runs; a catalog entry, when one matches, still wins
+// over this entirely (matchTool(), required behaviour 6).
 export const bespokeKey = (command) => generalize(command).key;
+
+// Whether a record key CLAIMS this command — the typed glob, and the reason decide() looks a record
+// up by this rather than by string equality (required behaviour 2). Two ways a key can claim:
+//
+//   the head — the key written since #164; everything after it is variation inside the tool, so the
+//   key is a glob with one open tail slot and any command with this head fits it;
+//
+//   the full generalized form — the key written BEFORE #164, which holds typed slots. It claims
+//   only the commands that FIT those slots: `gh issue edit %d` claims `gh issue edit 59` and not
+//   `gh issue edit main`, because generalizing the command is what tests each token against the
+//   slot's type. Type correctness is therefore the derivation itself, not a second spelling of it.
+//
+// This is what lets old records keep being read with no migration (required behaviour 9). Nothing
+// ever WRITES a full-form key again, so an old record stops being reached the moment the head
+// record exists, and ages out.
+export function keyMatches(recordKey, command) {
+  const { key, full } = generalize(command);
+  return recordKey === key || recordKey === full;
+}
+
+// The key in this record that claims the command, preferring the one this version writes. Returns
+// the head when nothing claims it, so a caller always has the key a new record goes under.
+export function recordKeyFor(observations, command) {
+  const { key, full } = generalize(command);
+  if (Object.hasOwn(observations, key)) return key;
+  if (full !== key && Object.hasOwn(observations, full)) return full;
+  return key;
+}
 
 // The key a run is recorded under and — inseparably — HOW it was derived. Both derivation sites
 // (quiet-run.mjs's runner, train-tool.mjs's identify and logs) already hold the answer matchTool()
@@ -220,8 +297,21 @@ export function recordRun(obs, key, { identity, lineCount, stdoutLines, stderrLi
     // that the bare tool was never measured, and decide() reads it as unseen. `?? false` here was
     // a stand-in value that parked the tool in plain forever (final review I3).
     ? { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines }
-    // A bare run IS the tool's natural noise level.
-    : { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines };
+    // A bare run that put OUTPUT on the runner's pipes IS the tool's natural noise level.
+    : lineCount > 0 ? { noisy: lineCount > PASS_THROUGH_LINES, lines: lineCount, stdoutLines, stderrLines }
+    // A ZERO-LINE run is not. Owner's ruling, 2026-09-21 (#164): a run whose redirect or filter left
+    // nothing for the runner to see is still OBSERVED — it joins the shape history, #160 stands —
+    // but it does not decide `noisy`. Identity collapsed to the head that day, so `cargo test >
+    // out.txt 2>&1` and a bare `cargo test` are ONE record; letting the redirected run write
+    // `noisy: false` marked the tool quiet, assimilate.mjs routes a quiet record to `plain`, and the
+    // next bare `cargo test` with 300 lines then ran unwrapped. The earlier reading — "what the
+    // record says about an empty pipe is true, not a gap" (#160) — was honest while every redirect
+    // shape had a key of its own; under the head it lets one run's plumbing silence another's.
+    //
+    // So the previous bare measurement carries forward exactly as it was, INCLUDING when there is
+    // none: defined() drops an absent `noisy`, and absence is the unseen state decide() observes.
+    // A record whose every run is 0 lines therefore never leaves that state.
+    : { noisy: prev.noisy, lines: prev.lines, stdoutLines: prev.stdoutLines, stderrLines: prev.stderrLines };
   // The training loop's sub-record (lib/training.mjs) rides on the same entry and is nobody's
   // business here: carried forward exactly as it was when present, absent when it was absent. A
   // record rebuilt without it would silently reset a tool's training on every run.

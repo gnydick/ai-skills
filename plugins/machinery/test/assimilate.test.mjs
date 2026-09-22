@@ -116,3 +116,48 @@ test('RED CHECK: a tool with N candidates reaches wrap in at most N suggest stat
   assert.deepEqual(suggested.sort(), ['-a', '-b', '-c']); // exactly the 3 candidates, no repeats
   assert.equal(decide('toolx', { catalog: many, observations }).mode, 'noisy'); // 4th call: exhausted
 });
+
+// ---- The bespoke lookup is a typed glob, not string equality (#164) ----
+// Identity is the head (command plus first positional); everything after it is variation inside the
+// tool. A record written before #164 is a full generalized form, holds typed slots, and is still
+// reached while it ages out — no migration (required behaviour 9).
+
+test('#164 a noisy record at the head claims every flag-distinct run of that tool', () => {
+  const observations = { 'cargo test': { identity: 'bespoke', noisy: true, ledger: {} } };
+  for (const c of ['cargo test -p a', 'cargo test --locked -p b', 'cargo test --no-fail-fast -p c > out.txt 2>&1']) {
+    const d = decide(c, { catalog: {}, observations });
+    assert.equal(d.mode, 'noisy', c);
+    assert.equal(d.id, 'cargo test', c);
+    assert.equal(d.identity, 'bespoke', c);
+  }
+  // POSITIVE CONTROL: a different head is a different tool and is still unseen.
+  assert.equal(decide('cargo build --release', { catalog: {}, observations }).mode, 'observe');
+});
+
+test('#164 an old full-form record is still read, and only for the commands that FIT its typed slots', () => {
+  const observations = { 'gh issue edit %d': { identity: 'bespoke', noisy: true, ledger: {} } };
+  assert.equal(decide('gh issue edit 59', { catalog: {}, observations }).mode, 'noisy', 'a number fits the %d slot');
+  assert.equal(decide('gh issue edit main', { catalog: {}, observations }).mode, 'observe', 'a word does not: type correctness');
+  // The decision is read off the old record, but the id a new run records under is the head, so the
+  // old key is never written again and ages out.
+  assert.equal(decide('gh issue edit 59', { catalog: {}, observations }).id, 'gh issue');
+});
+
+test('#164 once the head record exists the old full-form record is no longer consulted', () => {
+  const observations = {
+    'gh issue edit %d': { identity: 'bespoke', noisy: true, ledger: {} },
+    'gh issue': { identity: 'bespoke', noisy: false, ledger: {} },
+  };
+  assert.equal(decide('gh issue edit 59', { catalog: {}, observations }).mode, 'plain');
+});
+
+test('#164 a catalog entry still wins over the head: the id claims the command (required behaviour 6)', () => {
+  const observations = {
+    'git-commit': { identity: 'catalog', noisy: false, ledger: {} },
+    'git commit': { identity: 'bespoke', noisy: true, ledger: {} },
+  };
+  const d = decide('git commit -m x', { catalog, observations });
+  assert.equal(d.identity, 'catalog');
+  assert.equal(d.id, 'git-commit');
+  assert.equal(d.mode, 'plain', 'the catalog record decided, not the bespoke head record beside it');
+});

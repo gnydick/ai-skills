@@ -75,9 +75,16 @@ test('#160 e2e: a `> file` command is run under the runner and recorded — 0 li
   assert.equal(run.code, 0);
 
   const rec = onlyRecord(root);
+  // The OBSERVATION is unchanged and is still the honest one: 0 lines reached the session, and the
+  // shape history says so. #160 stands — the command ran under the runner and was recorded.
   assert.deepEqual(rec.training.history, [{ lines: 0, stdoutLines: 0, stderrLines: 0, code: 0 }]);
-  assert.equal(rec.lines, 0);
-  assert.equal(rec.noisy, false, 'nothing reached the session context, and that is what the record says');
+  // MOVED to the new behaviour (#164, owner 2026-09-21): the VERDICT is no longer taken from it.
+  // This used to assert `lines: 0` and `noisy: false`. Under the identity head the redirected run
+  // and the bare run share one record, so a `noisy: false` written here routes the next bare run to
+  // `plain` — unwrapped. Only a run with output on the pipe decides `noisy`; with none yet, the
+  // fields are absent, which is the unseen state decide() observes.
+  assert.ok(!('noisy' in rec), `noisy must be absent, got ${JSON.stringify(rec.noisy)}`);
+  assert.ok(!('lines' in rec), `lines must be absent, got ${JSON.stringify(rec.lines)}`);
 });
 
 test('#160 e2e: a `| tail -5` command is run under the runner and recorded — 5 lines, what the filter let through', { skip: !bash }, () => {
