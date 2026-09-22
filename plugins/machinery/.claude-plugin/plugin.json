@@ -1,19 +1,10 @@
 {
   "name": "machinery",
   "description": "Claude process machinery: an always-on core loaded into every session and subagent, skills by kind, PRULE:/URULE:/SPEC: capture with an inbox gate, a quiet-output filter, a worktree-create hook, and per-project git hooks negotiated by /machinery:setup.",
-  "version": "0.1.185",
-  "author": {
-    "name": "Gabe E. Nydick",
-    "email": "gnydick@nydick.net"
-  },
+  "version": "0.1.186",
+  "author": { "name": "Gabe E. Nydick", "email": "gnydick@nydick.net" },
   "homepage": "https://github.com/gnydick/ai-skills",
   "repository": "https://github.com/gnydick/ai-skills",
   "license": "GPL-3.0",
-  "keywords": [
-    "rules",
-    "hooks",
-    "governance",
-    "commit-gate",
-    "worktrees"
-  ]
+  "keywords": ["rules", "hooks", "governance", "commit-gate", "worktrees"]
 }
