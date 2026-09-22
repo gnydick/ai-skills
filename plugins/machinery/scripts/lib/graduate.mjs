@@ -10,13 +10,18 @@
 // One property worth knowing rather than assuming, because a reader would otherwise expect the CLI
 // to exercise it: the survivalProblems() refusal below is UNREACHABLE from train-tool.mjs's own
 // honest call sequence. That CLI hands identify() and graduate() the same `lines` and the same
-// `index`, and agreement requires the pre-pick prefix to select exactly the identified line, so the
-// post-pick matcher is always an extension of the prefix that agreed — even across PICK_WINDOW
-// truncation, since dropping a pick can only lengthen a common prefix — and can never newly match a
-// line the shadow check did not already rule on. So the survival gate guards hand-corrupted state:
-// a training/matcher pair assembled by a caller that disagrees with itself, which is what
-// test/lib-graduate.test.mjs's V11 case builds deliberately. It is defence in depth, not a path the
-// loop can produce. (Recorded here rather than only in the effort's ledger, which does not survive.)
+// `indices`, and agreement under the set rule (#168) requires the pre-pick prefix to select EXACTLY
+// the identified set — every identified line and no other. The post-pick matcher is the common
+// prefix over the window's texts, every one of which the agreeing prefix is a prefix of, so it is an
+// extension of the prefix that agreed — even across PICK_WINDOW truncation, since dropping a pick
+// can only lengthen a common prefix. Being an extension it matches a SUBSET of what agreed, which
+// was exactly the identified set, and being their common prefix it matches every one of them: so in
+// this run it selects the identified set again, and it heads every appended earlier text, which the
+// fixture declares an answer too. It can never newly match a line the shadow check did not already
+// rule on. So the survival gate guards hand-corrupted state: a training/matcher pair assembled by a
+// caller that disagrees with itself, which is what test/lib-graduate.test.mjs's V11 case builds
+// deliberately. It is defence in depth, not a path the loop can produce. (Recorded here rather than
+// only in the effort's ledger, which does not survive.)
 import fs from 'node:fs';
 import path from 'node:path';
 import { isLearned, entryProblem } from './catalog.mjs';
@@ -39,7 +44,7 @@ function readProjectCatalog(file) {
   return { value };
 }
 
-export function graduate(root, { tool, catalog, observations, training, matcher, lines, index, log, at }) {
+export function graduate(root, { tool, catalog, observations, training, matcher, lines, indices, log, at }) {
   // `tool` is observations.mjs's toolKey() pair, never a bare key string: whether the catalog
   // MATCHED this command is not recoverable from the key, and the branch below turns on it. A
   // caller cannot forge the pair — the brand is a module-private symbol — so it cannot claim a
@@ -80,7 +85,7 @@ export function graduate(root, { tool, catalog, observations, training, matcher,
   const unloadable = entryProblem(entry);
   if (unloadable) return { ok: false, problems: [`'${id}': ${unloadable}`] };
   // The last pick is this run's; the earlier ones are appended to the fixture as further answers.
-  const fixture = frozenFixture({ lines, index, picks: training.picks.slice(0, -1), log, at, key });
+  const fixture = frozenFixture({ lines, indices, picks: training.picks.slice(0, -1), log, at, key });
   const problems = survivalProblems(id, entry, fixture);
   if (problems.length) return { ok: false, problems };
   const catalogFile = projectCatalogFile(root), fixtureFile = projectFixtureFile(root, id);

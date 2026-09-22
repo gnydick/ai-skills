@@ -15,14 +15,14 @@ import { outcomeMatcher } from './catalog.mjs';
 // coincidence of the two picks the prefix was built from. A third would cost every project one more
 // identified run per tool for evidence the frozen fixture already carries.
 export const GRADUATION_AGREEMENTS = 2;
-// The most matching lines a run may hold for the session's pick still to count as agreement. Five,
-// because the two failures the number is caught between are not symmetric. A too-wide prefix — `test`
-// over a cargo run — hits dozens of lines, and graduating it would promote all of them: the cap has
-// to sit far below that. But a tool whose answer line repeats once per target prints a handful —
-// `cargo test -p fs-core` prints three `test result:` lines, lib, integration and doctest — and under
-// an exactly-one rule such a tool can never graduate at all (#166, measured on ferrislicer
-// 2026-09-22). Five clears the per-target case with room for a larger workspace and still rejects
-// anything that matches a whole section of output.
+// The most answer lines the session may identify in one run (#168; train-tool.mjs enforces it, the
+// one caller that takes an identification from a person). Five, because a tool whose answer line
+// repeats once per target prints a handful — `cargo test -p fs-core` prints three `test result:`
+// lines, lib, integration and doctest — while a cap far below the size of a whole output section
+// keeps an identification from being a way to declare half a run the answer. Nothing above three
+// targets has been measured; a workspace run that needs more is the owner's call, not a silent
+// raise. It bounds the IDENTIFIED set, not the match count: a matcher hitting more lines than the
+// session identified is a disagreement by the set rule below, whatever the number.
 export const AGREEMENT_MATCH_CAP = 5;
 // The most recent picks the prefix is taken over. Bounded, so a tool that never graduates cannot grow
 // the record without limit; wide enough for a formation (2) and a graduation (K) with room for a few
@@ -39,12 +39,23 @@ const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
 export const emptyTraining = () => ({ picks: [], streak: 0, history: [] });
 
+// One recorded pick, or null if the stored object is neither shape. A pick carries `texts`: the
+// texts of EVERY line the session identified in that run. A pick written before #168 carries a
+// single `text` and reads as a one-element set — no migration, it simply ages out of PICK_WINDOW.
+function pickOf(p) {
+  if (!isObject(p)) return null;
+  const { text, ...rest } = p;
+  const texts = Array.isArray(p.texts) ? p.texts.filter((s) => typeof s === 'string')
+    : typeof text === 'string' ? [text] : [];
+  return texts.length ? { ...rest, texts } : null;
+}
+
 // A training record that came off disk is external input: any field that is not the collection it
 // should be reads as the empty one, so a hand edit cannot throw out of the runner or the trainer.
 export function trainingOf(rec) {
   const t = isObject(rec) && isObject(rec.training) ? rec.training : {};
   return {
-    picks: Array.isArray(t.picks) ? t.picks.filter((p) => isObject(p) && typeof p.text === 'string') : [],
+    picks: Array.isArray(t.picks) ? t.picks.map(pickOf).filter(Boolean) : [],
     streak: Number.isInteger(t.streak) && t.streak >= 0 ? t.streak : 0,
     history: Array.isArray(t.history) ? t.history.filter((h) => isObject(h) && Number.isInteger(h.lines)) : [],
     ...(typeof t.lastLog === 'string' ? { lastLog: t.lastLog } : {}),
@@ -64,12 +75,16 @@ export function commonPrefix(strings) {
   return prefix;
 }
 
-// The matcher the picks so far derive, or null while there is nothing to derive one from. Fewer than
-// two picks is null — "a single observation can never graduate: there is nothing to take a common
-// prefix OF" — and so is an empty common prefix, which would match every line.
+// The matcher the picks so far derive: the longest common prefix over EVERY identified text in the
+// window, or null while there is nothing to derive one from. Fewer than two texts is null — "a
+// single observation can never graduate: there is nothing to take a common prefix OF" — and so is an
+// empty common prefix, which would match every line. The count is of texts, not of picks (#168): one
+// run in which the session identified three `test result:` lines already carries three forms of the
+// answer, and a prefix taken over them is entitled to exactly what those three agree on.
 export function deriveMatcher(picks) {
-  if (picks.length < 2) return null;
-  const value = commonPrefix(picks.map((p) => p.text));
+  const texts = picks.flatMap((p) => p.texts);
+  if (texts.length < 2) return null;
+  const value = commonPrefix(texts);
   return value ? { type: 'prefix', value } : null;
 }
 
@@ -80,23 +95,37 @@ export function shadowPick(matcher, lines) {
   return lines.flatMap((line, i) => (m.test(line) ? [i] : []));
 }
 
-// One identification by the session. `index` is the line the session says is the answer, in `lines`
-// — this run's normalised output. The shadow comparison runs FIRST, against the matcher the picks
-// BEFORE this one derive: agreement is that matcher picking this line among at most
-// AGREEMENT_MATCH_CAP lines in the run. A prefix wide enough to hit more than the cap is a
-// disagreement however the pick fell, and one that hits only lines the session did not pick is a
-// disagreement too. Then the pick joins the window and the matcher is re-derived. `graduates` is
-// true when this agreement is the K-th in a row; the matcher returned is then the one to freeze — on
-// an agreement it equals the one that agreed, because a line the prefix matched cannot shorten it.
-export function identify(training, { lines, index, log, at }) {
+// The identified set as everything downstream reads it: sorted, without repeats, so the same
+// identification always yields the same picks, the same fixture and the same comparison however the
+// session spelled its `--line` list (design verification 10).
+const answerIndices = (indices) => [...new Set(indices)].sort((a, b) => a - b);
+
+// One identification by the session. `indices` are the lines the session says are the answers, in
+// `lines` — this run's normalised output. A run may hold several: `cargo test` prints one
+// `test result:` line per target. The session identifies EVERY one of them (Gabe, 2026-09-22, #168);
+// nothing here derives an answer by applying the pattern.
+//
+// The shadow comparison runs FIRST, against the matcher the picks BEFORE this one derive: agreement
+// is that matcher's match set in this run EQUALLING the identified set — every identified line and
+// no other, none missing, none extra. That is the original exactly-one-line rule generalised to a
+// set, and it is what keeps the over-wide-prefix guard: a prefix that also hits a line nobody
+// identified disagrees, whether it hit two lines or fifty, so it can never reach graduation and
+// promote them. (#166 tried "the pick is among the matches, at most 5" and is superseded: it lets a
+// matcher graduate over lines nobody read, which is the same thing survival.mjs refuses.)
+//
+// Then the pick joins the window and the matcher is re-derived. `graduates` is true when this
+// agreement is the K-th in a row; the matcher returned is then the one to freeze — on an agreement
+// it equals the one that agreed, because lines the prefix matched cannot shorten it.
+export function identify(training, { lines, indices, log, at }) {
+  const answers = answerIndices(indices);
   const before = deriveMatcher(training.picks);
   let agreed = null, streak = training.streak;
   if (before) {
     const shadow = shadowPick(before, lines);
-    agreed = shadow.length <= AGREEMENT_MATCH_CAP && shadow.includes(index);
+    agreed = shadow.length === answers.length && shadow.every((i, k) => i === answers[k]);
     streak = agreed ? streak + 1 : 0;
   }
-  const picks = [...training.picks, { text: lines[index], log, at }].slice(-PICK_WINDOW);
+  const picks = [...training.picks, { texts: answers.map((i) => lines[i]), log, at }].slice(-PICK_WINDOW);
   const matcher = deriveMatcher(picks);
   const graduates = agreed === true && streak >= GRADUATION_AGREEMENTS && matcher !== null;
   return { training: { ...training, picks, streak }, agreed, matcher, graduates };
@@ -159,16 +188,18 @@ export const learnedEntry = (match, matcher, at, picks) => ({
   learned: { at, picks },
 });
 
-// The frozen fixture, in the shape survival.mjs judges: this run's lines with the session's pick as
-// the answer, then every earlier pick's text appended as a further recorded answer line — each one a
-// line the tool really emitted on a run the session read — so a later change to the matcher has to
-// survive every form the loop saw, not only the last. Answers are indices a person identified, never
-// found by applying the pattern.
-export function frozenFixture({ lines, index, picks, log, at, key }) {
-  const extra = picks.map((p) => p.text);
+// The frozen fixture, in the shape survival.mjs judges: this run's lines with every line the session
+// identified in it as an answer, then every identified text of every earlier pick appended as a
+// further recorded answer line — each one a line the tool really emitted on a run the session read —
+// so a later change to the matcher has to survive every form the loop saw, not only the last.
+// Answers are indices a person identified, never found by applying the pattern: the run's own
+// unidentified lines stay in `lines` as non-answers, which is what makes survival.mjs's over-wide
+// check able to fail at all.
+export function frozenFixture({ lines, indices, picks, log, at, key }) {
+  const extra = picks.flatMap((p) => p.texts);
   return {
     source: `${key}: frozen at graduation ${at} from ${log}; ${extra.length} earlier identified line(s) appended`,
-    answers: [index, ...extra.map((_, i) => lines.length + i)],
+    answers: [...answerIndices(indices), ...extra.map((_, i) => lines.length + i)],
     lines: [...lines, ...extra],
   };
 }

@@ -417,7 +417,7 @@ about. It is not acceptable for one it claims to know.
 ### Declared outcome patterns, per off-the-shelf tool
 
 Every entry in the universal table declares, alongside its candidate flags, **the pattern
-that matches the line that is the tool's answer**:
+that matches the line or lines the session identified as the tool's answer**:
 
 ```
 cargo test         outcome: ^test result:
@@ -469,18 +469,22 @@ identification can happen over stored logs in batch, not only on the run that tr
 
 ### Identification is the model's job; generalisation is not
 
-The session reads a captured log and says *this line is the answer*. It does **not** invent
-the pattern.
+The session reads a captured log and says *this line, and this one, and this one, are the
+answer*. It does **not** invent the pattern. A run may hold several answer lines —
+`cargo test` prints one `test result:` summary per target, lib, integration and doctest —
+and the session identifies **every** one of them (owner, 2026-09-22, #168). Nothing
+anywhere derives an answer by applying the pattern; that would make the check test itself.
 
 Turning `test result: ok. 128 passed; 0 failed` into a matcher means finding what is stable
-across runs, and that is arithmetic: the longest common prefix of the identified line
-across repeated observations. After three runs there are three instances and `test result:`
-falls out without anyone guessing.
+across runs, and that is arithmetic: the longest common prefix of the lines the session
+identified, across repeated observations. After three runs there are three instances and
+`test result:` falls out without anyone guessing.
 
 The split matters because it bounds the failure. Judgement stays with the model;
 generalisation stays deterministic. A matcher cannot over-reach because the model was
-confident, and a single observation can never graduate — there is nothing to take a common
-prefix *of*.
+confident, and a single identified *line* can never graduate — there is nothing to take a
+common prefix *of*. Three identified lines in one run do have a common prefix to take, so a
+run the session read fully can form the matcher on its own.
 
 It is also what keeps machine-derived patterns to prefixes and literals, as required
 above: a longest-common-prefix is a prefix by construction. The rule is not a promise the
@@ -488,17 +492,20 @@ generator makes, it is a property of how the generator works.
 
 ### Graduation is shadow agreement
 
-While a tool is in training, both the local matcher and the session pick the outcome line,
-and the picks are compared. The pick **agrees** when the matcher's matches in that run
-**include** the picked line and number **at most 5** — among the matches, at most 5. More
-than 5 matches is a disagreement however the pick fell, and so is a run whose matches miss
-the picked line. After **K consecutive agreements** the matcher graduates and the nudge
-stops firing for that tool.
+While a tool is in training, both the local matcher and the session select the outcome
+lines, and the two selections are compared. The session's identification **agrees** when the
+matcher's match set in that run **equals the identified set** — every identified line and no
+other, none missing, none extra. After **K consecutive agreements** the matcher graduates
+and the nudge stops firing for that tool.
 
-The cap is what stops a too-wide prefix graduating: `test` over a cargo run hits dozens of
-lines, far above it. Requiring exactly one match instead would have made any tool whose
-answer line repeats once per target — `cargo test -p fs-core` prints three `test result:`
-lines — unlearnable by prefix. See the 2026-09-22 decision below (#166).
+Set equality is what stops a too-wide prefix graduating: `test` over a cargo run also heads
+every per-test line, which nobody identified, so it disagrees and can never graduate. It is
+the original exactly-one-line rule generalised to a set, and it keeps that rule's guard
+while letting a tool whose answer repeats once per target — `cargo test -p fs-core` prints
+three `test result:` lines — be learned at all. `AGREEMENT_MATCH_CAP` = 5 bounds the
+**identified set**, not the match count: it is how many answer lines the session may name in
+one run. See the 2026-09-22 decisions below (#168; #166's "among the matches" rule is
+superseded).
 
 That comparison is the only real training signal available, and it is why the model stays
 in the loop until it does not. Nothing else can tell you the matcher is right, because
@@ -508,7 +515,10 @@ there is no other oracle.
 
 This is what makes the result checkable rather than merely trusted. At the moment a matcher
 graduates, the observation that trained it is frozen as a fixture with its expected kept
-lines. The matcher now has a regression test.
+lines: every line the session identified in that run, and every line it identified in each
+earlier run of the window, appended. The matcher now has a regression test. The run's lines
+that were **not** identified stay in the fixture as non-answers, and that is what the
+survival check has left to fail on.
 
 Without it, training produces a heuristic and discards the evidence, and "the model was
 wrong about this tool" becomes something you live with rather than something you can
@@ -667,9 +677,9 @@ Declared standard: **structural**. This changes behaviour deliberately.
 6. **The wrap decision** — the 6-of-10 fall-through above becomes 0-of-10 after observation,
    using ferrislicer's real command list as the fixture.
 7. **Declared outcome survives** — for every entry in the universal table, its fixture is
-   filtered and the outcome line must appear in the kept set. Positive control: remove the
-   outcome declaration and the assertion must fail, so a table entry cannot pass by the
-   generic heuristic happening to catch it.
+   filtered and every line or lines the session identified must appear in the kept set.
+   Positive control: remove the outcome declaration and the assertion must fail, so a table
+   entry cannot pass by the generic heuristic happening to catch it.
 8. **The final line is never dropped** — a fixture whose last line matches CHATTER is
    filtered, and the last line is still present. This is the strongest existing guarantee
    and the per-stream change must not weaken it.
@@ -680,8 +690,8 @@ Declared standard: **structural**. This changes behaviour deliberately.
     prefix, and a single observation never graduates a matcher. Asserted directly; it is
     what keeps a machine-derived pattern a prefix by construction rather than by promise.
 11. **Graduation requires a fixture** — a matcher cannot reach graduated state without a
-    frozen observation and its expected kept lines. Positive control: remove the fixture
-    and graduation must be refused.
+    frozen observation and the line or lines the session identified in it as its expected
+    kept lines. Positive control: remove the fixture and graduation must be refused.
 12. **Drift re-opens training** — a graduated matcher that matches nothing in a run returns
     to training, as does a non-zero exit with no error block found. Asserted for each
     trigger separately, since a single combined test would pass on one of three.
@@ -897,9 +907,44 @@ Declared standard: **structural**. This changes behaviour deliberately.
   first flag, `prefix` stays a literal leading run of the command line, and the graduation matcher
   stays `startsWith`. Recorded so the question is not reopened as if it were undecided.
 
-## Decisions taken by the owner, 2026-09-22 (#166)
+## Decisions taken by the owner, 2026-09-22 (#168)
 
-- **A pick agrees when it is among the matcher's matches, at most 5 per run.** #166, owner
+- **The session identifies every answer line in a run.** #168, owner 2026-09-22, verbatim:
+  *"the session identifies every answer line"*, chosen among three ways a person could
+  identify several answers in one run. So answers stay human-identified, as `survival.mjs`
+  requires — indices a person read off the recorded runs, never found by applying the outcome
+  pattern, which would make the check test itself. A run may have several; the session names
+  all of them; nothing derives one.
+- **Agreement is set equality**, derived from that ruling and the survival principle, not a
+  separate decision: the shadow matcher agrees when its match set in the run **equals** the
+  identified set — same indices, none missing, none extra. It is the original exactly-one-line
+  rule generalised to a set, and it is what keeps the over-wide-prefix guard alive.
+  **#166's "among the matches, at most 5" rule is superseded by this.** `AGREEMENT_MATCH_CAP`
+  = 5 stays, with a new meaning: it bounds the **identified set** — `train-tool.mjs identify`
+  refuses more than five `--line` numbers, naming the cap — not the match count.
+- Consequences, in the same ruling: a pick records the texts of **all** lines identified in
+  that run; `deriveMatcher` is the longest common prefix over every identified text in the
+  window, so three identified lines in one run already form a matcher; `frozenFixture`
+  declares all of this run's identified indices plus every earlier pick's identified texts,
+  appended.
+- Measured, at 8611947, on a synthetic fixture built to the trial's shape: under #166's rule
+  the loop reached agreement and then `graduate()` was refused by `survival.mjs` — *"the
+  outcome pattern also matches a non-answer line"* — which is the live trial's failure
+  (ferrislicer `--local` clone, 2026-09-22, catalog `{}` after four picks). Declaring every
+  matched line an answer instead would have made the guard vacuous by construction: the
+  over-wide prefix `test` hit 5 lines and passed exactly like the right one.
+- **Not decided**: whether 5 is enough for a workspace-wide `cargo test --workspace`. Nothing
+  above three targets has been measured. If a trial hits the cap that is the owner's call,
+  not a silent raise.
+- Old-shape picks (a single `text`) in an existing `observations.json` read as a one-element
+  identified set. No migration; they age out of `PICK_WINDOW`.
+
+## Decisions taken by the owner, 2026-09-22 (#166, superseded by #168)
+
+- **A pick agrees when it is among the matcher's matches, at most 5 per run.** SUPERSEDED by
+  #168's set-equality rule; kept as the record of what was tried and why it fails the
+  survival principle — it lets a matcher graduate over lines nobody identified, which is the
+  thing `survival.mjs` refuses. #166, owner
   2026-09-22, verbatim: *"go."* The rule was `shadow.length === 1 && shadow[0] === index` —
   the matcher picking exactly this line and no other. It is now
   `shadow.length <= AGREEMENT_MATCH_CAP && shadow.includes(index)`, with

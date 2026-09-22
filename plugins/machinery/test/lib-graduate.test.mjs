@@ -20,7 +20,7 @@ const RUN = (summary) => ['   Compiling fs-core v0.1.0', 'running 128 tests', su
 // The four identified runs a graduation takes with K = 2, replayed through identify() itself.
 function trained() {
   let r = { training: emptyTraining() };
-  for (const [s, l] of [['3', 'l1'], ['4', 'l2'], ['5', 'l3'], ['60', 'l4']]) r = identify(r.training, { lines: RUN(`test result: ok. ${s} passed; 0 failed`), index: 2, log: l, at: AT });
+  for (const [s, l] of [['3', 'l1'], ['4', 'l2'], ['5', 'l3'], ['60', 'l4']]) r = identify(r.training, { lines: RUN(`test result: ok. ${s} passed; 0 failed`), indices: [2], log: l, at: AT });
   assert.equal(r.graduates, true, 'precondition: the loop graduates on these four');
   return { ...r, lines: RUN('test result: ok. 60 passed; 0 failed') };
 }
@@ -30,7 +30,7 @@ const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 // until it has graduated, so the default is the bespoke half. A case that needs the matched half
 // passes its own `tool`.
 const args = (r, extra = {}) => ({
-  tool: toolKey(null, KEY), catalog: {}, training: r.training, matcher: r.matcher, lines: r.lines, index: 2, log: 'l4', at: AT,
+  tool: toolKey(null, KEY), catalog: {}, training: r.training, matcher: r.matcher, lines: r.lines, indices: [2], log: 'l4', at: AT,
   observations: { [KEY]: { identity: 'bespoke', noisy: true, lines: 1400, ledger: {}, training: r.training } },
   ...extra,
 });
@@ -54,6 +54,37 @@ test('graduation writes the learned entry into the project catalog and the froze
   assert.deepEqual(dropped, []); assert.ok(catalog[ID]);
 });
 
+// #168, the case the whole ticket exists for: a run with one summary line per target, every one of
+// them identified by the session. `cargo test -p fs-core` prints three, with per-test lines between
+// them, so the fixture the gate writes carries three answers from this run and three more appended
+// from the earlier pick — and the per-test lines it did NOT declare are what the survival check has
+// left to fail on.
+const OK = (n) => `test result: ok. ${n} passed; 0 failed`;
+const CARGO = (lib, integration, doctest) => [
+  '   Compiling fs-core v0.1.0', 'running 2 tests', 'test slice::keeps_order ... ok',
+  'test slice::rejects_empty ... ok', lib, 'running 1 test', 'test api::roundtrip ... ok',
+  integration, 'running 1 test', 'test src/lib.rs - slice (line 12) ... ok', doctest,
+];
+const CARGO_ANSWERS = [4, 7, 10];
+
+test('graduation of a multi-answer run freezes every identified line of it, and the fixture it writes passes survival', () => {
+  const dir = root();
+  let r = { training: emptyTraining() };
+  for (const [a, b, c, l] of [[3, 4, 9, 'l1'], [5, 6, 1, 'l2'], [60, 7, 2, 'l3']]) {
+    r = identify(r.training, { lines: CARGO(OK(a), OK(b), OK(c)), indices: CARGO_ANSWERS, log: l, at: AT });
+  }
+  assert.equal(r.graduates, true, 'precondition: three identified lines in the first run already form the prefix, then K agreements');
+  const lines = CARGO(OK(60), OK(7), OK(2));
+  const g = graduate(dir, args(r, { lines, indices: CARGO_ANSWERS }));
+  assert.equal(g.ok, true, g.problems && g.problems.join('\n'));
+  const entry = read(projectCatalogFile(dir))[ID];
+  assert.deepEqual(entry.outcome, { type: 'prefix', value: 'test result: ok. ' });
+  const fixture = read(projectFixtureFile(dir, ID));
+  assert.deepEqual(fixture.answers, [4, 7, 10, 11, 12, 13, 14, 15, 16]);
+  assert.equal(fixture.lines.length, 17);
+  assert.deepEqual(survivalProblems(ID, entry, fixture), [], 'what landed passes the same authority the suite applies');
+});
+
 test('graduation moves the observation record from the bespoke key to the learned id, and clears the training it froze', () => {
   const dir = root(), r = trained();
   const g = graduate(dir, args(r));
@@ -67,7 +98,7 @@ test('V11 positive control: a fixture that cannot prove the matcher refuses grad
   const dir = root(), r = trained();
   // The session points at a line the derived prefix does not match: the fixture's declared answer
   // fails the pattern, and the gate refuses before the first write.
-  const g = graduate(dir, args(r, { index: 1 }));
+  const g = graduate(dir, args(r, { indices: [1] }));
   assert.equal(g.ok, false);
   assert.ok(g.problems.some((p) => /does not match a line this tool really emits/.test(p)), g.problems.join('\n'));
   assert.ok(!fs.existsSync(projectCatalogFile(dir)) && !fs.existsSync(projectFixtureFile(dir, ID)));

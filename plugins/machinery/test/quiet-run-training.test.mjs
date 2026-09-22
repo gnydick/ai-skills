@@ -47,7 +47,9 @@ const gen = (n) => `node -e "for(let i=0;i<${n};i++)console.log('   Compiling c'
 // positional. `-e` is a flag, so it closes the head — the one-off script it carries is variation
 // inside the tool, not identity — and the key is the runner's own name.
 const BESPOKE = 'node';
-const NUDGE = /\[quiet:train\] node: answer line not yet learned \(0 identified, 0 of 2 agreements\) — read the log, then: node "([^"]+\/train-tool\.mjs)" identify --log "([^"]+)" --line <N>\n$/;
+// #168: a run may hold several answer lines and the session identifies every one of them, so the
+// nudge says "answer line(s)" and shows the list form it now accepts.
+const NUDGE = /\[quiet:train\] node: answer line\(s\) not yet learned \(0 identified, 0 of 2 agreements\) — read the log, then: node "([^"]+\/train-tool\.mjs)" identify --log "([^"]+)" --line <N\[,N\.\.\.\]>\n$/;
 
 test('a noisy bespoke run ends with the training nudge, naming a log that exists and holds this run, and the run is noted', { skip: !bash }, () => {
   const root = repo('quiet-train-nudge-');
@@ -84,7 +86,7 @@ test('V12 through the runner: a learned matcher that matches nothing re-opens tr
   assert.equal(t.open.reason, 'matched-nothing');
   assert.deepEqual(t.picks, []);
   assert.equal(t.history.length, 1, 'noted after the judgement, so the judgement saw the history it was meant to');
-  assert.match(r.stdout, /\[quiet:train\] node: learned answer line re-opened for training \(matched-nothing\) — read the log, then: node "[^"]+" identify --log "[^"]+" --line <N>\n$/);
+  assert.match(r.stdout, /\[quiet:train\] node: learned answer line\(s\) re-opened for training \(matched-nothing\) — read the log, then: node "[^"]+" identify --log "[^"]+" --line <N\[,N\.\.\.\]>\n$/);
 });
 
 // Beyond the brief's literal test list: a regression pin on Task 4's sanitizer (lib/training.mjs
